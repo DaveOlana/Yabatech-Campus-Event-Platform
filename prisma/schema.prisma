@@ -5,3 +5,126 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+/// User role within the platform.
+/// MEMBER is the default role. ADMIN represents YABATECH Management.
+/// Organizer is NOT a User role — it is a separate approved capability.
+enum UserRole {
+  MEMBER
+  ADMIN
+}
+
+/// Verification status for a member within an academic cycle.
+enum VerificationStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+}
+
+/// Predefined academic levels at YABATECH.
+enum LevelCode {
+  ND1
+  ND2
+  HND1
+  HND2
+}
+
+// ─── Department ───────────────────────────────────────────────────────────────
+
+/// Academic department at YABATECH.
+/// Name and code are unique to prevent duplicates.
+model Department {
+  id        String   @id @default(uuid())
+  name      String   @unique /// e.g. "Computer Science"
+  code      String   @unique /// e.g. "CSC"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users User[]
+}
+
+// ─── Level ────────────────────────────────────────────────────────────────────
+
+/// Academic level. Seeded with ND1, ND2, HND1, HND2.
+/// Uses the LevelCode enum to prevent arbitrary values.
+model Level {
+  id        String    @id @default(uuid())
+  code      LevelCode @unique
+  label     String    /// Human-readable label, e.g. "National Diploma Year 1"
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  users User[]
+}
+
+// ─── AcademicYearCycle ────────────────────────────────────────────────────────
+
+/// Represents a yearly academic cycle (e.g. "2025/2026").
+/// At most one cycle may have isCurrent = true at any time.
+/// This invariant is enforced via a PostgreSQL partial unique index
+/// added manually to the migration SQL:
+///   CREATE UNIQUE INDEX "AcademicYearCycle_one_current"
+///   ON "AcademicYearCycle" ("isCurrent") WHERE "isCurrent" = true;
+model AcademicYearCycle {
+  id        String   @id @default(uuid())
+  name      String   @unique /// e.g. "2025/2026"
+  startDate DateTime
+  endDate   DateTime
+  isCurrent Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  verifications MemberVerification[]
+}
+
+// ─── User ─────────────────────────────────────────────────────────────────────
+
+/// A YCEP account. May be a normal MEMBER or an ADMIN.
+/// Organizer capability is handled separately (future milestone).
+model User {
+  id           String   @id @default(uuid())
+  fullName     String
+  email        String   @unique
+  matricNumber String   @unique @map("matric_number")
+  passwordHash String   @map("password_hash")
+  role         UserRole @default(MEMBER)
+
+  departmentId String     @map("department_id")
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+
+  levelId String @map("level_id")
+  level   Level  @relation(fields: [levelId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  verifications MemberVerification[]
+}
+
+// ─── MemberVerification ───────────────────────────────────────────────────────
+
+/// Records a member's verification status for a specific academic cycle.
+/// Only one verification record per user per cycle (enforced by unique constraint).
+/// Expiring verification never deletes the User account.
+model MemberVerification {
+  id     String             @id @default(uuid())
+  status VerificationStatus @default(ACTIVE)
+
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  cycleId String            @map("cycle_id")
+  cycle   AcademicYearCycle @relation(fields: [cycleId], references: [id], onDelete: Restrict)
+
+  verifiedAt DateTime  @default(now())
+  expiresAt  DateTime?
+  revokedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Only one verification per user per cycle.
+  @@unique([userId, cycleId])
+}

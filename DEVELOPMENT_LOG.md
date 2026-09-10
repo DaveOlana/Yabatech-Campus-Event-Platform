@@ -6,6 +6,88 @@ Newest entries should be added at the top.
 
 ---
 
+## 2026-09-10 — Milestone 1A: Core Identity Schema & Migrations
+
+### Status
+
+Complete. All identity models are defined, migrated, seeded, and tested. Ready for Milestone 1B (Authentication).
+
+### Completed
+
+- **Prisma 7 Configuration:**
+  - Created `prisma.config.ts` with `defineConfig()` for Prisma 7 CLI (migration URL, seed command).
+  - Prisma 7 no longer supports `url` in `schema.prisma` `datasource` block; moved to config file.
+
+- **Identity Schema (`prisma/schema.prisma`):**
+  - `User` model: `fullName`, `email` (unique), `matricNumber` (unique, mapped to `matric_number`), `passwordHash`, `role` (MEMBER | ADMIN, default MEMBER), FK to `Department` (onDelete Restrict), FK to `Level` (onDelete Restrict).
+  - `Department` model: `name` (unique), `code` (unique).
+  - `Level` model: `code` (unique, LevelCode enum: ND1, ND2, HND1, HND2), `label`.
+  - `AcademicYearCycle` model: `name` (unique), `startDate`, `endDate`, `isCurrent` (default false).
+  - `MemberVerification` model: `status` (ACTIVE | EXPIRED | REVOKED), FK to `User` (onDelete Restrict), FK to `AcademicYearCycle` (onDelete Restrict), `verifiedAt`, `expiresAt`, `revokedAt`. Composite unique constraint `(userId, cycleId)`.
+  - Enums: `UserRole`, `VerificationStatus`, `LevelCode`.
+
+- **Migration (`20260910155353_init_identity_models`):**
+  - Generated via `prisma migrate dev --create-only`, reviewed, then applied.
+  - Manually added PostgreSQL partial unique index:
+    ```sql
+    CREATE UNIQUE INDEX "AcademicYearCycle_one_current"
+    ON "AcademicYearCycle" ("isCurrent") WHERE "isCurrent" = true;
+    ```
+  - This enforces at most one current academic year cycle at the database level.
+  - Applied to both `ycep_dev` and `ycep_test` databases.
+
+- **Seed Script (`prisma/seed.ts`):**
+  - Idempotent (uses `upsert`).
+  - Seeds: ND1, ND2, HND1, HND2 levels; Computer Science (CSC) department; 2025/2026 academic cycle (isCurrent = true).
+
+- **Test Migration Script (`scripts/migrate-test.ts`):**
+  - Helper that applies migrations to `ycep_test` by overriding `DATABASE_URL` with `TEST_DATABASE_URL`.
+  - Available via `npm run test:migrate`.
+
+- **npm Scripts Added:**
+  - `test:migrate`: Applies migrations to the test database.
+  - `db:seed`: Runs the seed script.
+
+### Important files created/modified
+
+- `prisma.config.ts` [NEW]: Prisma 7 CLI configuration (datasource URL, seed command, migration path).
+- `prisma/schema.prisma` [MODIFIED]: Full identity schema with 5 models, 3 enums, and all constraints.
+- `prisma/migrations/20260910155353_init_identity_models/migration.sql` [NEW]: Initial identity migration with partial unique index.
+- `prisma/seed.ts` [NEW]: Development seed data.
+- `scripts/migrate-test.ts` [NEW]: Test database migration helper.
+- `tests/identity.test.ts` [NEW]: 21 database constraint tests.
+- `package.json` [MODIFIED]: Added `test:migrate` and `db:seed` scripts.
+
+### Test results
+
+- Test runner: Vitest v3.2.7
+- 3 test files, 25 tests passing (100% pass rate):
+  - `tests/app.test.ts`: 3 tests (health check, home route, 404 handler)
+  - `tests/db.test.ts`: 1 test (PostgreSQL connectivity)
+  - `tests/identity.test.ts`: 21 tests covering:
+    - Department uniqueness (name, code)
+    - Level uniqueness and all 4 valid codes
+    - AcademicYearCycle uniqueness, multiple non-current cycles, partial unique index enforcement
+    - User email and matric number uniqueness, default MEMBER role, onDelete Restrict on department and level
+    - MemberVerification user+cycle uniqueness, multi-cycle support, all status transitions, onDelete Restrict on user and cycle
+- TypeScript compile (`tsc`): Successful with 0 errors.
+
+### Unresolved issues
+
+None.
+
+### Recommended next task
+
+**Milestone 1B — Authentication (Registration & Login)**
+- Implement member registration endpoint with matric number validation and automatic ACTIVE verification.
+- Implement session-based login with bcrypt password verification.
+- Implement secure HTTP-only cookie sessions.
+- Implement logout.
+- Add middleware for authentication and authorization checks.
+- Write Vitest + Supertest tests for registration, login, session management, and authorization.
+
+---
+
 ## 2026-09-10 — Database environment readiness & Prisma 7 toolchain verified
 
 ### Status
