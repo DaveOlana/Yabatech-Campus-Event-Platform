@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
-import { app } from '../src/app';
+import { app } from '../src/app.js';
 
 describe('YCEP Application Foundation', () => {
   it('starts correctly and responds to GET /health with ok status', async () => {

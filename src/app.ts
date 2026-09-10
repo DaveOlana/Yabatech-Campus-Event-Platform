@@ -1,7 +1,11 @@
 import path from 'path';
+import { fileURLToPath } from 'url';
 import express, { Express } from 'express';
-import { healthRouter } from './routes/health.route';
-import { indexRouter } from './routes/index.route';
+import { healthRouter } from './routes/health.route.js';
+import { indexRouter } from './routes/index.route.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export function createApp(): Express {
   const app = express();

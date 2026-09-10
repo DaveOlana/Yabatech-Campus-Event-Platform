@@ -6,6 +6,66 @@ Newest entries should be added at the top.
 
 ---
 
+## 2026-09-10 — Database environment readiness & Prisma 7 toolchain verified
+
+### Status
+
+Database environment readiness is complete. Docker Desktop and PostgreSQL container (`ycep-postgres`) are operational. Prisma 7.10.0 toolchain with `@prisma/adapter-pg` is installed and verified against PostgreSQL. ESM conversion complete with all existing tests passing. Ready for Milestone 1A schema implementation.
+
+### Completed
+
+- **Docker & PostgreSQL Environment:**
+  - Verified Docker Desktop engine status and running daemon.
+  - Created persistent volume `ycep_pgdata`.
+  - Started local development PostgreSQL container `ycep-postgres` (`postgres:17`, port `5432:5432`).
+  - Initialized development database `ycep_dev` and dedicated test database `ycep_test`.
+  - Configured gitignored `.env` with local PostgreSQL connection URLs; updated `.env.example` with placeholder URLs.
+- **ESM Conversion:**
+  - Converted TypeScript and Express foundation to ESM (`"type": "module"` in `package.json`, `NodeNext` in `tsconfig.json`).
+  - Added ESM `import.meta.url` path resolution for `__dirname` in `src/app.ts`.
+  - Updated internal route imports to use `.js` extensions per NodeNext specification.
+- **Prisma 7 Toolchain Integration:**
+  - Installed pinned `prisma@7.10.0`, `@prisma/client@7.10.0`, and `@prisma/adapter-pg@7.10.0`.
+  - Installed `pg@^8.23.0` and `@types/pg@^8.23.1`.
+  - Created minimal toolchain validation schema (`prisma/schema.prisma`).
+  - Validated schema (`npx prisma validate`) and generated Prisma Client (`npx prisma generate`).
+  - Created database integration test (`tests/db.test.ts`) proving PostgreSQL connectivity via Prisma Client and `@prisma/adapter-pg`.
+- **Verification:**
+  - Vitest test suite: 4 of 4 tests passing (3 application routes + 1 database connection).
+  - TypeScript build (`npm run build`): Completed with 0 errors.
+
+### Installed packages
+
+- `prisma`: 7.10.0
+- `@prisma/client`: 7.10.0
+- `@prisma/adapter-pg`: 7.10.0
+- `pg`: 8.23.0
+- `@types/pg`: 8.23.1
+
+### Test results
+
+- Test runner: Vitest v3.2.7
+- 2 test files, 4 tests passing (100% pass rate):
+  - `tests/app.test.ts` (3 tests passing: health check, home route, 404 handler)
+  - `tests/db.test.ts` (1 test passing: PostgreSQL raw query via Prisma 7 adapter)
+- TypeScript compile (`tsc`): Successful with 0 errors.
+
+### Unresolved issues
+
+None.
+
+### Recommended next task
+
+**Milestone 1A — Core Identity Schema & Migrations**
+- Define domain models in `prisma/schema.prisma`: `User`, `Department`, `Level`, `AcademicYearCycle`, and `MemberVerification`.
+- Enforce the single-current-cycle database invariant on `AcademicYearCycle`.
+- Enforce `onDelete: Restrict` on identity and verification relations to prevent cascading deletes of historical records.
+- Run initial Prisma migration against `ycep_dev`.
+- Create development seed data (ND1/ND2/HND1/HND2, development departments, initial academic cycle).
+- Add database constraint tests using dedicated test database `ycep_test`.
+
+---
+
 ## 2026-09-10 — Repository foundation initialized
 
 ### Status
