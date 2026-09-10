@@ -6,6 +6,70 @@ Newest entries should be added at the top.
 
 ---
 
+## 2026-09-10 — Repository foundation initialized
+
+### Status
+
+Repository foundation setup is complete. Application builds cleanly, runs in development and production modes, and passes automated testing. Ready for Milestone 1 (Core Identity).
+
+### Completed
+
+- Initialized Node.js 24 + TypeScript project tooling (`package.json`, `package-lock.json`, `tsconfig.json`, `vitest.config.ts`, `.gitignore`, `.env.example`).
+- Configured scripts: `dev` (`tsx watch`), `build` (`tsc`), `start` (`node dist/server.js`), `test` (`vitest run`).
+- Established modular source structure:
+  - `src/app.ts`: Express application factory and middleware configuration.
+  - `src/server.ts`: HTTP server listening on configured port.
+  - `src/routes/health.route.ts`: `GET /health` endpoint returning system health and uptime.
+  - `src/routes/index.route.ts`: `GET /` endpoint rendering minimal YCEP landing page.
+- Configured EJS template engine (`views/index.ejs`) and static asset handling (`public/css/style.css`).
+- Created automated test suite using Vitest + Supertest (`tests/app.test.ts`) covering:
+  - Application startup and `GET /health` response;
+  - `GET /` rendering YCEP landing page;
+  - 404 handling for unknown routes.
+- Executed `build` and `tests` successfully:
+  - Vitest: 3 of 3 tests passing.
+  - TypeScript compilation: 0 errors, output generated in `dist/`.
+
+### Important files created
+
+- `package.json`: Dependencies and build/test scripts.
+- `tsconfig.json`: TypeScript configuration.
+- `vitest.config.ts`: Vitest test runner configuration.
+- `.gitignore`: Ignoring `node_modules/`, `dist/`, `.env`, `coverage/`, logs.
+- `.env.example`: Environment variable template.
+- `src/app.ts`: Express app setup and middleware.
+- `src/server.ts`: Express HTTP listener.
+- `src/routes/health.route.ts`: Health check route.
+- `src/routes/index.route.ts`: Root route.
+- `views/index.ejs`: Root EJS template.
+- `public/css/style.css`: Vanilla styling.
+- `tests/app.test.ts`: Integration tests.
+
+### Dependencies added
+
+- Production: `express`, `ejs`, `zod`, `dotenv`.
+- Development: `typescript`, `@types/node`, `@types/express`, `@types/ejs`, `@types/supertest`, `supertest`, `vitest`, `tsx`.
+
+### Test results
+
+- Test runner: Vitest v3.2.7
+- 1 test file, 3 tests passing (100% pass rate).
+- TypeScript compile (`tsc`): Successful with 0 errors.
+
+### Unresolved issues
+
+None.
+
+### Recommended next task
+
+**Milestone 1 — Core Identity: Database Schema & Authentication Setup**
+- Install Prisma and configure PostgreSQL connection.
+- Define initial Prisma schema for `User`, `Department`, `Level`, `AcademicYearCycle`, and `MemberVerification`.
+- Implement user registration endpoint with unique matric number validation and automatic `ACTIVE` cycle verification.
+- Write tests verifying registration, matric uniqueness, and verification status gating.
+
+---
+
 ## 2026-09-10 — Milestone 0: Architecture discovery completed & decisions frozen
 
 ### Status
