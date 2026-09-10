@@ -10,7 +10,9 @@
     "start": "node dist/server.js",
     "test": "vitest run",
     "test:migrate": "tsx scripts/migrate-test.ts",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "prisma:validate": "prisma validate",
+    "prisma:generate": "prisma generate"
   },
   "keywords": [
     "yabatech",
@@ -22,6 +24,8 @@
   "dependencies": {
     "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "7.10.0",
+    "@types/bcrypt": "^6.0.0",
+    "bcrypt": "^6.0.0",
     "dotenv": "^16.4.7",
     "ejs": "^3.1.10",
     "express": "^4.21.2",

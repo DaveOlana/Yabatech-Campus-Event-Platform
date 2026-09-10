@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <h1>YABATECH Campus Events Platform</h1>
+  </header>
+  <main>
+    <h2>Member Registration</h2>
+    <p>Register as a student member of YCEP. Active verification for the current academic cycle is granted automatically.</p>
+
+    <% if (errorMessage) { %>
+      <div class="alert-error">
+        <%= errorMessage %>
+      </div>
+    <% } %>
+
+    <form action="/register" method="POST" novalidate>
+      <div class="form-group">
+        <label for="fullName">Full Name</label>
+        <input
+          type="text"
+          id="fullName"
+          name="fullName"
+          value="<%= values.fullName || '' %>"
+          class="<%= errors.fullName ? 'input-error' : '' %>"
+          required
+        >
+        <% if (errors.fullName) { %>
+          <div class="field-error"><%= errors.fullName[0] %></div>
+        <% } %>
+      </div>
+
+      <div class="form-group">
+        <label for="matricNumber">Matric Number</label>
+        <input
+          type="text"
+          id="matricNumber"
+          name="matricNumber"
+          value="<%= values.matricNumber || '' %>"
+          class="<%= errors.matricNumber ? 'input-error' : '' %>"
+          placeholder="e.g. F/ND/24/3210051"
+          required
+        >
+        <div class="helper-text">Format: PREFIX/PROGRAMME/YY/SERIAL (e.g. F/ND/24/3210051, PT/HND/25/2100001)</div>
+        <% if (errors.matricNumber) { %>
+          <div class="field-error"><%= errors.matricNumber[0] %></div>
+        <% } %>
+      </div>
+
+      <div class="form-group">
+        <label for="email">Email Address</label>
+        <input
+          type="email"
+          id="email"
+          name="email"
+          value="<%= values.email || '' %>"
+          class="<%= errors.email ? 'input-error' : '' %>"
+          placeholder="student@example.com"
+          required
+        >
+        <% if (errors.email) { %>
+          <div class="field-error"><%= errors.email[0] %></div>
+        <% } %>
+      </div>
+
+      <div class="form-group">
+        <label for="departmentId">Department</label>
+        <select
+          id="departmentId"
+          name="departmentId"
+          class="<%= errors.departmentId ? 'input-error' : '' %>"
+          required
+        >
+          <option value="">-- Select Department --</option>
+          <% departments.forEach(dept => { %>
+            <option
+              value="<%= dept.id %>"
+              <%= values.departmentId === dept.id ? 'selected' : '' %>
+            >
+              <%= dept.name %> (<%= dept.code %>)
+            </option>
+          <% }); %>
+        </select>
+        <% if (errors.departmentId) { %>
+          <div class="field-error"><%= errors.departmentId[0] %></div>
+        <% } %>
+      </div>
+
+      <div class="form-group">
+        <label for="levelId">Level</label>
+        <select
+          id="levelId"
+          name="levelId"
+          class="<%= errors.levelId ? 'input-error' : '' %>"
+          required
+        >
+          <option value="">-- Select Level --</option>
+          <% levels.forEach(lvl => { %>
+            <option
+              value="<%= lvl.id %>"
+              <%= values.levelId === lvl.id ? 'selected' : '' %>
+            >
+              <%= lvl.code %> — <%= lvl.label %>
+            </option>
+          <% }); %>
+        </select>
+        <% if (errors.levelId) { %>
+          <div class="field-error"><%= errors.levelId[0] %></div>
+        <% } %>
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input
+          type="password"
+          id="password"
+          name="password"
+          class="<%= errors.password ? 'input-error' : '' %>"
+          required
+        >
+        <div class="helper-text">Minimum 8 characters</div>
+        <% if (errors.password) { %>
+          <div class="field-error"><%= errors.password[0] %></div>
+        <% } %>
+      </div>
+
+      <div class="form-group">
+        <label for="passwordConfirmation">Confirm Password</label>
+        <input
+          type="password"
+          id="passwordConfirmation"
+          name="passwordConfirmation"
+          class="<%= errors.passwordConfirmation ? 'input-error' : '' %>"
+          required
+        >
+        <% if (errors.passwordConfirmation) { %>
+          <div class="field-error"><%= errors.passwordConfirmation[0] %></div>
+        <% } %>
+      </div>
+
+      <button type="submit" class="btn-primary">Register</button>
+    </form>
+  </main>
+  <footer>
+    <p>&copy; <%= new Date().getFullYear() %> YABATECH Campus Events Platform</p>
+  </footer>
+</body>
+</html>

@@ -138,11 +138,23 @@ A member account should contain at least:
 
 Matric number is accepted as the institutional identifier for V1.
 
-V1 should enforce one account per matric number.
+V1 enforces one account per matric number.
 
-YCEP does not attempt to provide banking-grade identity verification.
+Matric number rules:
+- Matric numbers are manually entered by the user.
+- General accepted structure: `PREFIX/PROGRAMME/YEAR/SERIAL`.
+- Examples: `F/ND/24/3210051`, `PT/HND/25/2100001`.
+- Normalization: trim leading and trailing whitespace, remove harmless whitespace around `/` separators, and convert letters to uppercase.
+- Only the normalized matric number is stored, and uniqueness is enforced across all accounts.
+- V1 structural validation regex: `^[A-Z]{1,4}/[A-Z]{2,4}/\d{2}/\d{7}$`.
+- YCEP does not claim this proves that the matric number exists in the central YABATECH database.
+- Department and level are entered and selected independently and are not inferred from the matric number.
 
-## 5.3 Normal member verification
+## 5.3 Password requirements
+
+- Member-registration password minimum length for V1 is 8 characters.
+
+## 5.4 Normal member verification
 
 A new member who provides a matric number matching YCEP's configured YABATECH matric-number validation rules, and whose matric number is not already registered, automatically receives `ACTIVE` verification for the current yearly cycle upon successful registration.
 
@@ -150,7 +162,7 @@ Normal member registration does **not** require manual administrator approval.
 
 Manual YABATECH Management approval begins only when a member applies for organizer privileges.
 
-## 5.4 Yearly expiry
+## 5.5 Yearly expiry
 
 Accounts are not deleted yearly.
 

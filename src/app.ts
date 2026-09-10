@@ -3,6 +3,7 @@ import { fileURLToPath } from 'url';
 import express, { Express } from 'express';
 import { healthRouter } from './routes/health.route.js';
 import { indexRouter } from './routes/index.route.js';
+import { registrationRouter } from './routes/registration.route.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,6 +25,7 @@ export function createApp(): Express {
   // Routes
   app.use(healthRouter);
   app.use(indexRouter);
+  app.use(registrationRouter);
 
   return app;
 }

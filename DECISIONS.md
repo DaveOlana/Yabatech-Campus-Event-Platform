@@ -188,6 +188,21 @@ Department and level are **not** modeled as a single nullable pair. Instead, ind
 
 When numeric registration-limit logic is implemented, concurrency must be handled transactionally using PostgreSQL transactions and an appropriate synchronization/locking strategy (such as `SELECT ... FOR UPDATE` or serializable transaction isolation) to prevent race conditions and overbooking.
 
+## D-033 — Matric number normalization, structural validation, and institutional scope
+
+**Decision:**
+- Matric numbers are manually entered by the user.
+- Expected general structure: `PREFIX/PROGRAMME/YEAR/SERIAL` (e.g., `F/ND/24/3210051`, `PT/HND/25/2100001`).
+- Normalization: trim leading and trailing whitespace, remove harmless whitespace surrounding `/` separators, and convert letters to uppercase.
+- Store only the normalized matric number, which must remain unique across accounts.
+- V1 structural validation regex: `^[A-Z]{1,4}/[A-Z]{2,4}/\d{2}/\d{7}$`.
+- YCEP does not claim this proves that the matric number exists in the central YABATECH database.
+- Department and level are entered/selected independently and are not inferred from the matric number.
+
+## D-034 — Member registration password minimum requirement
+
+**Decision:** The password minimum length for member registration in V1 is 8 characters.
+
 # How to change a decision
 
 If a decision must change:

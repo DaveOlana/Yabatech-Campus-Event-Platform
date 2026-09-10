@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <h1>YABATECH Campus Events Platform</h1>
+  </header>
+  <main>
+    <div class="alert-success">
+      <h2>Registration Successful!</h2>
+      <p>Welcome, <strong><%= user.fullName %></strong>.</p>
+      <p>Your member account has been created and your verification status for the current academic cycle is <strong><%= verification.status %></strong>.</p>
+    </div>
+
+    <section>
+      <h3>Account Details</h3>
+      <p><strong>Matric Number:</strong> <%= user.matricNumber %></p>
+      <p><strong>Email:</strong> <%= user.email %></p>
+      <p><strong>Verification Status:</strong> <%= verification.status %></p>
+      <% if (verification.expiresAt) { %>
+        <p><strong>Cycle Expiry:</strong> <%= new Date(verification.expiresAt).toLocaleDateString() %></p>
+      <% } %>
+    </section>
+
+    <p style="margin-top: 1.5rem;">
+      <a href="/">Return to Home</a>
+    </p>
+  </main>
+  <footer>
+    <p>&copy; <%= new Date().getFullYear() %> YABATECH Campus Events Platform</p>
+  </footer>
+</body>
+</html>

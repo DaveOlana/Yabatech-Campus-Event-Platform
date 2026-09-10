@@ -6,6 +6,109 @@ Newest entries should be added at the top.
 
 ---
 
+## 2026-09-10 — Milestone 1B: Member Registration & Automatic Current-Cycle Verification
+
+### Status
+
+Complete. Member registration with Zod validation, matric number normalization, atomic User + MemberVerification creation, EJS views, and comprehensive tests are fully implemented and verified.
+
+### Completed
+
+- **Matric Number Normalization & Validation (`src/utils/matric.ts`):**
+  - Normalization rule: trims whitespace, converts to uppercase, removes whitespace surrounding slashes (`\s*/\s*` -> `/`).
+  - Validation pattern: `^[A-Z]{1,4}/[A-Z]{2,4}/\d{2}/\d{7}$` (frozen rule).
+  - Handles variations like `  f / nd / 24 / 3210051  ` -> `F/ND/24/3210051`.
+
+- **Zod Validation Schema (`src/validators/registration.validator.ts`):**
+  - `fullName`: string, min 2, max 150 chars.
+  - `matricNumber`: transformed via `normalizeMatricNumber`, validated against regex.
+  - `email`: lowercased, trimmed, valid email format.
+  - `departmentId`: UUID string.
+  - `levelId`: UUID string.
+  - `password`: min 8 characters (sensible V1 security baseline).
+  - `passwordConfirmation`: matched against `password`.
+
+- **Atomic Registration Service (`src/services/registration.service.ts`):**
+  - Atomic transaction via `prisma.$transaction`.
+  - Confirms exactly one current `AcademicYearCycle` (`isCurrent = true`); fails safely with `CycleConfigurationError` (503) if missing or misconfigured.
+  - Verifies department and level existence.
+  - Enforces duplicate prevention for email and normalized matric number with clear domain errors (`DuplicateConflictError`).
+  - Hashes passwords using bcrypt with 10 salt rounds (never stored plaintext).
+  - Atomically creates the `User` with role `MEMBER` and `MemberVerification` with status `ACTIVE` for the current cycle.
+  - Complete rollback if any part fails.
+
+- **Web Routes & UI (`src/routes/registration.route.ts`, `views/register.ejs`, `views/register-success.ejs`):**
+  - `GET /register`: fetches active departments and levels, renders clean registration form.
+  - `POST /register`: handles form submissions with support for both HTML form POST and JSON API requests.
+  - Controlled user-facing error reporting; avoids exposing raw database or Prisma exceptions.
+  - `views/register.ejs`: server-rendered EJS form with field error badges and guidance text.
+  - `views/register-success.ejs`: registration success feedback with confirmed active verification for the current academic cycle.
+  - `views/error.ejs`: user-friendly application error template.
+  - Homepage (`views/index.ejs`) and stylesheet (`public/css/style.css`) updated with clean form controls.
+
+- **Automated Tests (`tests/registration.test.ts`):**
+  - 16 comprehensive tests proving:
+    1. Valid registration succeeds and creates ACTIVE verification.
+    2. Matric number normalization works.
+    3. Malformed matric number is rejected.
+    4. Duplicate matric number is rejected.
+    5. Duplicate email is rejected.
+    6. Invalid department is rejected.
+    7. Invalid level is rejected.
+    8. Password mismatch is rejected.
+    9. Password shorter than 8 characters is rejected.
+    10. Password is stored securely hashed with bcrypt, never plaintext.
+    11. Successful registration automatically creates ACTIVE verification for the current cycle.
+    12. Registration transaction rolls back if verification creation fails.
+    13. Registration fails safely if there is no current academic cycle.
+    14. GET /register renders registration page with 200 OK and populated options.
+  - `vitest.config.ts`: configured with `fileParallelism: false` to ensure test database operations run deterministically without race conditions across test files.
+
+### Important files created/modified
+
+- `src/utils/matric.ts` [NEW]: Matric normalization and validation utility.
+- `src/validators/registration.validator.ts` [NEW]: Zod schema for member registration.
+- `src/services/registration.service.ts` [NEW]: Transactional registration service and domain error classes.
+- `src/routes/registration.route.ts` [NEW]: `GET /register` and `POST /register` route handlers.
+- `views/register.ejs` [NEW]: Registration form EJS view.
+- `views/register-success.ejs` [NEW]: Registration success page EJS view.
+- `views/error.ejs` [NEW]: Application error EJS view.
+- `src/db.ts` [MODIFIED]: Added support for `TEST_DATABASE_URL` in `test` environment.
+- `src/app.ts` [MODIFIED]: Mounted `registrationRouter`.
+- `public/css/style.css` [MODIFIED]: Added minimal styling for form elements, alerts, and buttons.
+- `views/index.ejs` [MODIFIED]: Added link to `/register`.
+- `package.json` [MODIFIED]: Added `bcrypt`, `@types/bcrypt`, `prisma:validate`, `prisma:generate`.
+- `vitest.config.ts` [MODIFIED]: Set `fileParallelism: false` and timeouts for serial database testing.
+- `tests/registration.test.ts` [NEW]: 16 automated tests for registration and verification.
+
+### Test results
+
+- Test runner: Vitest v3.2.7
+- 4 test files, 41 tests passing (100% pass rate):
+  - `tests/identity.test.ts`: 21 tests (identity model schema constraints)
+  - `tests/registration.test.ts`: 16 tests (registration, validation, transactions, UI)
+  - `tests/app.test.ts`: 3 tests (health check, home, 404 handler)
+  - `tests/db.test.ts`: 1 test (PostgreSQL connectivity)
+- Prisma validation (`prisma validate`): Valid schema
+- Prisma client generation (`prisma generate`): Generated client v7.10.0
+- Test DB migrations (`npm run test:migrate`): Up to date (1 migration applied)
+- TypeScript build (`tsc`): Successful with 0 errors
+
+### Unresolved issues
+
+None.
+
+### Recommended next task
+
+**Milestone 1C — Login, Session Authentication & Active-Verification Guards**
+- Implement session-based authentication using Express session + secure HTTP-only cookies.
+- Implement member login (`GET /login`, `POST /login`) with bcrypt password verification.
+- Implement logout (`POST /logout`).
+- Implement active-verification guards to protect actions when yearly verification has expired.
+- Implement test suite for authentication flows and verification status guards.
+
+---
+
 ## 2026-09-10 — Milestone 1A: Core Identity Schema & Migrations
 
 ### Status
