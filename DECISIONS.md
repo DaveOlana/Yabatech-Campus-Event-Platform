@@ -1,0 +1,147 @@
+# YCEP — Decision Log
+
+This file records important product decisions that should not be casually re-litigated during implementation.
+
+## D-001 — Product identity
+
+**Decision:** The project is YCEP — YABATECH Campus Events Platform.
+
+**Reason:** The platform is broader than simple event registration but is not a full event-budgeting/planning suite.
+
+## D-002 — YABATECH-only institutional context
+
+**Decision:** YCEP is designed specifically for YABATECH.
+
+## D-003 — Public event visibility
+
+**Decision:** Approved events are visible to everyone.
+
+Private/specialized event visibility is outside V1.
+
+## D-004 — Organizer is an approved capability
+
+**Decision:** Organizer is not a completely separate authentication system. A normal member receives organizer capability after YABATECH Management approval.
+
+## D-005 — Two trust gates
+
+**Decision:** A member must be approved as an organizer, and each event must still be approved before publication.
+
+Organizer approval does not automatically approve events.
+
+## D-006 — Admin represents YABATECH Management
+
+**Decision:** V1 uses a dedicated YABATECH Management administrator role/account. The admin does not expire yearly.
+
+## D-007 — Matric number is sufficient institutional identifier for V1
+
+**Decision:** YCEP uses matric number as the primary school identifier and enforces uniqueness.
+
+**Trade-off:** This does not eliminate impersonation risk, but stronger institutional identity integration is outside V1.
+
+## D-008 — Account expiry means verification expiry
+
+**Decision:** Accounts are never automatically deleted at year end. Instead, yearly verification expires.
+
+**Reason:** Historical events, registrations, and attendance must survive.
+
+## D-009 — Organizer approval expires yearly
+
+**Decision:** Organizer privilege must be renewed/reapproved after yearly expiry.
+
+## D-010 — No staff profile in V1
+
+**Decision:** V1 does not introduce a separate staff-profile architecture.
+
+## D-011 — Department and level are stored
+
+**Decision:** Member profiles store department and level.
+
+## D-012 — Recommendation and eligibility are separate
+
+**Decision:** Department/level targeting does not automatically block participation. Organizers may separately configure registration eligibility.
+
+## D-013 — Event participation modes
+
+**Decision:** Each event uses one of:
+
+- no registration required;
+- open registration;
+- approval-required application.
+
+## D-014 — Registration limit is not venue capacity
+
+**Decision:** Organizer may choose unlimited registration or a numeric registration ceiling.
+
+**Reason:** Campus events can have significant no-show rates.
+
+## D-015 — Pending applications do not consume registration limit
+
+**Decision:** For approval-based events, only approved applicants count toward the registration limit.
+
+## D-016 — Member cancellation is allowed
+
+**Decision:** Members may cancel their own registration/application. Cancellation preserves history rather than deleting the record.
+
+## D-017 — One primary organizer, multiple co-organizers
+
+**Decision:** Events may have multiple co-organizers but exactly one primary organizer.
+
+## D-018 — Organization identity without organization accounts
+
+**Decision:** A real member account may be verified to publicly represent an organization such as NACOS YABATECH. V1 does not build a separate shared organization-login system.
+
+## D-019 — Venue reservation is outside YCEP
+
+**Decision:** YCEP stores venue information but does not authorize or reserve physical venues.
+
+## D-020 — Email-only notifications
+
+**Decision:** V1 uses email notifications. SMS, WhatsApp, and push notifications are outside V1.
+
+## D-021 — Manual attendance in V1
+
+**Decision:** Organizer marks participants present manually. QR attendance is deferred.
+
+## D-022 — Preserve published-event history
+
+**Decision:** Completed and cancelled events remain in the system. Hard deletion is not the normal lifecycle action.
+
+## D-023 — Fundamental event changes require reapproval
+
+**Decision:** Title, organizer identity, or core-purpose changes trigger reapproval. Operational schedule/venue/deadline/limit changes may remain live but should notify affected participants.
+
+## D-024 — Application questions remain simple
+
+**Decision:** V1 defaults to at most 5 text questions per approval-based event.
+
+**Status:** Implementation default chosen to keep the MVP useful without creating a full form builder.
+
+## D-025 — Event image
+
+**Decision:** Event banner/poster image is optional in V1.
+
+**Status:** Implementation default.
+
+## D-026 — No comments/reviews in V1
+
+**Decision:** Comments, ratings, and reviews are excluded.
+
+## D-027 — CSV export is non-blocking
+
+**Decision:** Participant CSV export is useful but is not required for V1 acceptance.
+
+## D-028 — Technology stack not frozen by this document
+
+**Decision:** The existing repository and architecture review should determine the stack unless the project owner explicitly selects one.
+
+No AI agent may casually migrate the application to another framework/database.
+
+# How to change a decision
+
+If a decision must change:
+
+1. add a new decision entry;
+2. mark the old decision superseded;
+3. update `YCEP_V1_SPEC.md`;
+4. update affected tasks/tests;
+5. record the change in `DEVELOPMENT_LOG.md`.
