@@ -134,7 +134,59 @@ Organizer approval does not automatically approve events.
 
 **Decision:** The existing repository and architecture review should determine the stack unless the project owner explicitly selects one.
 
-No AI agent may casually migrate the application to another framework/database.
+**Status:** Superseded by D-029 following Milestone 0 architecture review.
+
+## D-029 — Frozen engineering baseline
+
+**Decision:** The engineering baseline for YCEP V1 is frozen as follows:
+
+- **Runtime:** Node.js 24, TypeScript
+- **Backend:** Express.js
+- **Frontend:** EJS server-rendered templates, Vanilla JavaScript, Vanilla CSS
+- **Database:** PostgreSQL (for both development and production environments; SQLite is prohibited)
+- **ORM:** Prisma
+- **Validation:** Zod
+- **Authentication:** Session-based authentication, secure HTTP-only cookies, bcrypt password hashing
+- **Email:** Nodemailer behind an `EmailService` abstraction (development environments must not require real production email credentials)
+- **Testing:** Vitest, Supertest
+
+No AI agent or developer may substitute frameworks, template engines, ORMs, or databases without explicit owner revision.
+
+## D-030 — Normal member verification rules
+
+**Decision:** A new member who registers with a matric number matching YCEP's configured YABATECH matric-number validation rules, and whose matric number is not already registered, automatically receives `ACTIVE` verification for the current yearly cycle.
+
+Normal member registration does **not** require manual administrator approval.
+
+Manual YABATECH Management approval begins when a member applies for organizer privileges.
+
+Accounts remain persistent when yearly verification expires.
+
+## D-031 — Audience and eligibility independent relational model
+
+**Decision:** Recommended audience and registration eligibility remain completely separate concepts and schema structures.
+
+Department and level are **not** modeled as a single nullable pair. Instead, independent relationships must be used:
+
+- `EventTargetDepartment`
+- `EventTargetLevel`
+- `EventEligibleDepartment`
+- `EventEligibleLevel`
+
+**Evaluation rules:**
+
+1. No eligible departments selected = all departments allowed.
+2. No eligible levels selected = all levels allowed.
+3. If department restrictions exist, the member must belong to an allowed department.
+4. If level restrictions exist, the member must belong to an allowed level.
+5. If both exist, the member must satisfy both.
+6. Target departments/levels influence discovery and recommendation only; they never automatically block participation.
+
+## D-032 — Database concurrency and PostgreSQL-only requirement
+
+**Decision:** PostgreSQL is the mandatory database for both development and production environments. SQLite must not be documented or used as an alternative.
+
+When numeric registration-limit logic is implemented, concurrency must be handled transactionally using PostgreSQL transactions and an appropriate synchronization/locking strategy (such as `SELECT ... FOR UPDATE` or serializable transaction isolation) to prevent race conditions and overbooking.
 
 # How to change a decision
 
@@ -145,3 +197,4 @@ If a decision must change:
 3. update `YCEP_V1_SPEC.md`;
 4. update affected tasks/tests;
 5. record the change in `DEVELOPMENT_LOG.md`.
+

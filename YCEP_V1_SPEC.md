@@ -142,7 +142,15 @@ V1 should enforce one account per matric number.
 
 YCEP does not attempt to provide banking-grade identity verification.
 
-## 5.3 Yearly expiry
+## 5.3 Normal member verification
+
+A new member who provides a matric number matching YCEP's configured YABATECH matric-number validation rules, and whose matric number is not already registered, automatically receives `ACTIVE` verification for the current yearly cycle upon successful registration.
+
+Normal member registration does **not** require manual administrator approval.
+
+Manual YABATECH Management approval begins only when a member applies for organizer privileges.
+
+## 5.4 Yearly expiry
 
 Accounts are not deleted yearly.
 
@@ -157,7 +165,7 @@ When verification expires:
 
 Protected actions include registration/application and organizer actions.
 
-## 5.4 Organizer expiry
+## 5.5 Organizer expiry
 
 Organizer privileges also expire yearly.
 
@@ -165,7 +173,7 @@ After normal verification is renewed, organizer privileges require YABATECH Mana
 
 This is intentional because student organizational authority may change yearly.
 
-## 5.5 Admin continuity
+## 5.6 Admin continuity
 
 The YABATECH Management admin role/account remains constant and does not follow the yearly member expiry rule.
 
@@ -290,25 +298,43 @@ Whether a member may participate is controlled separately by event eligibility.
 
 # 10. Recommended audience vs eligibility
 
-These are different concepts.
+These are different concepts and must be modeled using independent schema relationships.
+
+Do not model department + level as a single nullable pair.
+
+Use independent relationships equivalent to:
+
+- `EventTargetDepartment`
+- `EventTargetLevel`
+- `EventEligibleDepartment`
+- `EventEligibleLevel`
 
 ## 10.1 Recommended audience
 
-Used for discovery/relevance.
+Used for discovery, search filtering, and relevance.
 
-This does not block other users from viewing the event.
+Target departments/levels influence discovery only and **never** automatically block participation.
+
+This does not block other users from viewing or participating in the event.
 
 ## 10.2 Registration eligibility
 
-Optional organizer-controlled restriction.
+Optional organizer-controlled restriction governing who may register or apply.
 
 Default: **Any active/verified YCEP member may register/apply.**
 
-Organizer may optionally restrict participation by selected level(s), selected department(s), or selected department(s) + level(s).
+### Evaluation rules
+
+1. **No eligible departments selected:** All departments are allowed.
+2. **No eligible levels selected:** All levels are allowed.
+3. **Department restrictions exist:** The member must belong to an allowed department.
+4. **Level restrictions exist:** The member must belong to an allowed level.
+5. **Both restrictions exist:** The member must satisfy both (belong to an allowed department AND an allowed level).
+6. **Target departments/levels:** Influence discovery only and never automatically block participation.
 
 The event remains publicly visible even when a member is ineligible to participate.
 
-The system should explain why registration/application is unavailable.
+The system should explain why registration/application is unavailable if an ineligible member views the event.
 
 ---
 
@@ -396,6 +422,14 @@ The system must prevent approval beyond the configured limit.
 ## 13.3 No waitlist
 
 V1 does not include automated waitlists.
+
+## 13.4 Database concurrency & limit enforcement
+
+Registration limits must be enforced transactionally to eliminate race conditions and overbooking.
+
+PostgreSQL is the mandatory database for both development and production (SQLite is prohibited).
+
+When numeric registration-limit logic is implemented, concurrency must be handled using PostgreSQL transactions and an appropriate synchronization/locking strategy (such as row-level locking via `SELECT ... FOR UPDATE` or serializable transaction isolation).
 
 ---
 
@@ -620,33 +654,48 @@ Do not implement unless V1 is intentionally revised:
 
 V1 must enforce basic web security including hashed passwords, backend authorization, secure session/authentication handling, environment-based secrets, input validation, safe file/image upload handling, no public participant lists, no unauthorized organizer access to other events, unique matric-number enforcement, and protection against duplicate participation.
 
+## 27.1 Frozen engineering baseline
+
+The technology baseline for YCEP V1 is frozen as follows:
+
+- **Runtime:** Node.js 24, TypeScript
+- **Backend:** Express.js
+- **Frontend:** EJS server-rendered templates, Vanilla JavaScript, Vanilla CSS
+- **Database:** PostgreSQL (for both development and production; SQLite is prohibited)
+- **ORM:** Prisma
+- **Validation:** Zod
+- **Authentication:** Session-based authentication, secure HTTP-only cookies, bcrypt password hashing
+- **Email:** Nodemailer behind an `EmailService` abstraction (development environments must not require real production email credentials)
+- **Testing:** Vitest, Supertest
+
 ---
 
-# 28. Suggested core entities
+# 28. Core entities
 
-Exact schema depends on the chosen stack, but the domain likely requires concepts equivalent to:
+The domain requires the following relational entities:
 
-- User
-- Department
-- Level
-- Verification
-- OrganizerProfile / OrganizerApplication
-- Event
-- EventCategory
-- EventOrganizer / CoOrganizer relationship
-- EventTargetAudience
-- EventEligibility
-- Registration/Application
-- ApplicationQuestion
-- ApplicationAnswer
-- Attendance
-- EventApproval / ModerationRecord
-- Notification / EmailDispatch record where useful
-- AuditLog
+- `User`
+- `Department`
+- `Level`
+- `AcademicYearCycle`
+- `MemberVerification`
+- `OrganizerProfile` / `OrganizerApplication`
+- `Event`
+- `EventCategory`
+- `EventCoOrganizer`
+- `EventTargetDepartment` (discovery/recommendation)
+- `EventTargetLevel` (discovery/recommendation)
+- `EventEligibleDepartment` (registration restriction)
+- `EventEligibleLevel` (registration restriction)
+- `ApplicationQuestion` (max 5 simple text questions)
+- `EventParticipation` (handles registration & application states)
+- `ApplicationAnswer`
+- `AttendanceRecord`
+- `EventChangeLog`
+- `AuditLog`
+- `EmailNotificationLog`
 
-Do not create unnecessary tables merely because they appear here.
-
-The final schema should preserve the behaviour defined in this specification.
+The schema must preserve the behaviour defined in this specification.
 
 ---
 

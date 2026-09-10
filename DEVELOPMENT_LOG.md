@@ -6,6 +6,47 @@ Newest entries should be added at the top.
 
 ---
 
+## 2026-09-10 — Milestone 0: Architecture discovery completed & decisions frozen
+
+### Status
+
+Milestone 0 is complete. The engineering baseline and critical product architecture decisions are now frozen. The repository is ready for Milestone 1 (Core Identity).
+
+### Completed
+
+- Repository discovery completed; greenfield baseline confirmed under git version control.
+- Engineering baseline frozen:
+  - Runtime: Node.js 24 + TypeScript
+  - Backend: Express.js
+  - Frontend: EJS server-rendered templates + Vanilla JavaScript + Vanilla CSS
+  - Database: PostgreSQL (for both dev and prod; SQLite prohibited)
+  - ORM: Prisma
+  - Validation: Zod
+  - Authentication: Session-based, secure HTTP-only cookies, bcrypt password hashing
+  - Email: Nodemailer behind `EmailService` abstraction (dev environments do not require real prod credentials)
+  - Testing: Vitest + Supertest
+- Normal member verification decision recorded:
+  - Registration with a valid, unassigned YABATECH matric number automatically receives `ACTIVE` verification for the current yearly cycle.
+  - Normal member registration does not require manual administrator approval.
+  - Manual YABATECH Management approval begins when a member applies for organizer privileges.
+  - Accounts remain persistent across yearly verification expiry.
+- Audience and eligibility relational architecture locked:
+  - Target audience and registration eligibility are kept strictly separate.
+  - Department and level are not modeled as a single nullable pair; modeled via independent relationships: `EventTargetDepartment`, `EventTargetLevel`, `EventEligibleDepartment`, `EventEligibleLevel`.
+  - Eligibility evaluation rules formalized: empty department/level list allows all; restrictions require member to match; both restrictions require matching both; target audience influences discovery only.
+- Concurrency and database constraints locked:
+  - Registration limits must be enforced transactionally using PostgreSQL transactions and synchronization/locking strategies (such as `SELECT ... FOR UPDATE` or serializable isolation) to prevent race conditions.
+  - PostgreSQL is mandatory for both development and production.
+- Governance files updated: `YCEP_V1_SPEC.md`, `DECISIONS.md` (D-028 superseded, D-029 to D-032 added), `AGENTS.md`, and `DEVELOPMENT_LOG.md`.
+
+### Next task
+
+**Milestone 1 — Core Identity**
+
+Set up project scaffolding with the frozen TypeScript + Express + Prisma + PostgreSQL baseline and implement user registration, matric uniqueness, password hashing, academic cycle, and verification logic with Vitest test coverage.
+
+---
+
 ## 2026-09-10 — Product specification prepared
 
 ### Status

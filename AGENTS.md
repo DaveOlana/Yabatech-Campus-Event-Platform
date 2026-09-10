@@ -59,6 +59,20 @@ Eligibility determines who may register/apply.
 
 An event may be recommended to ND1 Computer Science students while still allowing everyone to register.
 
+Do not model department + level as a single nullable pair. Use independent relationships:
+- `EventTargetDepartment`
+- `EventTargetLevel`
+- `EventEligibleDepartment`
+- `EventEligibleLevel`
+
+Eligibility rules:
+- No eligible departments selected = all departments allowed.
+- No eligible levels selected = all levels allowed.
+- If department restrictions exist, the member must belong to an allowed department.
+- If level restrictions exist, the member must belong to an allowed level.
+- If both exist, the member must satisfy both.
+- Target departments/levels influence discovery only and never automatically block participation.
+
 ### Registration vs attendance
 
 A registration does not mean the participant attended.
@@ -73,9 +87,13 @@ Yearly verification can expire.
 
 Do not delete accounts automatically when yearly verification expires.
 
+A new member with a valid, unassigned YABATECH matric number receives `ACTIVE` verification for the current yearly cycle automatically upon registration. Normal member registration does **not** require manual administrator approval.
+
 ### Member vs organizer
 
 Organizer is an approved capability on a normal YCEP account, not a separate unrelated authentication system.
+
+Manual YABATECH Management approval begins when a member applies for organizer privileges.
 
 ### Organizer approval vs event approval
 
@@ -136,6 +154,14 @@ For open-registration events:
 
 Unlimited registration is allowed.
 
+### Concurrency and locking
+
+Registration limits must be enforced transactionally.
+
+PostgreSQL is the mandatory database for both development and production. Do NOT document or use SQLite as an alternative development database.
+
+When numeric registration-limit logic is implemented, concurrency must be handled using PostgreSQL transactions and an appropriate synchronization/locking strategy (such as row-level locking via `SELECT ... FOR UPDATE` or serializable isolation) to prevent race conditions and overbooking.
+
 ## 10. Tests
 
 For every material feature:
@@ -180,9 +206,21 @@ If a decision changes product behaviour, update `DECISIONS.md` and `YCEP_V1_SPEC
 
 ## 13. Architecture changes
 
-Do not switch frameworks, databases, authentication strategies, frontend architecture, deployment platform, or major dependencies without explicit approval.
+The engineering baseline for YCEP V1 is frozen as follows:
 
-If the repository already has a stack, work within it unless there is a strong documented reason not to.
+- **Runtime:** Node.js 24, TypeScript
+- **Backend:** Express.js
+- **Frontend:** EJS server-rendered templates, Vanilla JavaScript, Vanilla CSS
+- **Database:** PostgreSQL (for both development and production; SQLite is prohibited)
+- **ORM:** Prisma
+- **Validation:** Zod
+- **Authentication:** Session-based authentication, secure HTTP-only cookies, bcrypt password hashing
+- **Email:** Nodemailer behind an `EmailService` abstraction (dev environments must not require real production email credentials)
+- **Testing:** Vitest, Supertest
+
+Do not switch frameworks, databases, template engines, authentication strategies, frontend architecture, deployment platform, or major dependencies without explicit approval.
+
+Work strictly within this frozen stack.
 
 ## 14. Coding behaviour
 
