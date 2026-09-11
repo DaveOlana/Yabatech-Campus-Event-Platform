@@ -62,6 +62,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   // Clean all tables in proper order
+  await prisma.auditLog.deleteMany();
   await prisma.memberVerification.deleteMany();
   await prisma.user.deleteMany();
   await prisma.academicYearCycle.deleteMany();

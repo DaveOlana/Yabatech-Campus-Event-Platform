@@ -5,6 +5,7 @@ import { healthRouter } from './routes/health.route.js';
 import { indexRouter } from './routes/index.route.js';
 import { registrationRouter } from './routes/registration.route.js';
 import { authRouter } from './routes/auth.route.js';
+import { adminRouter } from './routes/admin.route.js';
 import { createSessionMiddleware } from './session.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -32,6 +33,7 @@ export function createApp(): Express {
   app.use(indexRouter);
   app.use(registrationRouter);
   app.use(authRouter);
+  app.use(adminRouter);
 
   return app;
 }

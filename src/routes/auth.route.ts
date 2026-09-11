@@ -153,6 +153,13 @@ authRouter.post("/logout", (req: Request, res: Response, next: NextFunction) => 
  */
 authRouter.get("/account", requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   const user = req.user!;
+
+  // Preserve /account as the MEMBER-facing authenticated area; redirect ADMIN to /admin
+  if (user.role === "ADMIN") {
+    res.redirect("/admin");
+    return;
+  }
+
   const jsonExpected = isJsonRequest(req);
 
   try {

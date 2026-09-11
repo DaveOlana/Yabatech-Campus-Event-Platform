@@ -213,6 +213,44 @@ When numeric registration-limit logic is implemented, concurrency must be handle
 - Ordinary member login remains matric-number based (`POST /login` accepts matric number and password).
 - `ADMIN` accounts do not require a `MemberVerification` record and are permanently exempt from annual verification expiry.
 
+## D-036 — Exactly one dedicated ADMIN account enforced at database level
+
+**Decision:**
+- YCEP V1 has exactly one dedicated YABATECH Management `ADMIN` account.
+- Enforced at the database level via a PostgreSQL partial unique index:
+  `CREATE UNIQUE INDEX "User_one_admin" ON "User" ("role") WHERE "role" = 'ADMIN'`
+- An `ADMIN` account must not have fake academic identity fields. Enforced at the database level via a PostgreSQL CHECK constraint:
+  `"role" != 'ADMIN' OR ("matric_number" IS NULL AND "department_id" IS NULL AND "level_id" IS NULL)`
+- There is no public admin-registration route.
+
+## D-037 — Admin email authentication separation and account area boundaries
+
+**Decision:**
+- Admin authentication is dedicated (`GET /admin/login`, `POST /admin/login`, `POST /admin/logout`) and strictly accepts email + password.
+- Member authentication remains strictly matric-number based (`POST /login`).
+- `POST /admin/login` only authenticates accounts where `role === 'ADMIN'`. A `MEMBER` attempting login at `/admin/login` receives the identical generic invalid-credentials error.
+- `/account` remains strictly the `MEMBER` account area. Authenticated `ADMIN` users accessing `/account` are redirected to `/admin` to prevent template and runtime errors on null academic fields.
+- Admin credentials can later be transferred or rotated by changing the credentials of the single account.
+
+## D-038 — Admin bootstrap script and security invariants
+
+**Decision:**
+- Initial admin account is created via an explicit CLI bootstrap script (`npm run admin:bootstrap` / `scripts/bootstrap-admin.ts`) reading `YCEP_ADMIN_NAME`, `YCEP_ADMIN_EMAIL`, and `YCEP_ADMIN_PASSWORD`.
+- Requires a minimum 12-character admin password.
+- Rejects default placeholder/example passwords.
+- Idempotent: If an `ADMIN` already exists with the same email, it exits safely without overwriting or resetting the password. If conflicting credentials are provided, it throws a clear conflict error.
+- Guarded to ensure importing in test suites does not trigger CLI execution.
+
+## D-039 — Append-only immutable audit logging and transactional privileged mutations
+
+**Decision:**
+- Privileged administrative events are recorded in an immutable, append-only `AuditLog` table.
+- Application code must never expose update or delete operations on audit logs.
+- Audit service defensively sanitizes metadata to exclude sensitive authentication data (`password`, `passwordHash`, `session`, `cookie`, `token`).
+- `POST /admin/logout` is guarded by `requireAdmin` (members cannot generate admin audit logs).
+- Atomic session safety: if audit log creation fails during `POST /admin/login`, the session is destroyed and the user is not left in a privileged session. On logout, session destruction proceeds even if audit logging fails.
+- Frozen rule for future milestones: When an admin performs a privileged database mutation, the mutation and its audit record must be written in the same database transaction wherever practical.
+
 # How to change a decision
 
 If a decision must change:

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <h1>YABATECH Campus Events Platform</h1>
+  </header>
+  <main>
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 1rem; margin-bottom: 1.5rem;">
+      <div>
+        <h2 style="margin: 0;">YABATECH Management Console</h2>
+        <p style="margin: 0.25rem 0 0 0; color: #475569;">Platform oversight and privileged operations</p>
+      </div>
+      <form action="/admin/logout" method="POST" style="margin: 0;">
+        <button type="submit" class="btn-primary" style="background-color: #dc2626; padding: 0.5rem 1rem;">Sign Out</button>
+      </form>
+    </div>
+
+    <section style="margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 6px; background-color: #f8fafc;">
+      <h3 style="margin-top: 0;">Administrator Identity</h3>
+      <p><strong>Name:</strong> <%= user.fullName %></p>
+      <p><strong>Email:</strong> <%= user.email %></p>
+      <p><strong>Role:</strong> <span style="font-weight: bold; color: #047857;"><%= user.role %></span></p>
+    </section>
+
+    <section style="margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 6px;">
+      <h3 style="margin-top: 0;">System Status</h3>
+      <p><strong>Database:</strong> <span style="color: #047857; font-weight: bold;"><%= systemStatus.database %></span></p>
+      <p><strong>Active Academic Cycle:</strong> <%= systemStatus.activeCycle %></p>
+      <p><strong>Platform Status:</strong> Operational</p>
+    </section>
+
+    <section style="margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 6px;">
+      <h3 style="margin-top: 0;">Recent Audit Activity</h3>
+      <% if (recentAuditLogs && recentAuditLogs.length > 0) { %>
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+            <thead>
+              <tr style="border-bottom: 2px solid #cbd5e1; background-color: #f1f5f9;">
+                <th style="padding: 0.5rem;">Timestamp</th>
+                <th style="padding: 0.5rem;">Action</th>
+                <th style="padding: 0.5rem;">Actor</th>
+                <th style="padding: 0.5rem;">Target</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% recentAuditLogs.forEach(function(log) { %>
+                <tr style="border-bottom: 1px solid #e2e8f0;">
+                  <td style="padding: 0.5rem;"><%= new Date(log.createdAt).toLocaleString() %></td>
+                  <td style="padding: 0.5rem;"><code><%= log.action %></code></td>
+                  <td style="padding: 0.5rem;"><%= log.actor ? log.actor.email : log.actorUserId %></td>
+                  <td style="padding: 0.5rem;"><%= log.targetType ? (log.targetType + (log.targetId ? ' #' + log.targetId : '')) : '—' %></td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } else { %>
+        <p style="color: #64748b;">No recent audit activity recorded.</p>
+      <% } %>
+    </section>
+
+    <p style="font-size: 0.9rem; margin-top: 2rem;">
+      <a href="/">Platform Home</a>
+    </p>
+  </main>
+  <footer>
+    <p>&copy; <%= new Date().getFullYear() %> YABATECH Campus Events Platform</p>
+  </footer>
+</body>
+</html>

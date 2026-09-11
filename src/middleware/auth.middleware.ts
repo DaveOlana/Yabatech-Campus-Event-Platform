@@ -68,6 +68,71 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 }
 
 /**
+ * Middleware: requireAdmin
+ * Requires an authenticated user with role === 'ADMIN'.
+ *
+ * Rules:
+ * - Must query/load current User from database and confirm role === 'ADMIN'.
+ * - Never trusts a role value supplied by the browser or cached in session.
+ * - Unauthenticated request:
+ *   - HTML: redirect to /admin/login
+ *   - JSON: 401 Unauthorized
+ * - Authenticated MEMBER attempting admin access:
+ *   - HTML: 403 Forbidden error view
+ *   - JSON: 403 Forbidden JSON
+ * - ADMIN:
+ *   - req.user attached, next()
+ *   - exempt from annual MemberVerification
+ */
+export async function requireAdmin(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const jsonExpected = isJsonRequest(req);
+
+  if (!req.session || !req.session.userId) {
+    if (jsonExpected) {
+      res.status(401).json({ success: false, message: "Admin authentication required" });
+      return;
+    }
+    res.redirect("/admin/login");
+    return;
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.session.userId },
+      include: { department: true, level: true },
+    });
+
+    if (!user) {
+      req.session.destroy(() => {});
+      if (jsonExpected) {
+        res.status(401).json({ success: false, message: "User account not found" });
+        return;
+      }
+      res.redirect("/admin/login");
+      return;
+    }
+
+    if (user.role !== "ADMIN") {
+      if (jsonExpected) {
+        res.status(403).json({ success: false, message: "Forbidden: Admin access required" });
+        return;
+      }
+      res.status(403).render("error", {
+        title: "Access Forbidden — YCEP",
+        message: "Forbidden: You do not have permission to access the administrative management console.",
+      });
+      return;
+    }
+
+    const { passwordHash: _, ...safeUser } = user;
+    req.user = safeUser;
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
  * Middleware: requireActiveVerification
  * Requires:
  * 1. Authenticated user (runs requireAuth if req.user is missing)

@@ -101,6 +101,7 @@ model User {
   updatedAt DateTime @updatedAt
 
   verifications MemberVerification[]
+  auditLogs     AuditLog[]
 }
 
 // ─── MemberVerification ───────────────────────────────────────────────────────
@@ -127,4 +128,23 @@ model MemberVerification {
 
   /// Only one verification per user per cycle.
   @@unique([userId, cycleId])
+}
+
+// ─── AuditLog ─────────────────────────────────────────────────────────────────
+
+/// Immutable audit record for administrative and privileged operations.
+/// Actor relation uses onDelete: Restrict to prevent cascade-deleting audit history.
+model AuditLog {
+  id          String   @id @default(uuid())
+  actorUserId String   @map("actor_user_id")
+  actor       User     @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+  action      String   /// e.g. "ADMIN_LOGIN", "ADMIN_LOGOUT"
+  targetType  String?  @map("target_type") /// Optional target entity type
+  targetId    String?  @map("target_id")   /// Optional target entity ID
+  metadata    Json?    /// Structured metadata (never stores sensitive auth details)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([actorUserId])
+  @@index([action])
+  @@index([createdAt])
 }

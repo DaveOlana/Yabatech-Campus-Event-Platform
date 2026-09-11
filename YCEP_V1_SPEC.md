@@ -131,11 +131,19 @@ All accounts require:
 
 Role differentiation for academic identity fields:
 - For `MEMBER` users, academic identity fields (`matricNumber`, `department`, `level`) are mandatory.
-- For `ADMIN` users (representing YABATECH Management), academic identity fields are optional and may be null.
-- This invariant is enforced at the database level using a PostgreSQL CHECK constraint:
-  `"role" != 'MEMBER' OR ("matric_number" IS NOT NULL AND "department_id" IS NOT NULL AND "level_id" IS NOT NULL)`.
+- For `ADMIN` users (representing YABATECH Management), academic identity fields must be null.
+- These invariants are enforced at the database level using two PostgreSQL CHECK constraints:
+  1. `User_member_academic_identity_check`:
+     `"role" != 'MEMBER' OR ("matric_number" IS NOT NULL AND "department_id" IS NOT NULL AND "level_id" IS NOT NULL)`
+  2. `User_admin_no_academic_identity_check`:
+     `"role" != 'ADMIN' OR ("matric_number" IS NULL AND "department_id" IS NULL AND "level_id" IS NULL)`
+- Exactly one dedicated `ADMIN` account exists in V1, enforced at the database level via a PostgreSQL partial unique index:
+  `CREATE UNIQUE INDEX "User_one_admin" ON "User" ("role") WHERE "role" = 'ADMIN'`
 - Ordinary member login remains matric-number based (`POST /login` with matric number and password).
-- The dedicated YABATECH Management account authenticates separately using email in Milestone 2.
+- The dedicated YABATECH Management account authenticates separately using email (`POST /admin/login` with email and password).
+- There is no public admin registration route; the admin account is provisioned via an environment-based CLI bootstrap script (`npm run admin:bootstrap`).
+- Admin credentials can later be transferred or rotated by changing the credentials of the single account.
+- `/account` remains strictly the `MEMBER` account area; authenticated `ADMIN` users accessing `/account` are redirected to `/admin`.
 
 ## 5.2 Matric number
 
@@ -156,6 +164,7 @@ Matric number rules:
 ## 5.3 Password requirements
 
 - Member-registration password minimum length for V1 is 8 characters.
+- Admin bootstrap password minimum length for V1 is 12 characters, and unchanged default placeholder passwords are rejected.
 
 ## 5.4 Normal member verification
 
@@ -188,9 +197,14 @@ After normal verification is renewed, organizer privileges require YABATECH Mana
 
 This is intentional because student organizational authority may change yearly.
 
-## 5.6 Admin continuity
+## 5.6 Admin continuity and audit logging
 
-The YABATECH Management admin role/account remains constant and does not follow the yearly member expiry rule. ADMIN users do not require `MemberVerification` records. The dedicated YABATECH Management account authenticates separately using email in Milestone 2.
+The YABATECH Management admin role/account remains constant and does not follow the yearly member expiry rule. ADMIN users do not require `MemberVerification` records. The dedicated YABATECH Management account authenticates separately using email.
+
+Privileged administrative operations are tracked in an immutable, append-only `AuditLog` table.
+- Normal update/delete operations on audit logs are prohibited in application code.
+- Audit records defensively exclude sensitive authentication data (passwords, hashes, session secrets, tokens).
+- Transactional invariant: When an admin performs a privileged database mutation in future milestones, the mutation and its audit entry must be written in the same database transaction wherever practical.
 
 ---
 

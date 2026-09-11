@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:migrate": "tsx scripts/migrate-test.ts",
     "db:seed": "tsx prisma/seed.ts",
+    "admin:bootstrap": "tsx scripts/bootstrap-admin.ts",
     "prisma:validate": "prisma validate",
     "prisma:generate": "prisma generate"
   },

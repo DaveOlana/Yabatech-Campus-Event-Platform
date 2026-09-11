@@ -4,6 +4,111 @@ Use this file as the handoff record between Claude, Gemini, Codex, and human dev
 
 Newest entries should be added at the top.
 
+## 2026-09-11 — Milestone 2: YABATECH Management Admin Foundation & Audit Logging
+
+### Status
+
+Complete. Established the administrative foundation for YABATECH Management. Implemented the single-admin database constraint, admin null academic identity CHECK constraint, idempotent bootstrap script with security validation, dedicated email-based admin authentication and session management, requireAdmin authorization middleware, an immutable append-only audit logging subsystem with defensive metadata sanitization, a minimal admin foundation dashboard, and 25 new automated tests (92 total tests passing).
+
+### Completed
+
+- **Database Schema & Constraints (`prisma/schema.prisma`, `prisma/migrations/20260911011313_admin_foundation_and_audit/migration.sql`):**
+  - Added `AuditLog` model with foreign key relation to `User` (`onDelete: Restrict` ensures admin history is never cascade-deleted).
+  - Scaffolded migration with `--create-only` and manually enriched with custom PostgreSQL invariants:
+    - Single ADMIN constraint: `CREATE UNIQUE INDEX "User_one_admin" ON "User" ("role") WHERE "role" = 'ADMIN';`
+    - ADMIN null academic identity constraint:
+      `ALTER TABLE "User" ADD CONSTRAINT "User_admin_no_academic_identity_check" CHECK ("role" != 'ADMIN' OR ("matric_number" IS NULL AND "department_id" IS NULL AND "level_id" IS NULL));`
+  - Successfully applied migration to both `ycep_dev` and `ycep_test`.
+  - Regenerated Prisma Client v7.10.0.
+
+- **Admin Bootstrap Script (`scripts/bootstrap-admin.ts`):**
+  - Added CLI script runnable via `npm run admin:bootstrap`.
+  - Added configuration placeholders in `.env.example` (`YCEP_ADMIN_NAME`, `YCEP_ADMIN_EMAIL`, `YCEP_ADMIN_PASSWORD`).
+  - Validates environment/options with Zod (name, valid email, minimum 12-character password).
+  - Explicitly rejects unchanged placeholder/default passwords.
+  - Idempotent: If an ADMIN with matching email exists, exits safely without altering or resetting the password.
+  - Conflict detection: If an ADMIN exists with a different email, fails with a clear conflict error.
+  - Guarded execution ensures importing `bootstrapAdmin` in test suites does not run CLI commands.
+
+- **Audit Logging Subsystem (`src/services/audit.service.ts`):**
+  - Centralized action constants (`AUDIT_ACTIONS.ADMIN_LOGIN`, `AUDIT_ACTIONS.ADMIN_LOGOUT`).
+  - Defensive metadata sanitizer recursively strips sensitive keys (`password`, `passwordHash`, `session`, `cookie`, `token`, `secret`, `authorization`).
+  - Append-only service methods: `createAuditLog` (supports optional `tx` client for transactional mutations) and `getRecentAuditLogs`.
+  - No update or delete methods exposed.
+
+- **Admin Authentication & Authorization (`src/routes/admin.route.ts`, `src/middleware/auth.middleware.ts`):**
+  - `GET /admin/login`: Renders dedicated sign-in portal; redirects already-authenticated admins to `/admin`.
+  - `POST /admin/login`: Authenticates dedicated ADMIN using email + password. Rejects unknown emails, bad passwords, and `MEMBER` accounts with identical generic message: `"Invalid email or password."`.
+  - Session fixation protection: regenerates session upon login.
+  - Atomic session safety: if audit log creation fails during login, session is destroyed and cookie cleared.
+  - `POST /admin/logout`: Guarded by `requireAdmin` (members cannot trigger admin audit records). Writes `ADMIN_LOGOUT` audit log and destroys session; session destruction guaranteed even if audit logging fails.
+  - `requireAdmin`: Checks live database role (`role === 'ADMIN'`), never trusting browser input or session cache. Redirects unauthenticated requests to `/admin/login` and rejects members with 403 Forbidden.
+  - Boundary: `/account` preserves member area by redirecting authenticated `ADMIN` users to `/admin`.
+
+- **Admin Views & UI (`views/admin/login.ejs`, `views/admin/dashboard.ejs`):**
+  - `views/admin/login.ejs`: Clean admin sign-in form with clear error presentation (free of unsubstantiated CSRF claims).
+  - `views/admin/dashboard.ejs`: Minimal foundation dashboard showing administrator identity, system status (database connected, active cycle), and recent audit log table.
+  - Mounted `adminRouter` in `src/app.ts`.
+
+- **Automated Tests (`tests/admin.test.ts`):**
+  - Added 25 comprehensive tests covering schema constraints, bootstrap, login, logout, authorization, session destruction safety, and metadata sanitization.
+  - Updated `beforeEach` in `tests/auth.test.ts`, `tests/identity.test.ts`, and `tests/registration.test.ts` to clean `AuditLog` records before `User` records.
+  - All 92 tests passing across all 6 test suites with 0 failures.
+
+- **Documentation Updates:**
+  - `DECISIONS.md`: Added decisions D-036 through D-039.
+  - `YCEP_V1_SPEC.md`: Updated Section 5.1 and Section 5.6 to formally record the single admin model, dual CHECK constraints, bootstrap requirements, and audit logging specification.
+
+### Important files created/modified
+
+- `prisma/schema.prisma` [MODIFIED]: Added `AuditLog` model and `auditLogs` relation on `User`.
+- `prisma/migrations/20260911011313_admin_foundation_and_audit/migration.sql` [NEW]: Migration adding `AuditLog`, `User_one_admin` partial unique index, and `User_admin_no_academic_identity_check`.
+- `.env.example` [MODIFIED]: Added `YCEP_ADMIN_*` placeholders.
+- `package.json` [MODIFIED]: Added `admin:bootstrap` script.
+- `scripts/bootstrap-admin.ts` [NEW]: Admin bootstrap script with Zod validation, placeholder rejection, and CLI execution guard.
+- `src/services/audit.service.ts` [NEW]: Append-only audit service with defensive metadata sanitizer.
+- `src/middleware/auth.middleware.ts` [MODIFIED]: Implemented `requireAdmin` authorization middleware.
+- `src/routes/admin.route.ts` [NEW]: Admin routes (`/admin/login`, `/admin/logout`, `/admin`).
+- `src/routes/auth.route.ts` [MODIFIED]: Redirected `ADMIN` accessing `/account` to `/admin`.
+- `src/app.ts` [MODIFIED]: Mounted `adminRouter`.
+- `views/admin/login.ejs` [NEW]: Admin sign-in template.
+- `views/admin/dashboard.ejs` [NEW]: Minimal admin dashboard template.
+- `tests/admin.test.ts` [NEW]: 25 comprehensive automated tests for Milestone 2.
+- `tests/auth.test.ts` [MODIFIED]: Updated cleanup and admin test for null academic fields.
+- `tests/identity.test.ts` [MODIFIED]: Added audit log cleanup.
+- `tests/registration.test.ts` [MODIFIED]: Added audit log cleanup.
+- `DECISIONS.md` [MODIFIED]: Added D-036 to D-039.
+- `YCEP_V1_SPEC.md` [MODIFIED]: Updated Sections 5.1 and 5.6.
+- `DEVELOPMENT_LOG.md` [MODIFIED]: Added Milestone 2 entry.
+
+### Test results
+
+- Test runner: Vitest v3.2.7
+- 6 test suites, **92 tests passing (100% pass rate)**:
+  - `tests/admin.test.ts`: 25 passed
+  - `tests/auth.test.ts`: 17 passed
+  - `tests/registration.test.ts`: 19 passed
+  - `tests/identity.test.ts`: 27 passed
+  - `tests/db.test.ts`: 1 passed
+  - `tests/app.test.ts`: 3 passed
+- Prisma validate: Schema validated successfully.
+- TypeScript build (`tsc`): 0 errors.
+
+### Unresolved issues
+
+None.
+
+### Recommended next task
+
+**Milestone 3 — Organizer Verification Foundation**
+- Implement organizer application domain model (`OrganizerApplication`) and application statuses (`PENDING`, `APPROVED`, `REJECTED`).
+- Implement organizer application submission flow (`GET /organizer/apply`, `POST /organizer/apply`) guarded by `requireActiveVerification`.
+- Implement admin review interface and approval/rejection endpoints on the admin dashboard.
+- Enforce transactional audit logging for organizer application status transitions.
+- Write automated tests for organizer verification workflows.
+
+---
+
 ## 2026-09-11 — Milestone 1D: Admin-Compatible Identity Model
 
 ### Status

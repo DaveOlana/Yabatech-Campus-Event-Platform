@@ -67,6 +67,7 @@ afterAll(async () => {
 beforeEach(async () => {
   // Clean all data in proper foreign key order
   await pool.query('DELETE FROM "session"');
+  await prisma.auditLog.deleteMany();
   await prisma.memberVerification.deleteMany();
   await prisma.user.deleteMany();
   await prisma.academicYearCycle.deleteMany();
@@ -110,15 +111,16 @@ beforeEach(async () => {
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 async function createUser(overrides: Partial<any> = {}) {
+  const isAdmin = overrides.role === UserRole.ADMIN;
   return prisma.user.create({
     data: {
-      fullName: overrides.fullName || "Test Student",
-      email: overrides.email || "student@yabatech.edu.ng",
-      matricNumber: overrides.matricNumber || "F/ND/24/3210051",
+      fullName: overrides.fullName || (isAdmin ? "YABATECH Management" : "Test Student"),
+      email: overrides.email || (isAdmin ? "admin@yabatech.edu.ng" : "student@yabatech.edu.ng"),
+      matricNumber: isAdmin ? null : (overrides.matricNumber !== undefined ? overrides.matricNumber : "F/ND/24/3210051"),
       passwordHash: overrides.passwordHash || hashedPassword,
       role: overrides.role || UserRole.MEMBER,
-      departmentId: overrides.departmentId || testDeptId,
-      levelId: overrides.levelId || testLevelId,
+      departmentId: isAdmin ? null : (overrides.departmentId !== undefined ? overrides.departmentId : testDeptId),
+      levelId: isAdmin ? null : (overrides.levelId !== undefined ? overrides.levelId : testLevelId),
     },
   });
 }
@@ -395,7 +397,6 @@ describe("Verification Guards & Yearly Expiry Behaviour", () => {
 
   it("exempts YABATECH Management ADMIN accounts from yearly member-verification expiry", async () => {
     const adminUser = await createUser({
-      matricNumber: "F/ND/20/0000001",
       email: "admin@yabatech.edu.ng",
       role: UserRole.ADMIN,
     });
@@ -403,8 +404,8 @@ describe("Verification Guards & Yearly Expiry Behaviour", () => {
 
     const agent = request.agent(app);
     await agent
-      .post("/login")
-      .send({ matricNumber: "F/ND/20/0000001", password: RAW_PASSWORD });
+      .post("/admin/login")
+      .send({ email: "admin@yabatech.edu.ng", password: RAW_PASSWORD });
 
     // Should pass requireActiveVerification without issue
     const res = await agent
