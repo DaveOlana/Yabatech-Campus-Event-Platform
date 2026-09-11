@@ -273,6 +273,42 @@ describe("POST /register (Member Registration)", () => {
     expect(res2.body.message).toMatch(/email address already exists/i);
   });
 
+  it("existing member registration still requires matric number", async () => {
+    const { matricNumber, ...missingMatric } = validPayload;
+    const res = await request(app)
+      .post("/register")
+      .set("Accept", "application/json")
+      .send({ ...missingMatric, departmentId: testDepartmentId, levelId: testLevelId });
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.errors.matricNumber).toBeDefined();
+  });
+
+  it("existing member registration still requires department", async () => {
+    const { departmentId, ...missingDept } = validPayload;
+    const res = await request(app)
+      .post("/register")
+      .set("Accept", "application/json")
+      .send({ ...missingDept, levelId: testLevelId });
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.errors.departmentId).toBeDefined();
+  });
+
+  it("existing member registration still requires level", async () => {
+    const { levelId, ...missingLevel } = validPayload;
+    const res = await request(app)
+      .post("/register")
+      .set("Accept", "application/json")
+      .send({ ...missingLevel, departmentId: testDepartmentId });
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.errors.levelId).toBeDefined();
+  });
+
   it("rejects non-existent department", async () => {
     const payload = {
       ...validPayload,

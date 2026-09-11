@@ -242,6 +242,110 @@ describe("User constraints", () => {
       prisma.level.delete({ where: { id: levelId } })
     ).rejects.toThrow();
   });
+
+  it("creates a valid MEMBER with all required academic fields", async () => {
+    const user = await prisma.user.create({
+      data: {
+        fullName: "Academic Member",
+        email: "member@yabatech.edu.ng",
+        matricNumber: "F/ND/22/1234567",
+        passwordHash: "$2b$10$placeholder",
+        role: UserRole.MEMBER,
+        departmentId: deptId,
+        levelId: levelId,
+      },
+    });
+    expect(user.role).toBe(UserRole.MEMBER);
+    expect(user.matricNumber).toBe("F/ND/22/1234567");
+    expect(user.departmentId).toBe(deptId);
+    expect(user.levelId).toBe(levelId);
+  });
+
+  it("database rejects MEMBER missing matric number via CHECK constraint", async () => {
+    await expect(
+      prisma.user.create({
+        data: {
+          fullName: "Invalid Member",
+          email: "nomatric@yabatech.edu.ng",
+          matricNumber: null,
+          passwordHash: "$2b$10$placeholder",
+          role: UserRole.MEMBER,
+          departmentId: deptId,
+          levelId: levelId,
+        },
+      })
+    ).rejects.toThrow();
+  });
+
+  it("database rejects MEMBER missing department via CHECK constraint", async () => {
+    await expect(
+      prisma.user.create({
+        data: {
+          fullName: "Invalid Member",
+          email: "nodept@yabatech.edu.ng",
+          matricNumber: "F/ND/22/7654321",
+          passwordHash: "$2b$10$placeholder",
+          role: UserRole.MEMBER,
+          departmentId: null,
+          levelId: levelId,
+        },
+      })
+    ).rejects.toThrow();
+  });
+
+  it("database rejects MEMBER missing level via CHECK constraint", async () => {
+    await expect(
+      prisma.user.create({
+        data: {
+          fullName: "Invalid Member",
+          email: "nolevel@yabatech.edu.ng",
+          matricNumber: "F/ND/22/7654322",
+          passwordHash: "$2b$10$placeholder",
+          role: UserRole.MEMBER,
+          departmentId: deptId,
+          levelId: null,
+        },
+      })
+    ).rejects.toThrow();
+  });
+
+  it("creates ADMIN with null matric number, department, and level", async () => {
+    const admin = await prisma.user.create({
+      data: {
+        fullName: "YABATECH Management",
+        email: "management@yabatech.edu.ng",
+        matricNumber: null,
+        passwordHash: "$2b$10$placeholder",
+        role: UserRole.ADMIN,
+        departmentId: null,
+        levelId: null,
+      },
+    });
+
+    expect(admin.role).toBe(UserRole.ADMIN);
+    expect(admin.matricNumber).toBeNull();
+    expect(admin.departmentId).toBeNull();
+    expect(admin.levelId).toBeNull();
+  });
+
+  it("ADMIN does not require a MemberVerification", async () => {
+    const admin = await prisma.user.create({
+      data: {
+        fullName: "YABATECH Management",
+        email: "admin-noverify@yabatech.edu.ng",
+        matricNumber: null,
+        passwordHash: "$2b$10$placeholder",
+        role: UserRole.ADMIN,
+        departmentId: null,
+        levelId: null,
+      },
+    });
+
+    const verifications = await prisma.memberVerification.findMany({
+      where: { userId: admin.id },
+    });
+    expect(verifications).toHaveLength(0);
+  });
 });
 
 // ─── MemberVerification constraints ─────────────────────────────────────────

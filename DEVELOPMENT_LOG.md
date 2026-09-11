@@ -4,6 +4,189 @@ Use this file as the handoff record between Claude, Gemini, Codex, and human dev
 
 Newest entries should be added at the top.
 
+## 2026-09-11 — Milestone 1D: Admin-Compatible Identity Model
+
+### Status
+
+Complete. Successfully updated the identity schema and database to support the dedicated YABATECH Management ADMIN account without requiring fake academic data, while preserving mandatory academic identity fields for MEMBER users at both the database level (PostgreSQL CHECK constraint) and application level (Zod validation).
+
+### Completed
+
+- **Prisma Schema Update (`prisma/schema.prisma`):**
+  - Updated `User` model: `matricNumber`, `departmentId`, `department`, `levelId`, and `level` are now nullable (`String?` / `Department?` / `Level?`).
+  - Preserved required and unique `email`, required `fullName`, required `passwordHash`, and enum `role` (`MEMBER` | `ADMIN`).
+  - Preserved unique constraint on `matricNumber`.
+
+- **Database Migration (`prisma/migrations/20260911002631_admin_compatible_identity/migration.sql`):**
+  - Made `matric_number`, `department_id`, and `level_id` nullable on `User`.
+  - Added PostgreSQL CHECK constraint `User_member_academic_identity_check`:
+    ```sql
+    ALTER TABLE "User" ADD CONSTRAINT "User_member_academic_identity_check"
+      CHECK ("role" != 'MEMBER' OR ("matric_number" IS NOT NULL AND "department_id" IS NOT NULL AND "level_id" IS NOT NULL));
+    ```
+  - Successfully executed migration against `ycep_dev` and `ycep_test`.
+
+- **Application Typings & Invariants (`src/middleware/auth.middleware.ts`):**
+  - Updated `SafeUser` type definition to reflect optional relations `department?: Department | null; level?: Level | null;`.
+  - Preserved all existing member-registration Zod validation in `src/routes/registration.route.ts` requiring `matricNumber`, `departmentId`, and `levelId`.
+  - Preserved member login in `src/routes/auth.route.ts` (`GET /login`, `POST /login`) requiring matric number and password (did not weaken or change to email-or-matric).
+  - Preserved `requireActiveVerification` admin exemption (ADMIN users do not require `MemberVerification`).
+
+- **Automated Tests:**
+  - `tests/identity.test.ts`: Added 6 new database-level constraint tests:
+    1. Valid `MEMBER` with all required academic fields can be created.
+    2. Database rejects `MEMBER` missing `matricNumber` with CHECK constraint violation.
+    3. Database rejects `MEMBER` missing `departmentId` with CHECK constraint violation.
+    4. Database rejects `MEMBER` missing `levelId` with CHECK constraint violation.
+    5. `ADMIN` can be created with null `matricNumber`, `departmentId`, and `levelId`.
+    6. `ADMIN` does not require `MemberVerification`.
+  - `tests/registration.test.ts`: Added 3 tests proving member registration still strictly requires `matricNumber`, `departmentId`, and `levelId`.
+  - All existing authentication, registration, identity, database, and app test suites remain 100% passing.
+
+- **Documentation Updates:**
+  - `DECISIONS.md`: Added D-035 detailing role-differentiated academic fields and the database CHECK constraint.
+  - `YCEP_V1_SPEC.md`: Updated Section 5.1 and Section 5.6 to record role differentiation, database CHECK constraint, admin verification exemption, and Milestone 2 email auth for the admin account.
+
+### Important files created/modified
+
+- `prisma/schema.prisma` [MODIFIED]: Nullable `matricNumber`, `departmentId`, `levelId`.
+- `prisma/migrations/20260911002631_admin_compatible_identity/migration.sql` [NEW]: Migration altering columns and adding CHECK constraint.
+- `src/middleware/auth.middleware.ts` [MODIFIED]: Updated `SafeUser` type for nullable relations.
+- `tests/identity.test.ts` [MODIFIED]: Added 6 tests for academic identity CHECK constraint and ADMIN account creation.
+- `tests/registration.test.ts` [MODIFIED]: Added 3 tests verifying mandatory academic fields in member registration.
+- `DECISIONS.md` [MODIFIED]: Added D-035.
+- `YCEP_V1_SPEC.md` [MODIFIED]: Updated Section 5.1 and 5.6.
+- `DEVELOPMENT_LOG.md` [MODIFIED]: Added Milestone 1D entry.
+
+### Test results
+
+- Test runner: Vitest v3.2.7
+- 5 test suites, **67 tests passing (100% pass rate)**:
+  - `tests/auth.test.ts`: 17 tests passing
+  - `tests/registration.test.ts`: 19 tests passing (16 baseline + 3 mandatory field tests)
+  - `tests/identity.test.ts`: 27 tests passing (21 baseline + 6 identity constraint tests)
+  - `tests/app.test.ts`: 3 tests passing
+  - `tests/db.test.ts`: 1 test passing
+- Prisma validate: Environment and schema validated successfully.
+- TypeScript build (`tsc`): 0 errors.
+
+### Unresolved issues
+
+None.
+
+### Recommended next task
+
+**Milestone 2 — YABATECH Management Admin Foundation & Audit Logging**
+- Create dedicated YABATECH Management ADMIN account seeding/initialization.
+- Implement admin authorization guard (`requireAdmin`).
+- Implement admin login (`GET /admin/login`, `POST /admin/login`) with email + password.
+- Implement admin dashboard foundation (`GET /admin`).
+- Implement basic audit logging for sensitive admin actions.
+- Write automated tests for admin permissions and audit logging.
+
+---
+
+## 2026-09-10 — Milestone 1C: Login, Session Authentication & Active-Verification Guards
+
+### Status
+
+Complete. PostgreSQL-backed session authentication with express-session and connect-pg-simple, secure cookie sessions, matric-based bcrypt login, session fixation protection, requireAuth and requireActiveVerification middleware guards, and account profile view are fully implemented and verified.
+
+### Completed
+
+- **Session Infrastructure (`src/session.ts`):**
+  - Configured `express-session` with `connect-pg-simple` backed by PostgreSQL (`session` table).
+  - Session cookie configuration: `httpOnly: true`, `sameSite: "lax"`, `secure: process.env.NODE_ENV === "production"`, `name: "ycep.sid"`.
+  - Added helper `ensureSessionTable()` to guarantee the PostgreSQL session table exists across environments.
+  - Added `SESSION_SECRET` placeholder to `.env.example` (never commits real secrets).
+
+- **Authentication Routes & Controller (`src/routes/auth.route.ts`):**
+  - `GET /login`: Renders clean sign-in form; redirects already-authenticated sessions to `/account`.
+  - `POST /login`:
+    - Normalizes matric number before lookup using existing utility (`normalizeMatricNumber`).
+    - Authenticates password using bcrypt comparison against `user.passwordHash`.
+    - Returns generic error message ("Invalid matric number or password.") regardless of whether the matric number or password failed.
+    - Preserves core YCEP invariant: expired yearly verification does NOT prevent login.
+    - Regenerates session (`req.session.regenerate`) upon successful authentication to prevent session fixation attacks.
+    - Stores only the minimal identity reference (`req.session.userId`), never caching roles, verification states, or passwords in the session.
+  - `POST /logout`: Destroys server-side session and clears `ycep.sid` cookie.
+  - `GET /account`: Minimal authenticated profile page requiring `requireAuth` (accessible to expired members). Displays full name, matric number, email, role, department, level, and current academic cycle verification status.
+  - `GET /account/protected-action`: Minimal demonstration and test route guarded by both `requireAuth` and `requireActiveVerification`.
+
+- **Middleware Guards (`src/middleware/auth.middleware.ts`):**
+  - `requireAuth`:
+    - Validates active session and resolves `req.user` (excluding `passwordHash`).
+    - Redirects HTML requests to `/login`; responds with 401 Unauthorized for API/JSON requests.
+  - `requireActiveVerification`:
+    - Validates that normal members have an `ACTIVE` `MemberVerification` belonging specifically to the current `AcademicYearCycle`.
+    - Active verifications from prior/expired cycles or non-current cycles do NOT satisfy the guard.
+    - YABATECH Management `ADMIN` accounts are exempt from yearly member-verification expiry under the frozen spec.
+    - Fails safely with 503 Service Unavailable if no active academic cycle is configured.
+
+- **Views & UI (`views/login.ejs`, `views/account.ejs`, `views/protected-action.ejs`):**
+  - `views/login.ejs`: Server-rendered sign-in template with generic error alert.
+  - `views/account.ejs`: Account overview showing user identity and yearly verification status badge.
+  - `views/protected-action.ejs`: Confirmation view for actions requiring active yearly status.
+  - Updated homepage (`views/index.ejs`) with quick link to Sign In.
+
+- **Automated Tests (`tests/auth.test.ts`):**
+  - Added 17 comprehensive tests covering:
+    1. Login page rendering.
+    2. Valid matric/password login.
+    3. Matric normalization during login.
+    4. Incorrect password rejection with generic message.
+    5. Unknown matric rejection with the same generic message.
+    6. PostgreSQL session creation and persistence.
+    7. Unauthenticated access blocked from `/account` (redirect for HTML, 401 for JSON).
+    8. Authenticated access allowed to `/account`.
+    9. Logout invalidation of server-side session and cookie.
+    10. Expired member allowed to authenticate and log in.
+    11. Expired member allowed to access `/account`.
+    12. Expired member blocked by `requireActiveVerification` (403).
+    13. Active current-cycle member passes `requireActiveVerification` (200).
+    14. Active verification from an old cycle rejected by `requireActiveVerification`.
+    15. Missing current cycle fails safely with 503.
+    16. ADMIN account exempt from annual member verification expiry.
+    17. Passwords and password hashes never stored in session or rendered.
+
+### Important files created/modified
+
+- `src/session.ts` [NEW]: Express session and PostgreSQL store setup.
+- `src/middleware/auth.middleware.ts` [NEW]: `requireAuth` and `requireActiveVerification` guards.
+- `src/routes/auth.route.ts` [NEW]: Auth routes (`/login`, `/logout`, `/account`, `/account/protected-action`).
+- `views/login.ejs` [NEW]: Login page template.
+- `views/account.ejs` [NEW]: Account profile template.
+- `views/protected-action.ejs` [NEW]: Active verification demonstration view.
+- `src/app.ts` [MODIFIED]: Mounted session middleware and `authRouter`.
+- `views/index.ejs` [MODIFIED]: Added Sign In link.
+- `.env.example` [MODIFIED]: Added `SESSION_SECRET` placeholder.
+- `package.json` [MODIFIED]: Added `express-session`, `connect-pg-simple`, and typings.
+- `tests/auth.test.ts` [NEW]: 17 automated tests for authentication and guards.
+
+### Test results
+
+- Test runner: Vitest v3.2.7
+- 5 test files, **58 tests passing (100% pass rate)**:
+  - `tests/auth.test.ts`: 17 tests (login, logout, session storage, requireAuth, requireActiveVerification)
+  - `tests/registration.test.ts`: 16 tests (registration, normalization, transaction atomicity, UI)
+  - `tests/identity.test.ts`: 21 tests (identity schema constraints, partial unique index)
+  - `tests/app.test.ts`: 3 tests (health check, home, 404 handler)
+  - `tests/db.test.ts`: 1 test (PostgreSQL connectivity)
+- TypeScript build (`tsc`): Successful with 0 errors.
+
+### Unresolved issues
+
+None.
+
+### Recommended next task
+
+**Milestone 2 — YABATECH Management Admin Foundation & Audit Logging**
+- Create dedicated YABATECH Management ADMIN account seeding/initialization.
+- Implement admin authorization guard (`requireAdmin`).
+- Implement admin dashboard foundation (`GET /admin`).
+- Implement basic audit logging for sensitive admin actions.
+- Write automated tests for admin permissions and audit logging.
+
 ---
 
 ## 2026-09-10 — Milestone 1B: Member Registration & Automatic Current-Cycle Verification

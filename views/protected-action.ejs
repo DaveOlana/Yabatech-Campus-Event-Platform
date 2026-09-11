@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <h1>YABATECH Campus Events Platform</h1>
+  </header>
+  <main>
+    <div class="alert-success">
+      <h2>Protected Action Granted</h2>
+      <p>Hello <strong><%= user.fullName %></strong>. You have successfully accessed a protected action that requires an active verification for the current academic cycle.</p>
+    </div>
+
+    <% if (verification) { %>
+      <p>Verified status: <strong><%= verification.status %></strong></p>
+    <% } %>
+
+    <p style="margin-top: 1.5rem;">
+      <a href="/account">Back to My Account</a>
+    </p>
+  </main>
+  <footer>
+    <p>&copy; <%= new Date().getFullYear() %> YABATECH Campus Events Platform</p>
+  </footer>
+</body>
+</html>

@@ -121,18 +121,21 @@ Important administrative actions should be logged.
 
 # 5. Account and verification model
 
-## 5.1 Account data
+## 5.1 Account data and role differentiation
 
-A member account should contain at least:
-
+All accounts require:
 - full name;
-- matric number;
-- email;
+- email (unique);
 - password/authentication data;
-- department;
-- level;
-- verification status;
-- verification expiry/year.
+- role (`MEMBER` | `ADMIN`).
+
+Role differentiation for academic identity fields:
+- For `MEMBER` users, academic identity fields (`matricNumber`, `department`, `level`) are mandatory.
+- For `ADMIN` users (representing YABATECH Management), academic identity fields are optional and may be null.
+- This invariant is enforced at the database level using a PostgreSQL CHECK constraint:
+  `"role" != 'MEMBER' OR ("matric_number" IS NOT NULL AND "department_id" IS NOT NULL AND "level_id" IS NOT NULL)`.
+- Ordinary member login remains matric-number based (`POST /login` with matric number and password).
+- The dedicated YABATECH Management account authenticates separately using email in Milestone 2.
 
 ## 5.2 Matric number
 
@@ -187,7 +190,7 @@ This is intentional because student organizational authority may change yearly.
 
 ## 5.6 Admin continuity
 
-The YABATECH Management admin role/account remains constant and does not follow the yearly member expiry rule.
+The YABATECH Management admin role/account remains constant and does not follow the yearly member expiry rule. ADMIN users do not require `MemberVerification` records. The dedicated YABATECH Management account authenticates separately using email in Milestone 2.
 
 ---
 

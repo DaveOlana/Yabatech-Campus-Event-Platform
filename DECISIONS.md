@@ -203,6 +203,16 @@ When numeric registration-limit logic is implemented, concurrency must be handle
 
 **Decision:** The password minimum length for member registration in V1 is 8 characters.
 
+## D-035 — Admin-compatible identity model and role-differentiated academic fields
+
+**Decision:**
+- Academic identity fields (`matricNumber`, `departmentId`, `levelId`) are mandatory for `MEMBER` accounts, but optional (nullable) for `ADMIN` accounts.
+- This invariant is enforced at the database level using a PostgreSQL CHECK constraint:
+  `"role" != 'MEMBER' OR ("matric_number" IS NOT NULL AND "department_id" IS NOT NULL AND "level_id" IS NOT NULL)`
+- The dedicated YABATECH Management `ADMIN` account authenticates separately using email in Milestone 2.
+- Ordinary member login remains matric-number based (`POST /login` accepts matric number and password).
+- `ADMIN` accounts do not require a `MemberVerification` record and are permanently exempt from annual verification expiry.
+
 # How to change a decision
 
 If a decision must change:

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <h1>YABATECH Campus Events Platform</h1>
+  </header>
+  <main>
+    <h2>Sign In</h2>
+    <p>Sign in with your matric number and password.</p>
+
+    <% if (errorMessage) { %>
+      <div class="alert-error">
+        <%= errorMessage %>
+      </div>
+    <% } %>
+
+    <form action="/login" method="POST" novalidate>
+      <div class="form-group">
+        <label for="matricNumber">Matric Number</label>
+        <input
+          type="text"
+          id="matricNumber"
+          name="matricNumber"
+          value="<%= values.matricNumber || '' %>"
+          placeholder="e.g. F/ND/24/3210051"
+          required
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input
+          type="password"
+          id="password"
+          name="password"
+          required
+        >
+      </div>
+
+      <button type="submit" class="btn-primary">Sign In</button>
+    </form>
+
+    <p style="margin-top: 1.5rem; font-size: 0.9rem;">
+      New member? <a href="/register">Register here</a>
+    </p>
+    <p style="font-size: 0.9rem;">
+      <a href="/">Return to Home</a>
+    </p>
+  </main>
+  <footer>
+    <p>&copy; <%= new Date().getFullYear() %> YABATECH Campus Events Platform</p>
+  </footer>
+</body>
+</html>

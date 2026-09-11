@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <h1>YABATECH Campus Events Platform</h1>
+  </header>
+  <main>
+    <h2>My Account</h2>
+    <p>Welcome, <strong><%= user.fullName %></strong></p>
+
+    <section style="margin: 1.5rem 0; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 6px;">
+      <h3>Account Details</h3>
+      <p><strong>Full Name:</strong> <%= user.fullName %></p>
+      <p><strong>Matric Number:</strong> <%= user.matricNumber %></p>
+      <p><strong>Email:</strong> <%= user.email %></p>
+      <p><strong>Role:</strong> <%= user.role %></p>
+      <% if (user.department) { %>
+        <p><strong>Department:</strong> <%= user.department.name %> (<%= user.department.code %>)</p>
+      <% } %>
+      <% if (user.level) { %>
+        <p><strong>Level:</strong> <%= user.level.code %> — <%= user.level.label %></p>
+      <% } %>
+    </section>
+
+    <section style="margin: 1.5rem 0; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 6px;">
+      <h3>Yearly Verification Status</h3>
+      <% if (user.role === 'ADMIN') { %>
+        <p style="color: #047857; font-weight: bold;">Permanent Administrator (YABATECH Management — No Expiry)</p>
+      <% } else if (currentVerification) { %>
+        <p>
+          <strong>Status:</strong>
+          <span style="font-weight: bold; color: <%= currentVerification.status === 'ACTIVE' ? '#047857' : '#dc2626' %>;">
+            <%= currentVerification.status %>
+          </span>
+        </p>
+        <p><strong>Current Cycle:</strong> <%= currentCycle ? currentCycle.name : 'Unknown' %></p>
+        <% if (currentVerification.expiresAt) { %>
+          <p><strong>Expires:</strong> <%= new Date(currentVerification.expiresAt).toLocaleDateString() %></p>
+        <% } %>
+      <% } else { %>
+        <p style="color: #d97706; font-weight: bold;">
+          No verification record found for the current academic cycle (<%= currentCycle ? currentCycle.name : 'None' %>).
+        </p>
+      <% } %>
+    </section>
+
+    <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+      <form action="/logout" method="POST" style="display: inline;">
+        <button type="submit" class="btn-primary" style="background-color: #475569;">Log Out</button>
+      </form>
+      <a href="/" style="align-self: center; text-decoration: none; color: #047857;">Home</a>
+    </div>
+  </main>
+  <footer>
+    <p>&copy; <%= new Date().getFullYear() %> YABATECH Campus Events Platform</p>
+  </footer>
+</body>
+</html>

@@ -87,15 +87,15 @@ model User {
   id           String   @id @default(uuid())
   fullName     String
   email        String   @unique
-  matricNumber String   @unique @map("matric_number")
+  matricNumber String?  @unique @map("matric_number")
   passwordHash String   @map("password_hash")
   role         UserRole @default(MEMBER)
 
-  departmentId String     @map("department_id")
-  department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  departmentId String?     @map("department_id")
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: Restrict)
 
-  levelId String @map("level_id")
-  level   Level  @relation(fields: [levelId], references: [id], onDelete: Restrict)
+  levelId String? @map("level_id")
+  level   Level?  @relation(fields: [levelId], references: [id], onDelete: Restrict)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
