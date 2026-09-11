@@ -5,6 +5,12 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     fileParallelism: false,
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        singleFork: true,
+      },
+    },
     testTimeout: 20000,
     hookTimeout: 20000,
   },

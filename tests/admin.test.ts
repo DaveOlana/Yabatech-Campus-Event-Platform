@@ -237,7 +237,9 @@ describe("Milestone 2 — Admin Bootstrapping", () => {
     });
 
     expect(secondRun.created).toBe(false);
-    expect(secondRun.reason).toBe("ADMIN_ALREADY_EXISTS");
+    if (!secondRun.created) {
+      expect(secondRun.reason).toBe("ADMIN_ALREADY_EXISTS");
+    }
 
     // Verify password hash in DB was not overwritten
     const adminInDb = await prisma.user.findUnique({ where: { email: "admin@ycep.local" } });
@@ -326,9 +328,10 @@ describe("Milestone 2 — Admin Authentication", () => {
     expect(res.text).toContain("Invalid email or password.");
 
     // Ensure no session cookie was granted
-    const cookies = res.header["set-cookie"];
-    if (cookies) {
-      const sid = cookies.find((c: string) => c.startsWith("ycep.sid="));
+    const rawCookies = res.header["set-cookie"];
+    if (rawCookies) {
+      const cookieList = Array.isArray(rawCookies) ? rawCookies : [rawCookies];
+      const sid = cookieList.find((c: string) => c.startsWith("ycep.sid="));
       expect(sid).toBeUndefined();
     }
   });
