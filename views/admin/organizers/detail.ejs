@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <h1>YABATECH Campus Events Platform</h1>
+  </header>
+  <main>
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 1rem; margin-bottom: 1.5rem;">
+      <div>
+        <h2 style="margin: 0;">Review Organizer Application</h2>
+        <p style="margin: 0.25rem 0 0 0; color: #475569;">Application ID: <code><%= application.id %></code></p>
+      </div>
+      <div>
+        <a href="/admin/organizers" class="btn-primary" style="background-color: #475569; padding: 0.5rem 1rem; text-decoration: none;">&larr; Back to Queue</a>
+      </div>
+    </div>
+
+    <% if (errorMessage) { %>
+      <div style="background-color: #fee2e2; border: 1px solid #ef4444; color: #b91c1c; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1.5rem;">
+        <%= errorMessage %>
+      </div>
+    <% } %>
+
+    <!-- Application Status Banner -->
+    <div style="padding: 1rem; border-radius: 6px; margin-bottom: 1.5rem; background-color: <%= application.status === 'APPROVED' ? '#ecfdf5' : application.status === 'PENDING' ? '#eff6ff' : '#fef2f2' %>; border: 1px solid <%= application.status === 'APPROVED' ? '#10b981' : application.status === 'PENDING' ? '#3b82f6' : '#ef4444' %>;">
+      <p style="margin: 0; font-weight: bold; font-size: 1.1rem; color: <%= application.status === 'APPROVED' ? '#065f46' : application.status === 'PENDING' ? '#1e40af' : '#991b1b' %>;">
+        Current Status: <%= application.status %>
+      </p>
+      <% if (!isCurrentCycle) { %>
+        <p style="margin: 0.5rem 0 0 0; color: #b45309; font-size: 0.9rem;">
+          ⚠️ <strong>Non-Current Cycle:</strong> This application belongs to academic cycle <em><%= application.cycle.name %></em> which is no longer current. Stale applications cannot be approved or rejected.
+        </p>
+      <% } %>
+    </div>
+
+    <!-- Applicant Academic Identity -->
+    <section style="margin-bottom: 1.5rem; padding: 1.25rem; border: 1px solid #e2e8f0; border-radius: 6px; background-color: #f8fafc;">
+      <h3 style="margin-top: 0;">Applicant Academic Identity</h3>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
+        <div>
+          <p style="margin: 0; color: #64748b; font-size: 0.85rem;">Full Name</p>
+          <p style="margin: 0.2rem 0 0 0; font-weight: bold;"><%= application.user.fullName %></p>
+        </div>
+        <div>
+          <p style="margin: 0; color: #64748b; font-size: 0.85rem;">Matric Number</p>
+          <p style="margin: 0.2rem 0 0 0; font-weight: bold;"><code><%= application.user.matricNumber %></code></p>
+        </div>
+        <div>
+          <p style="margin: 0; color: #64748b; font-size: 0.85rem;">Email</p>
+          <p style="margin: 0.2rem 0 0 0;"><%= application.user.email %></p>
+        </div>
+        <div>
+          <p style="margin: 0; color: #64748b; font-size: 0.85rem;">Department / Level</p>
+          <p style="margin: 0.2rem 0 0 0;">
+            <%= application.user.department ? application.user.department.name : '—' %> (<%= application.user.level ? application.user.level.code : '—' %>)
+          </p>
+        </div>
+        <div>
+          <p style="margin: 0; color: #64748b; font-size: 0.85rem;">Cycle Member Verification</p>
+          <p style="margin: 0.2rem 0 0 0;">
+            <% if (applicantCurrentVerification) { %>
+              <span style="font-weight: bold; color: <%= applicantCurrentVerification.status === 'ACTIVE' ? '#047857' : '#dc2626' %>;">
+                <%= applicantCurrentVerification.status %>
+              </span>
+            <% } else { %>
+              <span style="color: #dc2626; font-weight: bold;">NO RECORD FOR CYCLE</span>
+            <% } %>
+          </p>
+        </div>
+        <div>
+          <p style="margin: 0; color: #64748b; font-size: 0.85rem;">Academic Year Cycle</p>
+          <p style="margin: 0.2rem 0 0 0;"><%= application.cycle.name %></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Application Details -->
+    <section style="margin-bottom: 1.5rem; padding: 1.25rem; border: 1px solid #e2e8f0; border-radius: 6px;">
+      <h3 style="margin-top: 0;">Application Submission Details</h3>
+      <p><strong>Requested Public Organizer Name:</strong> <span style="font-size: 1.1rem; color: #047857; font-weight: bold;"><%= application.requestedPublicName %></span></p>
+      <p><strong>Contact Phone Number:</strong> <%= application.phoneNumber %></p>
+      <p><strong>Represented Organization:</strong> <%= application.organizationName || 'None stated (Individual)' %></p>
+      <p><strong>Position / Title:</strong> <%= application.positionTitle || 'None stated' %></p>
+      <div style="margin-top: 1rem;">
+        <strong>Reason for Application:</strong>
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 0.75rem; border-radius: 4px; margin-top: 0.25rem; white-space: pre-wrap;"><%= application.reason %></div>
+      </div>
+      <% if (application.evidenceUrlOrText) { %>
+        <div style="margin-top: 1rem;">
+          <strong>Supporting Evidence / Reference:</strong>
+          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 0.75rem; border-radius: 4px; margin-top: 0.25rem; white-space: pre-wrap;"><%= application.evidenceUrlOrText %></div>
+        </div>
+      <% } %>
+      <p style="font-size: 0.85rem; color: #64748b; margin-top: 1rem;">Submitted at: <%= new Date(application.createdAt).toLocaleString() %></p>
+    </section>
+
+    <!-- Review Decision Actions -->
+    <% if (application.status === 'PENDING' && isCurrentCycle) { %>
+      <section style="margin-bottom: 2rem; padding: 1.25rem; border: 2px solid #3b82f6; border-radius: 6px; background-color: #f0fdf4;">
+        <h3 style="margin-top: 0; color: #1e3a8a;">Review Decision</h3>
+        <p style="color: #475569; font-size: 0.9rem;">
+          Approve or reject this organizer application for the current academic cycle. Approval grants cycle-bound organizer authority. Rejection preserves history and allows the member to submit a fresh application.
+        </p>
+
+        <div style="display: flex; flex-direction: column; gap: 1.5rem; margin-top: 1.25rem;">
+          <!-- Approve Form -->
+          <form action="/admin/organizers/<%= application.id %>/approve" method="POST" onsubmit="return confirm('Approve this member as an authorized organizer for <%= application.cycle.name %>?');">
+            <button type="submit" class="btn-primary" style="background-color: #047857; padding: 0.6rem 1.5rem; font-size: 1rem;">
+              ✓ Approve Organizer Privileges
+            </button>
+          </form>
+
+          <hr style="border: 0; border-top: 1px solid #cbd5e1; margin: 0;">
+
+          <!-- Reject Form -->
+          <form action="/admin/organizers/<%= application.id %>/reject" method="POST" style="display: flex; flex-direction: column; gap: 0.75rem; max-width: 600px;" onsubmit="return confirm('Reject this organizer application?');">
+            <label for="adminReviewNotes" style="font-weight: bold; color: #991b1b;">
+              Reject Application with Feedback
+            </label>
+            <textarea
+              id="adminReviewNotes"
+              name="adminReviewNotes"
+              rows="3"
+              required
+              minlength="5"
+              maxlength="500"
+              placeholder="Provide reason for rejection or feedback to the applicant (required, 5-500 chars)..."
+              style="width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 4px;"
+            ></textarea>
+            <div>
+              <button type="submit" class="btn-primary" style="background-color: #dc2626; padding: 0.6rem 1.5rem;">
+                ✗ Reject Application
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
+    <% } else if (application.status !== 'PENDING') { %>
+      <section style="margin-bottom: 2rem; padding: 1.25rem; border: 1px solid #e2e8f0; border-radius: 6px; background-color: #f8fafc;">
+        <h3 style="margin-top: 0;">Decision History</h3>
+        <p><strong>Decision:</strong> <%= application.status %></p>
+        <p><strong>Reviewed At:</strong> <%= application.reviewedAt ? new Date(application.reviewedAt).toLocaleString() : '—' %></p>
+        <p><strong>Reviewer:</strong> <%= application.reviewer ? application.reviewer.fullName + ' (' + application.reviewer.email + ')' : '—' %></p>
+        <% if (application.adminReviewNotes) { %>
+          <p><strong>Reviewer Notes:</strong> <%= application.adminReviewNotes %></p>
+        <% } %>
+        <% if (application.authorization) { %>
+          <p>
+            <strong>Authorization Status:</strong>
+            <span style="font-weight: bold; color: <%= application.authorization.status === 'ACTIVE' ? '#047857' : '#dc2626' %>;">
+              <%= application.authorization.status %>
+            </span>
+          </p>
+        <% } %>
+      </section>
+    <% } %>
+
+    <p style="margin-top: 1.5rem;">
+      <a href="/admin/organizers" style="color: #047857; text-decoration: none;">&larr; Back to Applications Queue</a>
+    </p>
+  </main>
+  <footer>
+    <p>&copy; <%= new Date().getFullYear() %> YABATECH Campus Events Platform</p>
+  </footer>
+</body>
+</html>

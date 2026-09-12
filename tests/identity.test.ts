@@ -46,6 +46,8 @@ afterAll(async () => {
  * Order matters due to foreign key constraints.
  */
 beforeEach(async () => {
+  await prisma.organizerAuthorization.deleteMany();
+  await prisma.organizerApplication.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.memberVerification.deleteMany();
   await prisma.user.deleteMany();

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <h1>YABATECH Campus Events Platform</h1>
+  </header>
+  <main>
+    <h2>Apply for Organizer Privileges</h2>
+    <p>Submit an application to YABATECH Management to become an event organizer for the current academic cycle.</p>
+
+    <% if (errorMessage) { %>
+      <div style="background-color: #fee2e2; border: 1px solid #ef4444; color: #b91c1c; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1.5rem;">
+        <%= errorMessage %>
+      </div>
+    <% } %>
+
+    <section style="margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 6px; background-color: #f8fafc;">
+      <h3 style="margin-top: 0;">Applicant Identity</h3>
+      <p><strong>Member Name:</strong> <%= user.fullName %></p>
+      <p><strong>Matric Number:</strong> <%= user.matricNumber %></p>
+      <p><strong>Department:</strong> <%= user.department ? user.department.name : '—' %></p>
+      <p><strong>Level:</strong> <%= user.level ? user.level.code : '—' %></p>
+      <p><strong>Academic Cycle:</strong> <%= currentCycle ? currentCycle.name : 'Unknown' %></p>
+    </section>
+
+    <form action="/organizer/apply" method="POST" style="display: flex; flex-direction: column; gap: 1rem; max-width: 600px;">
+      <div>
+        <label for="requestedPublicName" style="display: block; font-weight: bold; margin-bottom: 0.25rem;">
+          Requested Public Organizer Name <span style="color: #dc2626;">*</span>
+        </label>
+        <p style="font-size: 0.85rem; color: #64748b; margin: 0 0 0.5rem 0;">
+          The public display identity under which events will be hosted (e.g. "NACOS YABATECH", "Engineering Students Association", or your preferred individual organizer name).
+        </p>
+        <input
+          type="text"
+          id="requestedPublicName"
+          name="requestedPublicName"
+          value="<%= values.requestedPublicName || '' %>"
+          required
+          style="width: 100%; padding: 0.5rem; border: 1px solid <%= errors.requestedPublicName ? '#dc2626' : '#cbd5e1' %>; border-radius: 4px;"
+        >
+        <% if (errors.requestedPublicName) { %>
+          <span style="color: #dc2626; font-size: 0.85rem;"><%= errors.requestedPublicName %></span>
+        <% } %>
+      </div>
+
+      <div>
+        <label for="phoneNumber" style="display: block; font-weight: bold; margin-bottom: 0.25rem;">
+          Contact Phone Number <span style="color: #dc2626;">*</span>
+        </label>
+        <p style="font-size: 0.85rem; color: #64748b; margin: 0 0 0.5rem 0;">
+          Direct contact number for verification and administrative communications.
+        </p>
+        <input
+          type="tel"
+          id="phoneNumber"
+          name="phoneNumber"
+          value="<%= values.phoneNumber || '' %>"
+          required
+          placeholder="e.g. +234 801 234 5678"
+          style="width: 100%; padding: 0.5rem; border: 1px solid <%= errors.phoneNumber ? '#dc2626' : '#cbd5e1' %>; border-radius: 4px;"
+        >
+        <% if (errors.phoneNumber) { %>
+          <span style="color: #dc2626; font-size: 0.85rem;"><%= errors.phoneNumber %></span>
+        <% } %>
+      </div>
+
+      <div>
+        <label for="organizationName" style="display: block; font-weight: bold; margin-bottom: 0.25rem;">
+          Represented Organization / Association <span style="font-weight: normal; color: #64748b;">(Optional)</span>
+        </label>
+        <input
+          type="text"
+          id="organizationName"
+          name="organizationName"
+          value="<%= values.organizationName || '' %>"
+          placeholder="e.g. NACOS YABATECH, Student Union Government"
+          style="width: 100%; padding: 0.5rem; border: 1px solid <%= errors.organizationName ? '#dc2626' : '#cbd5e1' %>; border-radius: 4px;"
+        >
+        <% if (errors.organizationName) { %>
+          <span style="color: #dc2626; font-size: 0.85rem;"><%= errors.organizationName %></span>
+        <% } %>
+      </div>
+
+      <div>
+        <label for="positionTitle" style="display: block; font-weight: bold; margin-bottom: 0.25rem;">
+          Position or Title <span style="font-weight: normal; color: #64748b;">(Optional)</span>
+        </label>
+        <input
+          type="text"
+          id="positionTitle"
+          name="positionTitle"
+          value="<%= values.positionTitle || '' %>"
+          placeholder="e.g. President, General Secretary, Event Coordinator"
+          style="width: 100%; padding: 0.5rem; border: 1px solid <%= errors.positionTitle ? '#dc2626' : '#cbd5e1' %>; border-radius: 4px;"
+        >
+        <% if (errors.positionTitle) { %>
+          <span style="color: #dc2626; font-size: 0.85rem;"><%= errors.positionTitle %></span>
+        <% } %>
+      </div>
+
+      <div>
+        <label for="reason" style="display: block; font-weight: bold; margin-bottom: 0.25rem;">
+          Reason for Requesting Organizer Access <span style="color: #dc2626;">*</span>
+        </label>
+        <textarea
+          id="reason"
+          name="reason"
+          rows="4"
+          required
+          placeholder="Describe the nature of events you plan to organize and why organizer privileges should be granted..."
+          style="width: 100%; padding: 0.5rem; border: 1px solid <%= errors.reason ? '#dc2626' : '#cbd5e1' %>; border-radius: 4px;"
+        ><%= values.reason || '' %></textarea>
+        <% if (errors.reason) { %>
+          <span style="color: #dc2626; font-size: 0.85rem;"><%= errors.reason %></span>
+        <% } %>
+      </div>
+
+      <div>
+        <label for="evidenceUrlOrText" style="display: block; font-weight: bold; margin-bottom: 0.25rem;">
+          Supporting Evidence or Reference Link <span style="font-weight: normal; color: #64748b;">(Optional)</span>
+        </label>
+        <textarea
+          id="evidenceUrlOrText"
+          name="evidenceUrlOrText"
+          rows="2"
+          placeholder="Reference letter text, social channel URL, or department confirmation reference..."
+          style="width: 100%; padding: 0.5rem; border: 1px solid <%= errors.evidenceUrlOrText ? '#dc2626' : '#cbd5e1' %>; border-radius: 4px;"
+        ><%= values.evidenceUrlOrText || '' %></textarea>
+        <% if (errors.evidenceUrlOrText) { %>
+          <span style="color: #dc2626; font-size: 0.85rem;"><%= errors.evidenceUrlOrText %></span>
+        <% } %>
+      </div>
+
+      <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+        <button type="submit" class="btn-primary" style="padding: 0.6rem 1.5rem;">Submit Application</button>
+        <a href="/account" style="align-self: center; text-decoration: none; color: #64748b;">Cancel</a>
+      </div>
+    </form>
+  </main>
+  <footer>
+    <p>&copy; <%= new Date().getFullYear() %> YABATECH Campus Events Platform</p>
+  </footer>
+</body>
+</html>

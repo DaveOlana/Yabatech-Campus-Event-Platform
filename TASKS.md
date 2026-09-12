@@ -6,61 +6,61 @@ Each milestone should end with working code, relevant tests, migration status, a
 
 # Milestone 0 — Repository Discovery & Architecture Freeze
 
-- [ ] Inspect repository structure.
-- [ ] Identify backend framework.
-- [ ] Identify frontend approach.
-- [ ] Identify database.
-- [ ] Identify existing authentication system.
-- [ ] Identify current models/schema.
-- [ ] Identify deployment/environment setup.
-- [ ] Identify test framework.
-- [ ] Compare current project with `YCEP_V1_SPEC.md`.
-- [ ] List conflicts/gaps.
-- [ ] Propose implementation architecture.
-- [ ] Freeze the stack before major implementation.
+- [x] Inspect repository structure.
+- [x] Identify backend framework.
+- [x] Identify frontend approach.
+- [x] Identify database.
+- [x] Identify existing authentication system.
+- [x] Identify current models/schema.
+- [x] Identify deployment/environment setup.
+- [x] Identify test framework.
+- [x] Compare current project with `YCEP_V1_SPEC.md`.
+- [x] List conflicts/gaps.
+- [x] Propose implementation architecture.
+- [x] Freeze the stack before major implementation.
 
 **Exit condition:** Team understands the existing codebase and agrees how YCEP V1 will be implemented.
 
 # Milestone 1 — Core Identity
 
-- [ ] User registration.
-- [ ] Unique matric number.
-- [ ] Full name.
-- [ ] Email.
-- [ ] Department.
-- [ ] Level.
-- [ ] Password/login/logout.
-- [ ] Verification status.
-- [ ] Verification expiry/year.
-- [ ] Expired-verification guards.
-- [ ] Account history survives expiry.
+- [x] User registration.
+- [x] Unique matric number.
+- [x] Full name.
+- [x] Email.
+- [x] Department.
+- [x] Level.
+- [x] Password/login/logout.
+- [x] Verification status.
+- [x] Verification expiry/year.
+- [x] Expired-verification guards.
+- [x] Account history survives expiry.
 
 Tests:
 
-- [ ] duplicate matric rejected;
-- [ ] expired account cannot perform protected actions;
-- [ ] expired account can still access permitted history/login;
-- [ ] passwords stored securely.
+- [x] duplicate matric rejected;
+- [x] expired account cannot perform protected actions;
+- [x] expired account can still access permitted history/login;
+- [x] passwords stored securely.
 
 # Milestone 2 — Admin Foundation
 
-- [ ] YABATECH Management admin role/account.
-- [ ] Admin dashboard foundation.
-- [ ] Admin-only authorization guard.
-- [ ] Basic audit logging for sensitive actions.
+- [x] YABATECH Management admin role/account.
+- [x] Admin dashboard foundation.
+- [x] Admin-only authorization guard.
+- [x] Basic audit logging for sensitive actions.
 
 # Milestone 3 — Organizer Verification
 
-- [ ] Organizer application model/form.
-- [ ] Requested public organizer name.
-- [ ] Optional represented organization.
-- [ ] Position/role.
-- [ ] Reason/evidence fields.
-- [ ] Pending organizer queue.
-- [ ] Admin approve/reject.
-- [ ] Admin revoke.
-- [ ] Yearly organizer expiry.
-- [ ] Reapproval flow.
+- [x] Organizer application model/form.
+- [x] Requested public organizer name.
+- [x] Optional represented organization.
+- [x] Position/role.
+- [x] Reason/evidence fields.
+- [x] Pending organizer queue.
+- [x] Admin approve/reject.
+- [x] Admin revoke.
+- [x] Yearly organizer expiry.
+- [x] Reapproval flow.
 
 # Milestone 4 — Event Foundation
 

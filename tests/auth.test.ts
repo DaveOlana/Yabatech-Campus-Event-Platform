@@ -67,6 +67,8 @@ afterAll(async () => {
 beforeEach(async () => {
   // Clean all data in proper foreign key order
   await pool.query('DELETE FROM "session"');
+  await prisma.organizerAuthorization.deleteMany();
+  await prisma.organizerApplication.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.memberVerification.deleteMany();
   await prisma.user.deleteMany();

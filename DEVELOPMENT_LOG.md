@@ -4,6 +4,156 @@ Use this file as the handoff record between Claude, Gemini, Codex, and human dev
 
 Newest entries should be added at the top.
 
+## 2026-09-11 — Milestone 3: Organizer Verification Foundation
+
+### Status
+
+Complete. Implemented the Organizer Verification Foundation for YCEP according to the frozen specifications in `YCEP_V1_SPEC.md` and `AGENTS.md`. Established the dual-entity model separating `OrganizerApplication` from `OrganizerAuthorization`, enforced at most one pending application per member per cycle via a PostgreSQL partial unique index, derived current-cycle expiry, implemented transactional admin review with row-level locking (`SELECT ... FOR UPDATE`), added transactional audit logging, created the live `requireOrganizer` authorization guard, added member application and status views, added admin queue, detail review, and revocation workflows, and authored 32 automated organizer tests proving full contract compliance (124 total tests passing with 0 failures across the test suite).
+
+### Completed
+
+- **Database Schema & Relational Architecture (`prisma/schema.prisma`):**
+  - Added enums `OrganizerApplicationStatus` (`PENDING`, `APPROVED`, `REJECTED`) and `OrganizerAuthorizationStatus` (`ACTIVE`, `REVOKED`, `EXPIRED`).
+  - Added `OrganizerApplication` model storing full applicant responses (`requestedPublicName`, `phoneNumber`, `organizationName`, `positionTitle`, `reason`, `evidenceUrlOrText`) and admin review details (`reviewedAt`, `reviewedByAdminId`, `adminReviewNotes`). Public organizer identity (`requestedPublicName`) and represented organization (`organizationName`) are maintained as strictly separate concepts.
+  - Added `OrganizerAuthorization` model representing the granted capability for the academic cycle with `approvedPublicName` copied directly from `requestedPublicName`, composite unique key `@@unique([userId, cycleId])`, and revocation fields (`revokedAt`, `revocationReason`).
+  - Added relations on `User` and `AcademicYearCycle` with `onDelete: Restrict` to preserve historical integrity.
+
+- **Migration with Custom Partial Unique Index (`prisma/migrations/20260911144215_organizer_verification_foundation/migration.sql`):**
+  - Scaffolded migration and added custom PostgreSQL partial unique index:
+    ```sql
+    CREATE UNIQUE INDEX "OrganizerApplication_one_pending_per_cycle"
+    ON "OrganizerApplication" ("user_id", "cycle_id")
+    WHERE "status" = 'PENDING';
+    ```
+  - Applied migration to development database (`ycep_dev`) and test database (`ycep_test`).
+  - Regenerated Prisma Client v7.10.0.
+
+- **Audit Logging Subsystem (`src/services/audit.service.ts`):**
+  - Extended `AUDIT_ACTIONS` with `ORGANIZER_APPLICATION_APPROVED`, `ORGANIZER_APPLICATION_REJECTED`, and `ORGANIZER_AUTHORIZATION_REVOKED`.
+  - Transactional invariant enforced: All admin review and revocation mutations record audit logs within the same database transaction; audit failure triggers total transaction rollback.
+
+- **Validation Schemas (`src/validators/organizer.validator.ts`):**
+  - `organizerApplicationSchema`: Validates `requestedPublicName` (trimmed, 2–100 chars), `phoneNumber` (trimmed, 7–20 chars, regex `/^[0-9+\s\-()]+$/`), optional `organizationName` (trimmed, max 150 chars), optional `positionTitle` (trimmed, max 100 chars), `reason` (trimmed, 10–1000 chars), and optional `evidenceUrlOrText` (trimmed, max 1000 chars).
+  - `adminRejectApplicationSchema`: Validates `adminReviewNotes` (required, trimmed, min 5, max 500 chars).
+  - `adminRevokeAuthorizationSchema`: Validates `revocationReason` (required, trimmed, min 5, max 500 chars).
+
+- **Organizer Domain Service (`src/services/organizer.service.ts`):**
+  - Domain error classes: `OrganizerEligibilityError` (403), `OrganizerConflictError` (409), `OrganizerNotFoundError` (404), `OrganizerInvalidStateError` (400).
+  - `submitOrganizerApplication`: Validates current cycle, active member verification, duplicate pending checks, and prevents application if an authorization already exists in that cycle.
+  - `getMemberOrganizerStatus`: Retrieves current cycle, active authorization, and latest application history.
+  - `getAdminPendingOrganizerApplications`: Lists pending applications ordered by submission date.
+  - `getAdminOrganizerApplicationDetail`: Fetches full application and applicant academic history.
+  - `approveOrganizerApplication`: Row-level locking via `SELECT ... FOR UPDATE` in interactive transaction; verifies current cycle currency and active applicant verification; creates `OrganizerAuthorization` copying `requestedPublicName` into `approvedPublicName`; writes `ORGANIZER_APPLICATION_APPROVED` audit log.
+  - `rejectOrganizerApplication`: Row-level locking via `SELECT ... FOR UPDATE`; rejects pending application requiring feedback notes (min 5 chars); writes `ORGANIZER_APPLICATION_REJECTED` audit log.
+  - `revokeOrganizerAuthorization`: Row-level locking via `SELECT ... FOR UPDATE`; updates status to `REVOKED` with timestamp and reason; preserves historical application record; writes `ORGANIZER_AUTHORIZATION_REVOKED` audit log.
+
+- **Authorization Guard & Middleware (`src/middleware/auth.middleware.ts`):**
+  - Extended `Express.Request` type with `organizerAuthorization?: OrganizerAuthorization`.
+  - `requireOrganizer`: Checks live database state on every request; enforces active member verification in current cycle; strictly rejects ADMIN users (ADMIN is not an organizer); attaches authorization to request context.
+
+- **Routes & Views:**
+  - `src/routes/organizer.route.ts`: Member application flow (`GET /organizer/apply`, `POST /organizer/apply`, `GET /organizer/status`). No test-only endpoints exposed in production routes.
+  - `src/routes/admin.route.ts`: Admin organizer review and revocation endpoints (`GET /admin/organizers`, `GET /admin/organizers/:applicationId`, `POST /admin/organizers/:applicationId/approve`, `POST /admin/organizers/:applicationId/reject`, `POST /admin/organizer-authorizations/:authorizationId/revoke`).
+  - Server-rendered EJS templates:
+    - `views/organizer/apply.ejs`: Application form with input guidance and validation error display for all frozen fields.
+    - `views/organizer/status.ejs`: Comprehensive status dashboard showing active capability, pending applications, or past rejection feedback with reapply actions.
+    - `views/admin/organizers/index.ejs`: Admin queue of pending applications.
+    - `views/admin/organizers/detail.ejs`: Application review page with applicant academic profile, requested public name vs organization separation, and inline approve/reject modal forms.
+  - Navigation updates: Added Organizer links to `views/account.ejs` and `views/admin/dashboard.ejs`.
+  - App integration: Mounted `organizerRouter` in `src/app.ts`.
+
+- **Automated Tests (`tests/organizer.test.ts`):**
+  - 32 automated tests covering:
+    1. ADMIN account cannot apply for organizer capability.
+    2. Member with inactive or expired verification cannot apply (403).
+    3. Active current-cycle member applies successfully.
+    4. Duplicate PENDING application in same cycle is rejected (409).
+    5. REJECTED application permits submitting a fresh application in the same cycle while preserving history.
+    6. ACTIVE authorization blocks submitting another application in that cycle.
+    7. REVOKED authorization blocks reapplication in that cycle.
+    8. Phone number format validation.
+    9. Admin approves PENDING application and creates ACTIVE authorization copying `requestedPublicName` into `approvedPublicName`.
+    10. Admin rejects PENDING application with feedback notes without creating authorization.
+    11. Duplicate approval fails safely.
+    12. Rejecting an already approved application fails.
+    13. Stale application from prior cycle cannot be reviewed or approved.
+    14. Member whose verification expires/deactivates after applying cannot be approved.
+    15. Concurrent review race conditions (approve vs reject) handled safely via row-level locks.
+    16. Admin revokes ACTIVE authorization with reason while preserving original application.
+    17. Revocation requires reason of at least 5 characters.
+    18. `requireOrganizer` accepts valid active organizer.
+    19. `requireOrganizer` rejects member without organizer authorization (403).
+    20. `requireOrganizer` rejects organizer whose yearly verification has expired or changed.
+    21. `requireOrganizer` rejects ADMIN accounts.
+    22. Unauthenticated requests to organizer routes redirect to `/login`.
+    23. Simulated audit log failure inside approval transaction safely rolls back state mutations.
+    24. Status view renders application history and reapply button when rejected.
+    25. Admin queue displays pending applications.
+    26. Requested public name stored separately from represented organization.
+    27. Application with no organization permitted (`organizationName === null`).
+    28. Approval copies `requestedPublicName` to `approvedPublicName`.
+    29. Statement of reason length enforced (min 10 chars).
+    30. Supporting evidence URL or text stored correctly.
+    31. Admin rejection requires feedback notes (min 5 chars).
+    32. Production router does not expose `GET /organizer/test-protected` (returns 404).
+  - Updated teardowns in `tests/admin.test.ts`, `tests/auth.test.ts`, `tests/identity.test.ts`, and `tests/registration.test.ts` to cleanly remove authorizations and applications in foreign key order.
+
+- **Governance & Specification Updates:**
+  - `DECISIONS.md`: Added decisions D-040 to D-043.
+  - `YCEP_V1_SPEC.md`: Updated Section 6 with frozen application and authorization contract.
+  - `TASKS.md`: Verified Milestone 3 checklist.
+
+### Important files created/modified
+
+- `prisma/schema.prisma` [MODIFIED]: Added `OrganizerApplication`, `OrganizerAuthorization`, and corresponding enums.
+- `prisma/migrations/20260911144215_organizer_verification_foundation/migration.sql` [NEW]: Migration with partial unique index for pending applications.
+- `src/validators/organizer.validator.ts` [NEW]: Zod validation schemas.
+- `src/services/organizer.service.ts` [NEW]: Transactional organizer domain service.
+- `src/services/audit.service.ts` [MODIFIED]: Added organizer audit action constants.
+- `src/middleware/auth.middleware.ts` [MODIFIED]: Added `requireOrganizer` guard and updated `Express.Request` typing.
+- `src/routes/organizer.route.ts` [NEW]: Member organizer routes.
+- `src/routes/admin.route.ts` [MODIFIED]: Admin organizer review and revocation endpoints.
+- `src/app.ts` [MODIFIED]: Mounted `organizerRouter`.
+- `views/organizer/apply.ejs` [NEW]: Application form view.
+- `views/organizer/status.ejs` [NEW]: Status and history view.
+- `views/admin/organizers/index.ejs` [NEW]: Admin pending queue view.
+- `views/admin/organizers/detail.ejs` [NEW]: Admin review detail view.
+- `views/account.ejs` [MODIFIED]: Added Organizer link.
+- `views/admin/dashboard.ejs` [MODIFIED]: Added Organizer Applications link.
+- `tests/organizer.test.ts` [NEW]: 32 comprehensive automated tests.
+- `tests/admin.test.ts`, `tests/auth.test.ts`, `tests/identity.test.ts`, `tests/registration.test.ts` [MODIFIED]: Updated table cleanup teardown order.
+- `DECISIONS.md` [MODIFIED]: Added decisions D-040 to D-043.
+- `YCEP_V1_SPEC.md` [MODIFIED]: Updated Section 6.
+- `TASKS.md` [MODIFIED]: Marked Milestones 0–3 as completed.
+- `DEVELOPMENT_LOG.md` [MODIFIED]: Added Milestone 3 log entry.
+
+### Test results
+
+- Test runner: Vitest v3.2.7
+- 7 test files, **124 tests passing (100% pass rate)**:
+  - `tests/organizer.test.ts`: 32 tests passing
+  - `tests/registration.test.ts`: 19 tests passing
+  - `tests/identity.test.ts`: 27 tests passing
+  - `tests/admin.test.ts`: 25 tests passing
+  - `tests/auth.test.ts`: 17 tests passing
+  - `tests/app.test.ts`: 3 tests passing
+  - `tests/db.test.ts`: 1 test passing
+- TypeScript compilation (`tsc`): 0 errors.
+
+### Unresolved issues
+
+None.
+
+### Recommended next task
+
+**Milestone 4 — Event Foundation**
+- Define `Event`, `EventCategory`, `EventTargetDepartment`, `EventTargetLevel`, `EventEligibleDepartment`, `EventEligibleLevel`, and co-organizer models in `prisma/schema.prisma`.
+- Ensure independent relational modeling for recommended target audience vs registration eligibility per `YCEP_V1_SPEC.md`.
+- Implement draft event creation and editing for authorized organizers.
+- Enforce that fundamental event changes return the event to a review state.
+
+---
+
 ## 2026-09-11 — Milestone 2: YABATECH Management Admin Foundation & Audit Logging
 
 ### Status

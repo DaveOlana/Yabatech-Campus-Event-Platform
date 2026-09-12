@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { User, MemberVerification, Department, Level } from "@prisma/client";
+import { User, MemberVerification, Department, Level, OrganizerAuthorization } from "@prisma/client";
 import { prisma } from "../db.js";
 
 export type SafeUser = Omit<User, "passwordHash"> & {
@@ -12,6 +12,7 @@ declare global {
     interface Request {
       user?: SafeUser;
       verification?: MemberVerification;
+      organizerAuthorization?: OrganizerAuthorization;
     }
   }
 }
@@ -225,3 +226,160 @@ async function evaluateActiveVerification(
     next(error);
   }
 }
+
+/**
+ * Middleware: requireOrganizer
+ * Requires:
+ * 1. Authenticated session with live User having role === 'MEMBER'.
+ *    (ADMIN is NOT an organizer; fails with 403 Forbidden).
+ * 2. Current AcademicYearCycle configured.
+ * 3. Member has ACTIVE MemberVerification for the exact current cycle.
+ * 4. Member has an OrganizerAuthorization for the exact current cycle.
+ * 5. Stored OrganizerAuthorization.status === 'ACTIVE'.
+ *
+ * Prior-cycle authorizations fail (derived EXPIRED).
+ * REVOKED authorizations fail.
+ * EXPIRED authorizations fail.
+ * Attaches req.organizerAuthorization upon success.
+ */
+export async function requireOrganizer(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  const jsonExpected = isJsonRequest(req);
+
+  // 1. Ensure user is authenticated
+  if (!req.session || !req.session.userId) {
+    if (jsonExpected) {
+      res.status(401).json({ success: false, message: "Authentication required" });
+      return;
+    }
+    res.redirect("/login");
+    return;
+  }
+
+  try {
+    // 2. Fetch live user
+    const user = await prisma.user.findUnique({
+      where: { id: req.session.userId },
+      include: { department: true, level: true },
+    });
+
+    if (!user) {
+      req.session.destroy(() => {});
+      if (jsonExpected) {
+        res.status(401).json({ success: false, message: "User account not found" });
+        return;
+      }
+      res.redirect("/login");
+      return;
+    }
+
+    const { passwordHash: _, ...safeUser } = user;
+    req.user = safeUser;
+
+    // 3. ADMIN cannot be an organizer (Organizer is a MEMBER-only capability)
+    if (user.role !== "MEMBER") {
+      if (jsonExpected) {
+        res.status(403).json({
+          success: false,
+          message: "Forbidden: Organizer capability is exclusive to verified MEMBER accounts.",
+        });
+        return;
+      }
+      res.status(403).render("error", {
+        title: "Access Forbidden — YCEP",
+        message: "Forbidden: Administrative management accounts do not hold organizer capabilities.",
+      });
+      return;
+    }
+
+    // 4. Current AcademicYearCycle must exist
+    const currentCycle = await prisma.academicYearCycle.findFirst({
+      where: { isCurrent: true },
+    });
+
+    if (!currentCycle) {
+      if (jsonExpected) {
+        res.status(503).json({
+          success: false,
+          message: "No active academic cycle is configured. Action unavailable.",
+        });
+        return;
+      }
+      res.status(503).render("error", {
+        title: "Service Unavailable — YCEP",
+        message: "No active academic cycle is currently configured. Action unavailable.",
+      });
+      return;
+    }
+
+    // 5. Member must have ACTIVE MemberVerification for this exact current cycle
+    const verification = await prisma.memberVerification.findUnique({
+      where: {
+        userId_cycleId: {
+          userId: user.id,
+          cycleId: currentCycle.id,
+        },
+      },
+    });
+
+    if (!verification || verification.status !== "ACTIVE") {
+      if (jsonExpected) {
+        res.status(403).json({
+          success: false,
+          message: "Active member verification for the current academic cycle is required.",
+        });
+        return;
+      }
+      res.status(403).render("error", {
+        title: "Active Verification Required — YCEP",
+        message:
+          "Your member verification is inactive or expired. Active member verification is required for organizer actions.",
+      });
+      return;
+    }
+
+    req.verification = verification;
+
+    // 6. Query live OrganizerAuthorization for current cycle
+    const authorization = await prisma.organizerAuthorization.findUnique({
+      where: {
+        userId_cycleId: {
+          userId: user.id,
+          cycleId: currentCycle.id,
+        },
+      },
+    });
+
+    if (!authorization || authorization.status !== "ACTIVE") {
+      const statusReason = !authorization
+        ? "You do not have an approved organizer authorization for the current academic cycle."
+        : authorization.status === "REVOKED"
+        ? "Your organizer authorization for this academic cycle has been revoked."
+        : "Your organizer authorization has expired.";
+
+      if (jsonExpected) {
+        res.status(403).json({
+          success: false,
+          message: statusReason,
+          authorizationStatus: authorization?.status || "NONE",
+        });
+        return;
+      }
+
+      res.status(403).render("error", {
+        title: "Organizer Privilege Required — YCEP",
+        message: statusReason,
+      });
+      return;
+    }
+
+    req.organizerAuthorization = authorization;
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+

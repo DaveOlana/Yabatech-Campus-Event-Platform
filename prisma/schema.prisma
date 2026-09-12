@@ -31,6 +31,20 @@ enum LevelCode {
   HND2
 }
 
+/// Status of an organizer application submitted by a member.
+enum OrganizerApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// Status of an organizer authorization granted to a member for an academic cycle.
+enum OrganizerAuthorizationStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
 // ─── Department ───────────────────────────────────────────────────────────────
 
 /// Academic department at YABATECH.
@@ -76,13 +90,15 @@ model AcademicYearCycle {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  verifications MemberVerification[]
+  verifications           MemberVerification[]
+  organizerApplications   OrganizerApplication[]
+  organizerAuthorizations OrganizerAuthorization[]
 }
 
 // ─── User ─────────────────────────────────────────────────────────────────────
 
 /// A YCEP account. May be a normal MEMBER or an ADMIN.
-/// Organizer capability is handled separately (future milestone).
+/// Organizer capability is handled separately via OrganizerAuthorization.
 model User {
   id           String   @id @default(uuid())
   fullName     String
@@ -100,8 +116,11 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  verifications MemberVerification[]
-  auditLogs     AuditLog[]
+  verifications                 MemberVerification[]
+  auditLogs                     AuditLog[]
+  organizerApplications         OrganizerApplication[]   @relation("ApplicantOrganizerApplications")
+  reviewedOrganizerApplications OrganizerApplication[]   @relation("ReviewedOrganizerApplications")
+  organizerAuthorizations       OrganizerAuthorization[]
 }
 
 // ─── MemberVerification ───────────────────────────────────────────────────────
@@ -148,3 +167,62 @@ model AuditLog {
   @@index([action])
   @@index([createdAt])
 }
+
+// ─── OrganizerApplication ─────────────────────────────────────────────────────
+
+/// Historical record of a member's application to receive organizer privileges
+/// for a specific academic cycle.
+model OrganizerApplication {
+  id                  String                     @id @default(uuid())
+  userId              String                     @map("user_id")
+  user                User                       @relation("ApplicantOrganizerApplications", fields: [userId], references: [id], onDelete: Restrict)
+  cycleId             String                     @map("cycle_id")
+  cycle               AcademicYearCycle          @relation(fields: [cycleId], references: [id], onDelete: Restrict)
+  requestedPublicName String                     @map("requested_public_name")
+  phoneNumber         String                     @map("phone_number")
+  organizationName    String?                    @map("organization_name")
+  positionTitle       String?                    @map("position_title")
+  reason              String
+  evidenceUrlOrText   String?                    @map("evidence_url_or_text")
+  status              OrganizerApplicationStatus @default(PENDING)
+  adminReviewNotes    String?                    @map("admin_review_notes")
+  reviewedAt          DateTime?                  @map("reviewed_at")
+  reviewerUserId      String?                    @map("reviewer_user_id")
+  reviewer            User?                      @relation("ReviewedOrganizerApplications", fields: [reviewerUserId], references: [id], onDelete: Restrict)
+  createdAt           DateTime                   @default(now()) @map("created_at")
+  updatedAt           DateTime                   @updatedAt @map("updated_at")
+
+  authorization OrganizerAuthorization?
+
+  @@index([userId])
+  @@index([cycleId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ─── OrganizerAuthorization ───────────────────────────────────────────────────
+
+/// Cycle-bound organizer capability granted by YABATECH Management to an active MEMBER.
+/// Only one authorization per member per academic cycle.
+model OrganizerAuthorization {
+  id                 String                       @id @default(uuid())
+  userId             String                       @map("user_id")
+  user               User                         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  cycleId            String                       @map("cycle_id")
+  cycle              AcademicYearCycle            @relation(fields: [cycleId], references: [id], onDelete: Restrict)
+  applicationId      String                       @unique @map("application_id")
+  application        OrganizerApplication         @relation(fields: [applicationId], references: [id], onDelete: Restrict)
+  approvedPublicName String                       @map("approved_public_name")
+  status             OrganizerAuthorizationStatus @default(ACTIVE)
+  grantedAt          DateTime                     @default(now()) @map("granted_at")
+  revokedAt          DateTime?                    @map("revoked_at")
+  revocationReason   String?                      @map("revocation_reason")
+  createdAt          DateTime                     @default(now()) @map("created_at")
+  updatedAt          DateTime                     @updatedAt @map("updated_at")
+
+  @@unique([userId, cycleId])
+  @@index([userId])
+  @@index([cycleId])
+  @@index([status])
+}
+

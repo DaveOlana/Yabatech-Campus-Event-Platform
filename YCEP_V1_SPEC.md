@@ -212,27 +212,63 @@ Privileged administrative operations are tracked in an immutable, append-only `A
 
 A normal verified member may request organizer privileges.
 
-The organizer application should collect enough information for YABATECH Management to assess legitimacy.
+Organizer capability is not a separate user role. Roles remain strictly `MEMBER` and `ADMIN`. Instead, organizer is an approved, cycle-bound capability granted to a verified `MEMBER` by YABATECH Management.
 
-Suggested V1 fields:
+The architecture separates the historical application record from the granted capability.
 
-- account identity;
-- phone number;
-- requested public organizer name;
-- represented organization/association, if any;
-- position/role, if any;
-- reason for requesting organizer access;
-- supporting evidence/reference if required.
+## 6.1 Two-entity model
 
-Possible organizer application states:
+### `OrganizerApplication`
+An immutable/state-tracked historical record of an organizer request:
+- `user_id`: Reference to applicant (`MEMBER`).
+- `cycle_id`: Academic cycle in which the request was submitted.
+- `requested_public_name`: Required public display name representing the organizer identity (trimmed, 2–100 chars).
+- `phone_number`: Required contact phone number (digits, `+`, spaces, hyphens, parentheses; 7–20 chars).
+- `organization_name`: Optional represented organization, association, club, or department body (trimmed, max 150 chars). Note: Public organizer identity (`requested_public_name`) and represented organization (`organization_name`) are strictly separate concepts.
+- `position_title`: Optional title or position within the represented organization (trimmed, max 100 chars).
+- `reason`: Required statement of intent and rationale for requesting organizer privileges (trimmed, min 10, max 1000 chars).
+- `evidence_url_or_text`: Optional reference link or supporting qualification text (trimmed, max 1000 chars).
+- `status`: `PENDING`, `APPROVED`, or `REJECTED`.
+- `reviewed_at`, `reviewed_by_admin_id`: Review timestamp and admin reference.
+- `rejection_reason`: Feedback notes provided by admin if rejected (required on rejection, min 5, max 500 chars).
 
-- pending;
-- approved;
-- rejected;
-- revoked;
-- expired.
+Database invariant: Enforced via PostgreSQL partial unique index:
+`CREATE UNIQUE INDEX "OrganizerApplication_one_pending_per_cycle" ON "OrganizerApplication" ("user_id", "cycle_id") WHERE "status" = 'PENDING'`
 
-## 6.1 Public organizer identity
+### `OrganizerAuthorization`
+The active capability record granting organizer authority for a specific cycle:
+- `user_id`: Reference to authorized member.
+- `cycle_id`: Academic cycle for which authorization is valid.
+- `approved_public_name`: Approved public organizer display name, copied directly from `OrganizerApplication.requested_public_name`.
+- `status`: `ACTIVE`, `REVOKED`, or `EXPIRED`.
+- `revoked_at`, `revocation_reason`: Recorded when an admin revokes an active authorization (required on revocation, min 5, max 500 chars).
+
+Database invariant: Exactly one `OrganizerAuthorization` per member per cycle (`@@unique([userId, cycleId])`).
+
+## 6.2 Application & reapplication rules
+
+1. **Eligibility:** Only authenticated `MEMBER` users with an `ACTIVE` `MemberVerification` in the currently active `AcademicYearCycle` can submit an application.
+2. **Dedicated ADMIN Exclusion:** The dedicated `ADMIN` account cannot apply for or be granted organizer privileges.
+3. **Rejection & Reapplication:** A `REJECTED` application permits a fresh application within the same cycle, retaining all previous application records for historical audit.
+4. **Authorization Finality:** If an `OrganizerAuthorization` exists for a member in a cycle (`ACTIVE`, `REVOKED`, or `EXPIRED`), no new applications may be submitted for that cycle. Revocation is final for that academic cycle.
+
+## 6.3 Derived current-cycle expiry & authorization guard
+
+- An authorization confers authority only if its `cycleId` matches the currently active cycle (`isCurrent: true`) and the member's `MemberVerification` in that cycle is `ACTIVE`.
+- `requireOrganizer` middleware inspects live database state on every request. Stale session capabilities are not permitted.
+- Applications submitted in prior cycles cannot be reviewed or approved once the cycle rolls over.
+
+## 6.4 Concurrency, locking & transactional audit logging
+
+- Administrative review operations (`approve`, `reject`) and authorization revocations (`revoke`) execute inside PostgreSQL transactions utilizing row-level locks via `SELECT ... FOR UPDATE`.
+- Concurrent reviews resolve deterministically without race conditions or orphan state.
+- Every state mutation writes an append-only `AuditLog` entry in the same transaction:
+  - `ORGANIZER_APPLICATION_APPROVED`
+  - `ORGANIZER_APPLICATION_REJECTED`
+  - `ORGANIZER_AUTHORIZATION_REVOKED`
+- If audit logging fails, the transaction is rolled back completely.
+
+## 6.5 Public organizer identity
 
 An organizer may operate publicly as an individual, e.g. `DaveOlana`, or a recognized organization/association label, e.g. `NACOS YABATECH`.
 

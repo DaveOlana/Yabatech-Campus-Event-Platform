@@ -7,6 +7,18 @@ import {
   getRecentAuditLogs,
   AUDIT_ACTIONS,
 } from "../services/audit.service.js";
+import {
+  getAdminPendingOrganizerApplications,
+  getAdminOrganizerApplicationDetail,
+  approveOrganizerApplication,
+  rejectOrganizerApplication,
+  revokeOrganizerAuthorization,
+  OrganizerError,
+} from "../services/organizer.service.js";
+import {
+  adminRejectApplicationSchema,
+  adminRevokeAuthorizationSchema,
+} from "../validators/organizer.validator.js";
 
 export const adminRouter = Router();
 
@@ -226,3 +238,314 @@ adminRouter.get("/admin", requireAdmin, async (req: Request, res: Response, next
     next(error);
   }
 });
+
+/**
+ * GET /admin/organizers
+ * Displays the current cycle's pending organizer applications and active authorizations.
+ * Protected by requireAdmin.
+ */
+adminRouter.get(
+  "/admin/organizers",
+  requireAdmin,
+  async (req: Request, res: Response, next: NextFunction) => {
+    const user = req.user!;
+    const jsonExpected = isJsonRequest(req);
+
+    try {
+      const currentCycle = await prisma.academicYearCycle.findFirst({
+        where: { isCurrent: true },
+      });
+
+      const pendingApplications = await getAdminPendingOrganizerApplications();
+
+      let activeAuthorizations: any[] = [];
+      if (currentCycle) {
+        activeAuthorizations = await prisma.organizerAuthorization.findMany({
+          where: {
+            cycleId: currentCycle.id,
+            status: "ACTIVE",
+          },
+          include: {
+            user: {
+              include: { department: true, level: true },
+            },
+            application: true,
+          },
+          orderBy: { grantedAt: "desc" },
+        });
+      }
+
+      if (jsonExpected) {
+        res.status(200).json({
+          success: true,
+          currentCycle,
+          pendingApplications,
+          activeAuthorizations,
+        });
+        return;
+      }
+
+      res.render("admin/organizers/index", {
+        title: "Organizer Applications — YABATECH Management",
+        user,
+        currentCycle,
+        pendingApplications,
+        activeAuthorizations,
+        errorMessage: null,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * GET /admin/organizers/:applicationId
+ * Detail view of an individual organizer application for review.
+ * Protected by requireAdmin.
+ */
+adminRouter.get(
+  "/admin/organizers/:applicationId",
+  requireAdmin,
+  async (req: Request, res: Response, next: NextFunction) => {
+    const user = req.user!;
+    const jsonExpected = isJsonRequest(req);
+    const { applicationId } = req.params;
+
+    try {
+      const detail = await getAdminOrganizerApplicationDetail(applicationId);
+
+      if (jsonExpected) {
+        res.status(200).json({
+          success: true,
+          ...detail,
+        });
+        return;
+      }
+
+      res.render("admin/organizers/detail", {
+        title: `Review Application: ${detail.application.requestedPublicName} — YCEP`,
+        user,
+        ...detail,
+        errorMessage: null,
+      });
+    } catch (error) {
+      if (error instanceof OrganizerError) {
+        if (jsonExpected) {
+          res.status(error.statusCode).json({ success: false, message: error.message });
+          return;
+        }
+        res.status(error.statusCode).render("error", {
+          title: "Application Not Found — YCEP",
+          message: error.message,
+        });
+        return;
+      }
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /admin/organizers/:applicationId/approve
+ * Approves a PENDING organizer application within a concurrency-safe transaction.
+ * Protected by requireAdmin.
+ */
+adminRouter.post(
+  "/admin/organizers/:applicationId/approve",
+  requireAdmin,
+  async (req: Request, res: Response, next: NextFunction) => {
+    const user = req.user!;
+    const jsonExpected = isJsonRequest(req);
+    const { applicationId } = req.params;
+
+    try {
+      const result = await approveOrganizerApplication(user.id, applicationId);
+
+      if (jsonExpected) {
+        res.status(200).json({
+          success: true,
+          message: "Organizer application approved successfully.",
+          application: result.application,
+          authorization: result.authorization,
+        });
+        return;
+      }
+
+      res.redirect("/admin/organizers");
+    } catch (error) {
+      if (error instanceof OrganizerError) {
+        if (jsonExpected) {
+          res.status(error.statusCode).json({ success: false, message: error.message });
+          return;
+        }
+        try {
+          const detail = await getAdminOrganizerApplicationDetail(applicationId);
+          res.status(error.statusCode).render("admin/organizers/detail", {
+            title: `Review Application: ${detail.application.requestedPublicName} — YCEP`,
+            user,
+            ...detail,
+            errorMessage: error.message,
+          });
+          return;
+        } catch {
+          res.status(error.statusCode).render("error", {
+            title: "Decision Error — YCEP",
+            message: error.message,
+          });
+          return;
+        }
+      }
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /admin/organizers/:applicationId/reject
+ * Rejects a PENDING organizer application within a concurrency-safe transaction.
+ * Protected by requireAdmin.
+ */
+adminRouter.post(
+  "/admin/organizers/:applicationId/reject",
+  requireAdmin,
+  async (req: Request, res: Response, next: NextFunction) => {
+    const user = req.user!;
+    const jsonExpected = isJsonRequest(req);
+    const { applicationId } = req.params;
+
+    const parseResult = adminRejectApplicationSchema.safeParse(req.body);
+
+    if (!parseResult.success) {
+      const errorMsg =
+        parseResult.error.errors[0]?.message ||
+        "Rejection feedback notes of at least 5 characters are required.";
+      if (jsonExpected) {
+        res.status(400).json({ success: false, message: errorMsg });
+        return;
+      }
+      try {
+        const detail = await getAdminOrganizerApplicationDetail(applicationId);
+        res.status(400).render("admin/organizers/detail", {
+          title: `Review Application: ${detail.application.requestedPublicName} — YCEP`,
+          user,
+          ...detail,
+          errorMessage: errorMsg,
+        });
+        return;
+      } catch {
+        res.status(400).render("error", {
+          title: "Validation Error — YCEP",
+          message: errorMsg,
+        });
+        return;
+      }
+    }
+
+    try {
+      const application = await rejectOrganizerApplication(
+        user.id,
+        applicationId,
+        parseResult.data.adminReviewNotes
+      );
+
+      if (jsonExpected) {
+        res.status(200).json({
+          success: true,
+          message: "Organizer application rejected.",
+          application,
+        });
+        return;
+      }
+
+      res.redirect("/admin/organizers");
+    } catch (error) {
+      if (error instanceof OrganizerError) {
+        if (jsonExpected) {
+          res.status(error.statusCode).json({ success: false, message: error.message });
+          return;
+        }
+        try {
+          const detail = await getAdminOrganizerApplicationDetail(applicationId);
+          res.status(error.statusCode).render("admin/organizers/detail", {
+            title: `Review Application: ${detail.application.requestedPublicName} — YCEP`,
+            user,
+            ...detail,
+            errorMessage: error.message,
+          });
+          return;
+        } catch {
+          res.status(error.statusCode).render("error", {
+            title: "Decision Error — YCEP",
+            message: error.message,
+          });
+          return;
+        }
+      }
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /admin/organizer-authorizations/:authorizationId/revoke
+ * Revokes an existing ACTIVE organizer authorization for the current cycle.
+ * Protected by requireAdmin.
+ */
+adminRouter.post(
+  "/admin/organizer-authorizations/:authorizationId/revoke",
+  requireAdmin,
+  async (req: Request, res: Response, next: NextFunction) => {
+    const user = req.user!;
+    const jsonExpected = isJsonRequest(req);
+    const { authorizationId } = req.params;
+
+    const parseResult = adminRevokeAuthorizationSchema.safeParse(req.body);
+
+    if (!parseResult.success) {
+      const errorMsg = parseResult.error.errors[0]?.message || "Revocation reason is required.";
+      if (jsonExpected) {
+        res.status(400).json({ success: false, message: errorMsg });
+        return;
+      }
+      res.status(400).render("error", {
+        title: "Validation Error — YCEP",
+        message: errorMsg,
+      });
+      return;
+    }
+
+    try {
+      const authorization = await revokeOrganizerAuthorization(
+        user.id,
+        authorizationId,
+        parseResult.data.revocationReason
+      );
+
+      if (jsonExpected) {
+        res.status(200).json({
+          success: true,
+          message: "Organizer authorization revoked successfully.",
+          authorization,
+        });
+        return;
+      }
+
+      res.redirect("/admin/organizers");
+    } catch (error) {
+      if (error instanceof OrganizerError) {
+        if (jsonExpected) {
+          res.status(error.statusCode).json({ success: false, message: error.message });
+          return;
+        }
+        res.status(error.statusCode).render("error", {
+          title: "Revocation Error — YCEP",
+          message: error.message,
+        });
+        return;
+      }
+      next(error);
+    }
+  }
+);
+

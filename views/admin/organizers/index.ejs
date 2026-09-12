@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <h1>YABATECH Campus Events Platform</h1>
+  </header>
+  <main>
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 1rem; margin-bottom: 1.5rem;">
+      <div>
+        <h2 style="margin: 0;">Organizer Verification Management</h2>
+        <p style="margin: 0.25rem 0 0 0; color: #475569;">
+          Review applications and manage organizer authorizations for <strong><%= currentCycle ? currentCycle.name : 'No active cycle' %></strong>
+        </p>
+      </div>
+      <div>
+        <a href="/admin" class="btn-primary" style="background-color: #475569; padding: 0.5rem 1rem; text-decoration: none;">Dashboard</a>
+      </div>
+    </div>
+
+    <% if (errorMessage) { %>
+      <div style="background-color: #fee2e2; border: 1px solid #ef4444; color: #b91c1c; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1.5rem;">
+        <%= errorMessage %>
+      </div>
+    <% } %>
+
+    <!-- Pending Applications Section -->
+    <section style="margin-bottom: 2rem; padding: 1.25rem; border: 1px solid #e2e8f0; border-radius: 6px;">
+      <h3 style="margin-top: 0; display: flex; align-items: center; justify-content: space-between;">
+        <span>Actionable Pending Applications (Current Cycle)</span>
+        <span style="font-size: 0.9rem; background-color: #dbeafe; color: #1e40af; padding: 0.2rem 0.6rem; border-radius: 9999px;">
+          <%= pendingApplications.length %> Pending
+        </span>
+      </h3>
+
+      <% if (pendingApplications && pendingApplications.length > 0) { %>
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+            <thead>
+              <tr style="border-bottom: 2px solid #cbd5e1; background-color: #f1f5f9;">
+                <th style="padding: 0.5rem;">Submitted</th>
+                <th style="padding: 0.5rem;">Applicant</th>
+                <th style="padding: 0.5rem;">Matric No</th>
+                <th style="padding: 0.5rem;">Department / Level</th>
+                <th style="padding: 0.5rem;">Requested Identity</th>
+                <th style="padding: 0.5rem;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% pendingApplications.forEach(function(app) { %>
+                <tr style="border-bottom: 1px solid #e2e8f0;">
+                  <td style="padding: 0.5rem;"><%= new Date(app.createdAt).toLocaleDateString() %></td>
+                  <td style="padding: 0.5rem;"><strong><%= app.user.fullName %></strong></td>
+                  <td style="padding: 0.5rem;"><code><%= app.user.matricNumber %></code></td>
+                  <td style="padding: 0.5rem;">
+                    <%= app.user.department ? app.user.department.code : '—' %> / <%= app.user.level ? app.user.level.code : '—' %>
+                  </td>
+                  <td style="padding: 0.5rem;"><%= app.requestedPublicName %></td>
+                  <td style="padding: 0.5rem;">
+                    <a href="/admin/organizers/<%= app.id %>" class="btn-primary" style="padding: 0.3rem 0.7rem; font-size: 0.85rem; text-decoration: none;">
+                      Review Application
+                    </a>
+                  </td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } else { %>
+        <p style="color: #64748b;">No pending organizer applications awaiting review for the current cycle.</p>
+      <% } %>
+    </section>
+
+    <!-- Active Authorizations Section -->
+    <section style="margin-bottom: 2rem; padding: 1.25rem; border: 1px solid #e2e8f0; border-radius: 6px;">
+      <h3 style="margin-top: 0; display: flex; align-items: center; justify-content: space-between;">
+        <span>Active Authorizations (Current Cycle)</span>
+        <span style="font-size: 0.9rem; background-color: #d1fae5; color: #065f46; padding: 0.2rem 0.6rem; border-radius: 9999px;">
+          <%= activeAuthorizations.length %> Active
+        </span>
+      </h3>
+
+      <% if (activeAuthorizations && activeAuthorizations.length > 0) { %>
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+            <thead>
+              <tr style="border-bottom: 2px solid #cbd5e1; background-color: #f1f5f9;">
+                <th style="padding: 0.5rem;">Granted At</th>
+                <th style="padding: 0.5rem;">Approved Public Identity</th>
+                <th style="padding: 0.5rem;">Member Name</th>
+                <th style="padding: 0.5rem;">Matric No</th>
+                <th style="padding: 0.5rem;">Revoke Authority</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% activeAuthorizations.forEach(function(auth) { %>
+                <tr style="border-bottom: 1px solid #e2e8f0;">
+                  <td style="padding: 0.5rem;"><%= new Date(auth.grantedAt).toLocaleDateString() %></td>
+                  <td style="padding: 0.5rem;"><strong><%= auth.approvedPublicName %></strong></td>
+                  <td style="padding: 0.5rem;"><%= auth.user.fullName %></td>
+                  <td style="padding: 0.5rem;"><code><%= auth.user.matricNumber %></code></td>
+                  <td style="padding: 0.5rem;">
+                    <form action="/admin/organizer-authorizations/<%= auth.id %>/revoke" method="POST" style="display: flex; gap: 0.5rem; align-items: center;" onsubmit="return confirm('Are you sure you want to revoke this organizer authorization? This action is final for the current academic cycle.');">
+                      <input
+                        type="text"
+                        name="revocationReason"
+                        placeholder="Revocation reason..."
+                        required
+                        minlength="5"
+                        style="padding: 0.3rem 0.5rem; font-size: 0.85rem; border: 1px solid #cbd5e1; border-radius: 4px;"
+                      >
+                      <button type="submit" class="btn-primary" style="background-color: #dc2626; padding: 0.3rem 0.7rem; font-size: 0.85rem;">
+                        Revoke
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } else { %>
+        <p style="color: #64748b;">No active organizer authorizations currently active in this cycle.</p>
+      <% } %>
+    </section>
+
+    <p style="margin-top: 1.5rem;">
+      <a href="/admin" style="color: #047857; text-decoration: none;">&larr; Back to Management Console</a>
+    </p>
+  </main>
+  <footer>
+    <p>&copy; <%= new Date().getFullYear() %> YABATECH Campus Events Platform</p>
+  </footer>
+</body>
+</html>

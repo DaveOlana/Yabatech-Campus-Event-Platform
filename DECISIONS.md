@@ -248,8 +248,37 @@ When numeric registration-limit logic is implemented, concurrency must be handle
 - Application code must never expose update or delete operations on audit logs.
 - Audit service defensively sanitizes metadata to exclude sensitive authentication data (`password`, `passwordHash`, `session`, `cookie`, `token`).
 - `POST /admin/logout` is guarded by `requireAdmin` (members cannot generate admin audit logs).
-- Atomic session safety: if audit log creation fails during `POST /admin/login`, the session is destroyed and the user is not left in a privileged session. On logout, session destruction proceeds even if audit logging fails.
-- Frozen rule for future milestones: When an admin performs a privileged database mutation, the mutation and its audit record must be written in the same database transaction wherever practical.
+## D-040 — Separate OrganizerApplication and OrganizerAuthorization architecture
+
+**Decision:**
+- Organizer capability is modelled using two distinct entities rather than a single mutable row:
+  1. `OrganizerApplication`: An immutable/state-tracked historical record of an organizer request, containing applicant answers (`requestedPublicName`, `phoneNumber`, optional `organizationName`, optional `positionTitle`, `reason`, optional `evidenceUrlOrText`) and administrative review history (`status`, `reviewedAt`, `reviewedByAdminId`, `adminReviewNotes`). Note: Public organizer identity (`requestedPublicName`) and represented organization (`organizationName`) are strictly separate concepts.
+  2. `OrganizerAuthorization`: The active capability record granting organizer authority for a specific academic cycle (`ACTIVE`, `REVOKED`, `EXPIRED`), with `approvedPublicName` copied directly from `OrganizerApplication.requestedPublicName`.
+- Preserves complete administrative audit history: a member's application details and prior review decisions are never overwritten upon revocation or reapplication.
+
+## D-041 — Reapplication policy, partial unique pending index, and cycle revocation finality
+
+**Decision:**
+- Enforced at the database level: At most one `PENDING` `OrganizerApplication` per member per cycle via a PostgreSQL partial unique index:
+  `CREATE UNIQUE INDEX "OrganizerApplication_one_pending_per_cycle" ON "OrganizerApplication" ("user_id", "cycle_id") WHERE "status" = 'PENDING'`
+- If an application is `REJECTED`, the member is permitted to submit a new application within the same cycle, with both records retained in the database.
+- If an `OrganizerAuthorization` already exists for that user in that cycle (whether `ACTIVE`, `REVOKED`, or `EXPIRED`), no new application can be submitted for that cycle.
+- Revocation of an authorization is final for the remainder of that academic cycle.
+
+## D-042 — Derived current-cycle expiry and live organizer authorization guard
+
+**Decision:**
+- An organizer authorization only confers authority if its `cycleId` matches the currently active `AcademicYearCycle` (`isCurrent: true`) and the underlying member's `MemberVerification` in that cycle is `ACTIVE`.
+- `requireOrganizer` middleware inspects live database state on every request to ensure revoked authorizations, cycle rollovers, or deactivated member verifications immediately revoke organizer access without stale session leakage.
+- Applications submitted in prior cycles cannot be reviewed or approved once the cycle is no longer current.
+- The dedicated `ADMIN` account is not an organizer and cannot be granted or assume organizer capability.
+
+## D-043 — Transactional concurrency safety, row-level locking, and transactional audit logging
+
+**Decision:**
+- Administrative decision transitions (`approve`, `reject`) and authorization revocations (`revoke`) execute within PostgreSQL database transactions utilizing row-level locks via raw `SELECT ... FOR UPDATE`.
+- Prevents race conditions and duplicate authorization generation under concurrent administrative reviews.
+- All state-changing administrative organizer mutations (`ORGANIZER_APPLICATION_APPROVED`, `ORGANIZER_APPLICATION_REJECTED`, `ORGANIZER_AUTHORIZATION_REVOKED`) write their respective `AuditLog` records in the exact same database transaction. If the audit log fails, the entire mutation is rolled back.
 
 # How to change a decision
 
@@ -260,4 +289,5 @@ If a decision must change:
 3. update `YCEP_V1_SPEC.md`;
 4. update affected tasks/tests;
 5. record the change in `DEVELOPMENT_LOG.md`.
+
 
