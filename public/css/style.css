@@ -7,6 +7,30 @@ body {
   line-height: 1.5;
 }
 
+/* Accessible and standardized link styling (removes purple visited-link appearance) */
+a {
+  color: #047857;
+  text-decoration: none;
+}
+
+a:visited {
+  color: #047857;
+}
+
+a:hover {
+  text-decoration: underline;
+  color: #065f46;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #047857;
+  outline-offset: 2px;
+}
+
 header {
   border-bottom: 2px solid #e2e8f0;
   padding-bottom: 1rem;
@@ -27,6 +51,11 @@ main {
   max-width: 600px;
 }
 
+/* Wide layout modifier for dashboard, admin queues, and status pages */
+main.main-wide {
+  max-width: 960px;
+}
+
 footer {
   margin-top: 2rem;
   font-size: 0.875rem;
@@ -45,19 +74,23 @@ label {
 }
 
 input[type="text"],
+input[type="tel"],
 input[type="email"],
 input[type="password"],
-select {
+select,
+textarea {
   width: 100%;
   padding: 0.6rem 0.75rem;
   border: 1px solid #cbd5e1;
   border-radius: 6px;
   font-size: 1rem;
   box-sizing: border-box;
+  font-family: inherit;
 }
 
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
   outline: none;
   border-color: #047857;
   box-shadow: 0 0 0 3px rgba(4, 120, 87, 0.15);
@@ -92,25 +125,185 @@ select:focus {
   margin-bottom: 1.25rem;
 }
 
+/* Standard button styles */
 .btn-primary {
   display: inline-block;
   background-color: #047857;
-  color: #ffffff;
-  padding: 0.7rem 1.5rem;
-  border: none;
+  color: #ffffff !important;
+  padding: 0.6rem 1.25rem;
+  border: 1px solid transparent;
   border-radius: 6px;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 500;
   cursor: pointer;
-  width: 100%;
+  text-decoration: none !important;
+  text-align: center;
+  box-sizing: border-box;
+  line-height: 1.4;
+  transition: background-color 0.15s ease-in-out;
 }
 
 .btn-primary:hover {
   background-color: #065f46;
 }
 
+.btn-secondary {
+  display: inline-block;
+  background-color: #475569;
+  color: #ffffff !important;
+  padding: 0.6rem 1.25rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none !important;
+  text-align: center;
+  box-sizing: border-box;
+  line-height: 1.4;
+  transition: background-color 0.15s ease-in-out;
+}
+
+.btn-secondary:hover {
+  background-color: #334155;
+}
+
+.btn-danger {
+  display: inline-block;
+  background-color: #dc2626;
+  color: #ffffff !important;
+  padding: 0.6rem 1.25rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none !important;
+  text-align: center;
+  box-sizing: border-box;
+  line-height: 1.4;
+  transition: background-color 0.15s ease-in-out;
+}
+
+.btn-danger:hover {
+  background-color: #b91c1c;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.btn-sm {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+/* Standard status badges / pills */
+.badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  white-space: nowrap;
+}
+
+.badge-active {
+  background-color: #d1fae5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.badge-pending {
+  background-color: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+.badge-rejected {
+  background-color: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.badge-revoked {
+  background-color: #fef2f2;
+  color: #7f1d1d;
+  border: 1px solid #fca5a5;
+}
+
+.badge-expired {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+/* Responsive tables and cell handling */
+.table-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+th, td {
+  padding: 0.6rem 0.75rem;
+  text-align: left;
+}
+
+th {
+  background-color: #f1f5f9;
+  font-weight: 600;
+  color: #334155;
+  border-bottom: 2px solid #cbd5e1;
+}
+
+td {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+.cell-wrap-clamp {
+  max-width: 280px;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+.cell-truncate {
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .helper-text {
   font-size: 0.75rem;
   color: #64748b;
   margin-top: 0.25rem;
+}
+
+/* Accessibility helper */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

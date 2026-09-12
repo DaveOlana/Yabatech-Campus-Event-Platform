@@ -10,14 +10,14 @@
   <header>
     <h1>YABATECH Campus Events Platform</h1>
   </header>
-  <main>
-    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 1rem; margin-bottom: 1.5rem;">
+  <main class="main-wide">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
       <div>
         <h2 style="margin: 0;">YABATECH Management Console</h2>
         <p style="margin: 0.25rem 0 0 0; color: #475569;">Platform oversight and privileged operations</p>
       </div>
       <form action="/admin/logout" method="POST" style="margin: 0;">
-        <button type="submit" class="btn-primary" style="background-color: #dc2626; padding: 0.5rem 1rem;">Sign Out</button>
+        <button type="submit" class="btn-danger btn-sm">Sign Out</button>
       </form>
     </div>
 
@@ -25,7 +25,7 @@
       <h3 style="margin-top: 0;">Administrator Identity</h3>
       <p><strong>Name:</strong> <%= user.fullName %></p>
       <p><strong>Email:</strong> <%= user.email %></p>
-      <p><strong>Role:</strong> <span style="font-weight: bold; color: #047857;"><%= user.role %></span></p>
+      <p><strong>Role:</strong> <span class="badge badge-active"><%= user.role %></span></p>
     </section>
 
     <section style="margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 6px;">
@@ -38,7 +38,7 @@
     <section style="margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 6px;">
       <h3 style="margin-top: 0;">Management Operations</h3>
       <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-        <a href="/admin/organizers" class="btn-primary" style="padding: 0.5rem 1rem; text-decoration: none;">
+        <a href="/admin/organizers" class="btn-primary btn-sm">
           Organizer Applications Queue
         </a>
       </div>
@@ -47,23 +47,23 @@
     <section style="margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 6px;">
       <h3 style="margin-top: 0;">Recent Audit Activity</h3>
       <% if (recentAuditLogs && recentAuditLogs.length > 0) { %>
-        <div style="overflow-x: auto;">
-          <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+        <div class="table-container">
+          <table>
             <thead>
-              <tr style="border-bottom: 2px solid #cbd5e1; background-color: #f1f5f9;">
-                <th style="padding: 0.5rem;">Timestamp</th>
-                <th style="padding: 0.5rem;">Action</th>
-                <th style="padding: 0.5rem;">Actor</th>
-                <th style="padding: 0.5rem;">Target</th>
+              <tr>
+                <th>Timestamp</th>
+                <th>Action</th>
+                <th>Actor</th>
+                <th>Target</th>
               </tr>
             </thead>
             <tbody>
               <% recentAuditLogs.forEach(function(log) { %>
-                <tr style="border-bottom: 1px solid #e2e8f0;">
-                  <td style="padding: 0.5rem;"><%= new Date(log.createdAt).toLocaleString() %></td>
-                  <td style="padding: 0.5rem;"><code><%= log.action %></code></td>
-                  <td style="padding: 0.5rem;"><%= log.actor ? log.actor.email : log.actorUserId %></td>
-                  <td style="padding: 0.5rem;"><%= log.targetType ? (log.targetType + (log.targetId ? ' #' + log.targetId : '')) : '—' %></td>
+                <tr>
+                  <td><%= new Date(log.createdAt).toLocaleString() %></td>
+                  <td><code><%= log.action %></code></td>
+                  <td><%= log.actor ? log.actor.email : log.actorUserId %></td>
+                  <td><%= log.targetType ? (log.targetType + (log.targetId ? ' #' + log.targetId : '')) : '—' %></td>
                 </tr>
               <% }); %>
             </tbody>

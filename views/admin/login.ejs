@@ -28,7 +28,9 @@
           id="email"
           name="email"
           value="<%= values.email || '' %>"
-          placeholder="admin@ycep.local"
+          autocomplete="username"
+          spellcheck="false"
+          placeholder="admin@yabatech.edu.ng"
           required
         >
       </div>
@@ -39,11 +41,12 @@
           type="password"
           id="password"
           name="password"
+          autocomplete="current-password"
           required
         >
       </div>
 
-      <button type="submit" class="btn-primary" style="background-color: #0f172a;">Sign In as Administrator</button>
+      <button type="submit" class="btn-secondary btn-block">Sign In as Administrator</button>
     </form>
 
     <p style="margin-top: 1.5rem; font-size: 0.9rem;">

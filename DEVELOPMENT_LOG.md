@@ -4,7 +4,101 @@ Use this file as the handoff record between Claude, Gemini, Codex, and human dev
 
 Newest entries should be added at the top.
 
-## 2026-09-11 — Milestone 3: Organizer Verification Foundation
+## 2026-09-12 — Milestone 3: Stabilization Pass (UX, Form Semantics, UI Consistency, Responsive Admin)
+
+### Status
+
+Complete. Bounded stabilization pass successfully resolved all UX, form autofill, validation message, password behavior, UI consistency, responsive table, and copy accuracy issues without modifying core Milestone 3 business rules or database migrations. All 128 automated tests passing across all 7 test suites, TypeScript build passes with 0 errors, and Prisma migrations remain clean.
+
+### Completed
+
+- **Registration → Login Identity & Autofill (Root Cause & Fix):**
+  - Root Cause: In `views/register.ejs`, `fullName` preceded the password input without `autocomplete="name"`, while `matricNumber` lacked `autocomplete="username"`. Browsers (Chrome/Edge) heuristically inferred `fullName` as the credential username for the saved password. On `/login`, `matricNumber` lacked `autocomplete="username"`, so the browser autofilled the saved name (`DaveOlana`) into the matric number field.
+  - Fix: Configured `autocomplete="username"` and `autocapitalize="characters"` on the login matric number input, `autocomplete="name"` on registration full name, and `autocomplete="username"` on registration matric number. Verified that matric number remains the sole login identifier and that `fullName` is never passed or accepted into the matric login field. Added automated regression tests in `tests/registration.test.ts` and `tests/auth.test.ts`.
+
+- **Registration Validation & Error State (Root Cause & Fix):**
+  - Root Cause: In `src/validators/registration.validator.ts`, `z.string().trim().min(2, "Full name must be at least 2 characters")` evaluated an empty submission (`""`) to length 0 and produced the misleading error message `"Full name must be at least 2 characters"`. If an empty form was submitted and the server returned this 400 error, browser form restoration or autofill repopulated the user's name (`DaveOlana`) into the field client-side over the static server-rendered error message, creating a contradiction.
+  - Fix: Added `.min(1, "Full name is required")` before `.min(2, "Full name must be at least 2 characters")`. Added client-side listener in `views/register.ejs` to dynamically clear error styling and error badges upon user editing. Added unit tests for empty vs short vs valid names.
+
+- **Password Field Security & Autofill Semantics:**
+  - Audited all password fields across member registration, member login, and admin login.
+  - Confirmed all password inputs are `type="password"`.
+  - Confirmed password values are never re-rendered after validation failures.
+  - Applied explicit `autocomplete="new-password"` for registration and `autocomplete="current-password"` for login forms.
+  - Verified passwords/hashes are never exposed in HTML, session state, logs, or redirects.
+
+- **Form Autofill Semantics Audit:**
+  - Standardized `name`, `id`, and `autocomplete` attributes across member registration, member login, admin login, and organizer application forms (`autocomplete="name"`, `autocomplete="username"`, `autocomplete="email"`, `autocomplete="tel"`, `autocomplete="organization"`, `autocomplete="organization-title"`).
+
+- **UI Consistency Pass:**
+  - Removed browser-default purple visited links (`a:visited` styled with emerald theme color).
+  - Added visible, accessible `:focus-visible` focus rings (`outline: 2px solid var(--primary); outline-offset: 2px`).
+  - Standardized buttons: `.btn-primary`, `.btn-secondary`, `.btn-danger`, `.btn-sm`, and `.btn-block`.
+  - Standardized status badges: `.badge-active`, `.badge-pending`, `.badge-rejected`, `.badge-revoked`, `.badge-expired`.
+
+- **Admin Organizer Responsive & Usability Enhancements:**
+  - Wrapped tables in responsive `.table-container` with horizontal overflow handling.
+  - Added `.cell-wrap-clamp` with `max-width: 280px` to prevent long Management rejection notes from ballooning table rows.
+  - Labeled revocation reason control with `<label class="sr-only">` and minimum 200px width.
+  - Neutralized the review decision container background (`#f8fafc`) in `views/admin/organizers/detail.ejs` to avoid falsely framing rejection within a green positive container.
+
+- **Copy Accuracy:**
+  - Clarified Milestone 3 copy to eliminate false promises of unbuilt Milestone 4 functionality (updated text claiming approved organizers can already create/host/manage events to reflect eligibility to propose and coordinate events once event workflows open).
+
+- **Automated Tests:**
+  - Added 4 new tests in `tests/registration.test.ts` for semantic autocomplete attributes, empty fullName validation, short fullName validation, and valid names.
+  - Updated `tests/auth.test.ts` to assert semantic autocomplete attributes on the login form.
+  - Total test count increased from 124 to 128 tests, all passing.
+
+### Important files modified
+
+- `public/css/style.css`: Standardized links, focus rings, buttons, badges, table containers, cell clamping.
+- `src/validators/registration.validator.ts`: Added required check before length check for `fullName`.
+- `views/register.ejs`: Semantic autocomplete attributes and client-side error clearing on input.
+- `views/login.ejs`: Semantic autocomplete (`username`, `current-password`), capitalization, spellcheck.
+- `views/admin/login.ejs`: Autocomplete and button standardization.
+- `views/organizer/apply.ejs`: Autocomplete attributes and copy adjustments.
+- `views/organizer/status.ejs`: Responsive table container, note clamping, badge standardization, copy adjustments.
+- `views/admin/organizers/index.ejs`: Responsive table container, note clamping, labeled revocation input, badge standardization.
+- `views/admin/organizers/detail.ejs`: Neutral review container background, badge standardization, button standardization.
+- `views/account.ejs`: Badge and button standardization, copy adjustments.
+- `views/register-success.ejs`: Button styling.
+- `views/index.ejs`: Button styling.
+- `views/admin/dashboard.ejs`: Table containers, badge and button standardization.
+- `tests/registration.test.ts`: Added tests for autocomplete attributes and validation messages.
+- `tests/auth.test.ts`: Added tests for login autocomplete attributes.
+- `tests/admin.test.ts`: Added tests for admin login autocomplete attributes.
+- `DEVELOPMENT_LOG.md`: Added stabilization pass summary.
+
+### Test results
+
+- Test runner: Vitest v3.2.7
+- 7 test files, **128 tests passing (100% pass rate)**:
+  - `tests/organizer.test.ts`: 32 tests passing
+  - `tests/registration.test.ts`: 23 tests passing (+4 new tests)
+  - `tests/identity.test.ts`: 27 tests passing
+  - `tests/admin.test.ts`: 25 tests passing
+  - `tests/auth.test.ts`: 17 tests passing
+  - `tests/app.test.ts`: 3 tests passing
+  - `tests/db.test.ts`: 1 test passing
+- TypeScript build (`tsc`): 0 errors.
+- Prisma migration status: Up to date (4 migrations, 0 drift).
+
+### Unresolved issues
+
+None.
+
+### Recommended next task
+
+**Milestone 4 — Event Foundation**
+- Define `Event`, `EventCategory`, `EventTargetDepartment`, `EventTargetLevel`, `EventEligibleDepartment`, `EventEligibleLevel`, and co-organizer models in `prisma/schema.prisma`.
+- Ensure independent relational modeling for recommended target audience vs registration eligibility per `YCEP_V1_SPEC.md`.
+- Implement draft event creation and editing for authorized organizers.
+- Enforce that fundamental event changes return the event to a review state.
+
+---
+
+
 
 ### Status
 

@@ -10,7 +10,7 @@
   <header>
     <h1>YABATECH Campus Events Platform</h1>
   </header>
-  <main>
+  <main class="main-wide">
     <h2>Organizer Status & Applications</h2>
     <p>Overview of your organizer capability status and application history.</p>
 
@@ -19,37 +19,52 @@
 
       <% if (effectiveStatus === 'ACTIVE') { %>
         <div style="background-color: #ecfdf5; border: 1px solid #10b981; color: #065f46; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem;">
-          <p style="margin: 0; font-weight: bold; font-size: 1.1rem;">Status: ACTIVE ORGANIZER</p>
-          <p style="margin: 0.25rem 0 0 0;">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <strong>Status:</strong>
+            <span class="badge badge-active">Active Organizer</span>
+          </div>
+          <p style="margin: 0.5rem 0 0 0;">
             Approved Public Name: <strong><%= currentAuthorization.approvedPublicName %></strong>
           </p>
           <p style="margin: 0.25rem 0 0 0; font-size: 0.85rem;">
             Granted on: <%= new Date(currentAuthorization.grantedAt).toLocaleDateString() %>
           </p>
+          <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: #065f46;">
+            Your organizer authorization is active for this cycle. Event creation and management tools will unlock as upcoming platform milestones roll out.
+          </p>
         </div>
       <% } else if (effectiveStatus === 'PENDING') { %>
         <div style="background-color: #eff6ff; border: 1px solid #3b82f6; color: #1e40af; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem;">
-          <p style="margin: 0; font-weight: bold; font-size: 1.1rem;">Status: APPLICATION PENDING</p>
-          <p style="margin: 0.25rem 0 0 0;">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <strong>Status:</strong>
+            <span class="badge badge-pending">Application Pending</span>
+          </div>
+          <p style="margin: 0.5rem 0 0 0;">
             Your application for <strong><%= currentPendingApplication.requestedPublicName %></strong> was submitted on <%= new Date(currentPendingApplication.createdAt).toLocaleDateString() %> and is currently under review by YABATECH Management.
           </p>
         </div>
       <% } else if (effectiveStatus === 'REJECTED') { %>
         <div style="background-color: #fef2f2; border: 1px solid #ef4444; color: #991b1b; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem;">
-          <p style="margin: 0; font-weight: bold; font-size: 1.1rem;">Status: APPLICATION REJECTED</p>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <strong>Status:</strong>
+            <span class="badge badge-rejected">Application Rejected</span>
+          </div>
           <% if (currentLatestApplication && currentLatestApplication.adminReviewNotes) { %>
             <p style="margin: 0.5rem 0 0 0;">
               <strong>Management Review Notes:</strong> <%= currentLatestApplication.adminReviewNotes %>
             </p>
           <% } %>
           <div style="margin-top: 1rem;">
-            <a href="/organizer/apply" class="btn-primary" style="display: inline-block; padding: 0.5rem 1rem; text-decoration: none;">Submit Fresh Application</a>
+            <a href="/organizer/apply" class="btn-primary btn-sm">Submit Fresh Application</a>
           </div>
         </div>
       <% } else if (effectiveStatus === 'REVOKED') { %>
         <div style="background-color: #fef2f2; border: 1px solid #dc2626; color: #7f1d1d; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem;">
-          <p style="margin: 0; font-weight: bold; font-size: 1.1rem;">Status: PRIVILEGE REVOKED</p>
-          <p style="margin: 0.25rem 0 0 0;">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <strong>Status:</strong>
+            <span class="badge badge-revoked">Privilege Revoked</span>
+          </div>
+          <p style="margin: 0.5rem 0 0 0;">
             Your organizer authorization for this cycle was revoked on <%= currentAuthorization && currentAuthorization.revokedAt ? new Date(currentAuthorization.revokedAt).toLocaleDateString() : '—' %>.
           </p>
           <% if (currentAuthorization && currentAuthorization.revocationReason) { %>
@@ -61,18 +76,21 @@
         </div>
       <% } else if (effectiveStatus === 'EXPIRED') { %>
         <div style="background-color: #fffbeb; border: 1px solid #f59e0b; color: #92400e; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem;">
-          <p style="margin: 0; font-weight: bold; font-size: 1.1rem;">Status: AUTHORIZATION EXPIRED</p>
-          <p style="margin: 0.25rem 0 0 0;">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <strong>Status:</strong>
+            <span class="badge badge-expired">Authorization Expired</span>
+          </div>
+          <p style="margin: 0.5rem 0 0 0;">
             Your organizer authorization has expired with the completion of the academic cycle.
           </p>
           <div style="margin-top: 1rem;">
-            <a href="/organizer/apply" class="btn-primary" style="display: inline-block; padding: 0.5rem 1rem; text-decoration: none;">Apply for Renewal</a>
+            <a href="/organizer/apply" class="btn-primary btn-sm">Apply for Renewal</a>
           </div>
         </div>
       <% } else { %>
         <p style="color: #64748b;">You do not currently hold organizer privileges or have a pending application for this academic cycle.</p>
         <div style="margin-top: 1rem;">
-          <a href="/organizer/apply" class="btn-primary" style="display: inline-block; padding: 0.5rem 1rem; text-decoration: none;">Apply to Become an Organizer</a>
+          <a href="/organizer/apply" class="btn-primary btn-sm">Apply to Become an Organizer</a>
         </div>
       <% } %>
     </section>
@@ -80,29 +98,29 @@
     <section style="margin: 1.5rem 0; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 6px;">
       <h3 style="margin-top: 0;">Application History</h3>
       <% if (applicationsHistory && applicationsHistory.length > 0) { %>
-        <div style="overflow-x: auto;">
-          <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+        <div class="table-container">
+          <table>
             <thead>
-              <tr style="border-bottom: 2px solid #cbd5e1; background-color: #f1f5f9;">
-                <th style="padding: 0.5rem;">Submitted</th>
-                <th style="padding: 0.5rem;">Cycle</th>
-                <th style="padding: 0.5rem;">Requested Identity</th>
-                <th style="padding: 0.5rem;">Status</th>
-                <th style="padding: 0.5rem;">Decision Notes</th>
+              <tr>
+                <th>Submitted</th>
+                <th>Cycle</th>
+                <th>Requested Identity</th>
+                <th>Status</th>
+                <th>Decision Notes</th>
               </tr>
             </thead>
             <tbody>
               <% applicationsHistory.forEach(function(app) { %>
-                <tr style="border-bottom: 1px solid #e2e8f0;">
-                  <td style="padding: 0.5rem;"><%= new Date(app.createdAt).toLocaleDateString() %></td>
-                  <td style="padding: 0.5rem;"><%= app.cycle ? app.cycle.name : '—' %></td>
-                  <td style="padding: 0.5rem;"><%= app.requestedPublicName %></td>
-                  <td style="padding: 0.5rem;">
-                    <span style="font-weight: bold; color: <%= app.status === 'APPROVED' ? '#047857' : app.status === 'PENDING' ? '#2563eb' : '#dc2626' %>;">
+                <tr>
+                  <td><%= new Date(app.createdAt).toLocaleDateString() %></td>
+                  <td><%= app.cycle ? app.cycle.name : '—' %></td>
+                  <td><strong><%= app.requestedPublicName %></strong></td>
+                  <td>
+                    <span class="badge <%= app.status === 'APPROVED' ? 'badge-active' : app.status === 'PENDING' ? 'badge-pending' : 'badge-rejected' %>">
                       <%= app.status %>
                     </span>
                   </td>
-                  <td style="padding: 0.5rem;"><%= app.adminReviewNotes || '—' %></td>
+                  <td class="cell-wrap-clamp"><%= app.adminReviewNotes || '—' %></td>
                 </tr>
               <% }); %>
             </tbody>
@@ -114,7 +132,7 @@
     </section>
 
     <p style="margin-top: 1.5rem;">
-      <a href="/account" style="color: #047857; text-decoration: none;">&larr; Back to My Account</a>
+      <a href="/account">&larr; Back to My Account</a>
     </p>
   </main>
   <footer>

@@ -35,13 +35,15 @@
           Requested Public Organizer Name <span style="color: #dc2626;">*</span>
         </label>
         <p style="font-size: 0.85rem; color: #64748b; margin: 0 0 0.5rem 0;">
-          The public display identity under which events will be hosted (e.g. "NACOS YABATECH", "Engineering Students Association", or your preferred individual organizer name).
+          The public display identity under which events will be organized (e.g. "NACOS YABATECH", "Engineering Students Association", or your preferred individual organizer name).
         </p>
         <input
           type="text"
           id="requestedPublicName"
           name="requestedPublicName"
           value="<%= values.requestedPublicName || '' %>"
+          autocomplete="off"
+          placeholder="e.g. NACOS YABATECH or DaveOlana"
           required
           style="width: 100%; padding: 0.5rem; border: 1px solid <%= errors.requestedPublicName ? '#dc2626' : '#cbd5e1' %>; border-radius: 4px;"
         >
@@ -62,6 +64,7 @@
           id="phoneNumber"
           name="phoneNumber"
           value="<%= values.phoneNumber || '' %>"
+          autocomplete="tel"
           required
           placeholder="e.g. +234 801 234 5678"
           style="width: 100%; padding: 0.5rem; border: 1px solid <%= errors.phoneNumber ? '#dc2626' : '#cbd5e1' %>; border-radius: 4px;"
@@ -80,6 +83,7 @@
           id="organizationName"
           name="organizationName"
           value="<%= values.organizationName || '' %>"
+          autocomplete="organization"
           placeholder="e.g. NACOS YABATECH, Student Union Government"
           style="width: 100%; padding: 0.5rem; border: 1px solid <%= errors.organizationName ? '#dc2626' : '#cbd5e1' %>; border-radius: 4px;"
         >
@@ -97,6 +101,7 @@
           id="positionTitle"
           name="positionTitle"
           value="<%= values.positionTitle || '' %>"
+          autocomplete="organization-title"
           placeholder="e.g. President, General Secretary, Event Coordinator"
           style="width: 100%; padding: 0.5rem; border: 1px solid <%= errors.positionTitle ? '#dc2626' : '#cbd5e1' %>; border-radius: 4px;"
         >
@@ -138,9 +143,9 @@
         <% } %>
       </div>
 
-      <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+      <div style="display: flex; gap: 1rem; margin-top: 1rem; align-items: center;">
         <button type="submit" class="btn-primary" style="padding: 0.6rem 1.5rem;">Submit Application</button>
-        <a href="/account" style="align-self: center; text-decoration: none; color: #64748b;">Cancel</a>
+        <a href="/account">Cancel</a>
       </div>
     </form>
   </main>

@@ -35,7 +35,7 @@
       <% } else if (currentVerification) { %>
         <p>
           <strong>Status:</strong>
-          <span style="font-weight: bold; color: <%= currentVerification.status === 'ACTIVE' ? '#047857' : '#dc2626' %>;">
+          <span class="badge <%= currentVerification.status === 'ACTIVE' ? 'badge-active' : 'badge-rejected' %>">
             <%= currentVerification.status %>
           </span>
         </p>
@@ -54,24 +54,24 @@
       <section style="margin: 1.5rem 0; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 6px;">
         <h3 style="margin-top: 0;">Organizer Privileges</h3>
         <p style="color: #475569; margin-bottom: 0.75rem;">
-          Verified organizers can host and manage campus events with YABATECH Management oversight.
+          Verified organizers are eligible to propose and coordinate campus events under YABATECH Management oversight.
         </p>
-        <div style="display: flex; gap: 1rem;">
-          <a href="/organizer/status" class="btn-primary" style="padding: 0.4rem 0.9rem; text-decoration: none; font-size: 0.9rem;">
+        <div style="display: flex; gap: 1rem; align-items: center;">
+          <a href="/organizer/status" class="btn-primary btn-sm">
             View Organizer Status
           </a>
-          <a href="/organizer/apply" style="align-self: center; text-decoration: none; color: #047857; font-size: 0.9rem;">
+          <a href="/organizer/apply" style="font-size: 0.9rem;">
             Apply for Privileges
           </a>
         </div>
       </section>
     <% } %>
 
-    <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+    <div style="display: flex; gap: 1rem; margin-top: 1.5rem; align-items: center;">
       <form action="/logout" method="POST" style="display: inline;">
-        <button type="submit" class="btn-primary" style="background-color: #475569;">Log Out</button>
+        <button type="submit" class="btn-secondary">Log Out</button>
       </form>
-      <a href="/" style="align-self: center; text-decoration: none; color: #047857;">Home</a>
+      <a href="/">Home</a>
     </div>
   </main>
   <footer>

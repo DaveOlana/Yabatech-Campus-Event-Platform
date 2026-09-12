@@ -12,6 +12,7 @@ export const registerMemberSchema = z
     fullName: z
       .string({ required_error: "Full name is required" })
       .trim()
+      .min(1, "Full name is required")
       .min(2, "Full name must be at least 2 characters")
       .max(150, "Full name must not exceed 150 characters"),
     matricNumber: z

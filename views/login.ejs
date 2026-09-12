@@ -28,6 +28,9 @@
           id="matricNumber"
           name="matricNumber"
           value="<%= values.matricNumber || '' %>"
+          autocomplete="username"
+          autocapitalize="characters"
+          spellcheck="false"
           placeholder="e.g. F/ND/24/3210051"
           required
         >
@@ -39,11 +42,12 @@
           type="password"
           id="password"
           name="password"
+          autocomplete="current-password"
           required
         >
       </div>
 
-      <button type="submit" class="btn-primary">Sign In</button>
+      <button type="submit" class="btn-primary btn-block">Sign In</button>
     </form>
 
     <p style="margin-top: 1.5rem; font-size: 0.9rem;">

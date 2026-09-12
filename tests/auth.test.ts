@@ -142,12 +142,17 @@ async function createVerification(userId: string, cycleId: string, status: Verif
 // ── Tests ───────────────────────────────────────────────────────────────────
 
 describe("Authentication: Login & Sessions", () => {
-  it("renders the login page", async () => {
+  it("renders the login page with correct username/password autocomplete attributes", async () => {
     const res = await request(app).get("/login");
     expect(res.status).toBe(200);
     expect(res.text).toContain("Sign In");
-    expect(res.text).toContain("name=\"matricNumber\"");
-    expect(res.text).toContain("name=\"password\"");
+    expect(res.text).toContain('id="matricNumber"');
+    expect(res.text).toContain('name="matricNumber"');
+    expect(res.text).toContain('autocomplete="username"');
+    expect(res.text).toContain('id="password"');
+    expect(res.text).toContain('name="password"');
+    expect(res.text).toContain('autocomplete="current-password"');
+    expect(res.text).not.toContain('name="fullName"');
   });
 
   it("successfully logs in with valid matric number and password", async () => {

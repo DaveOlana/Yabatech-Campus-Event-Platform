@@ -271,7 +271,9 @@ describe("Milestone 2 — Admin Authentication", () => {
     expect(res.status).toBe(200);
     expect(res.text).toContain("YABATECH Management Sign In");
     expect(res.text).toContain('name="email"');
+    expect(res.text).toContain('autocomplete="username"');
     expect(res.text).toContain('name="password"');
+    expect(res.text).toContain('autocomplete="current-password"');
   });
 
   it("successfully authenticates ADMIN with valid email and password", async () => {

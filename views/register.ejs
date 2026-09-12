@@ -20,7 +20,7 @@
       </div>
     <% } %>
 
-    <form action="/register" method="POST" novalidate>
+    <form action="/register" method="POST" novalidate id="registerForm">
       <div class="form-group">
         <label for="fullName">Full Name</label>
         <input
@@ -29,6 +29,8 @@
           name="fullName"
           value="<%= values.fullName || '' %>"
           class="<%= errors.fullName ? 'input-error' : '' %>"
+          autocomplete="name"
+          placeholder="e.g. David Olana"
           required
         >
         <% if (errors.fullName) { %>
@@ -44,6 +46,9 @@
           name="matricNumber"
           value="<%= values.matricNumber || '' %>"
           class="<%= errors.matricNumber ? 'input-error' : '' %>"
+          autocomplete="username"
+          autocapitalize="characters"
+          spellcheck="false"
           placeholder="e.g. F/ND/24/3210051"
           required
         >
@@ -61,6 +66,7 @@
           name="email"
           value="<%= values.email || '' %>"
           class="<%= errors.email ? 'input-error' : '' %>"
+          autocomplete="email"
           placeholder="student@example.com"
           required
         >
@@ -122,6 +128,7 @@
           id="password"
           name="password"
           class="<%= errors.password ? 'input-error' : '' %>"
+          autocomplete="new-password"
           required
         >
         <div class="helper-text">Minimum 8 characters</div>
@@ -137,6 +144,7 @@
           id="passwordConfirmation"
           name="passwordConfirmation"
           class="<%= errors.passwordConfirmation ? 'input-error' : '' %>"
+          autocomplete="new-password"
           required
         >
         <% if (errors.passwordConfirmation) { %>
@@ -144,8 +152,31 @@
         <% } %>
       </div>
 
-      <button type="submit" class="btn-primary">Register</button>
+      <button type="submit" class="btn-primary btn-block">Register</button>
     </form>
+
+    <script>
+      // Clear visual error indications as soon as the user edits an invalid field
+      document.querySelectorAll('#registerForm input, #registerForm select').forEach(function(el) {
+        el.addEventListener('input', function() {
+          if (this.classList.contains('input-error')) {
+            this.classList.remove('input-error');
+            var parent = this.closest('.form-group');
+            if (parent) {
+              var err = parent.querySelector('.field-error');
+              if (err) err.style.display = 'none';
+            }
+          }
+        });
+      });
+    </script>
+
+    <p style="margin-top: 1.5rem; font-size: 0.9rem;">
+      Already a member? <a href="/login">Sign In</a>
+    </p>
+    <p style="font-size: 0.9rem;">
+      <a href="/">Return to Home</a>
+    </p>
   </main>
   <footer>
     <p>&copy; <%= new Date().getFullYear() %> YABATECH Campus Events Platform</p>

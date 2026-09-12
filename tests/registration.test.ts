@@ -485,4 +485,83 @@ describe("GET /register", () => {
     expect(res.text).toContain("ND1");
     expect(res.text).toContain("name=\"matricNumber\"");
   });
+
+  it("renders with correct semantic autocomplete attributes to prevent credential confusion", async () => {
+    const res = await request(app).get("/register");
+
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('id="fullName"');
+    expect(res.text).toContain('name="fullName"');
+    expect(res.text).toContain('autocomplete="name"');
+
+    expect(res.text).toContain('id="matricNumber"');
+    expect(res.text).toContain('name="matricNumber"');
+    expect(res.text).toContain('autocomplete="username"');
+
+    expect(res.text).toContain('id="email"');
+    expect(res.text).toContain('name="email"');
+    expect(res.text).toContain('autocomplete="email"');
+
+    expect(res.text).toContain('id="password"');
+    expect(res.text).toContain('name="password"');
+    expect(res.text).toContain('autocomplete="new-password"');
+
+    expect(res.text).toContain('id="passwordConfirmation"');
+    expect(res.text).toContain('name="passwordConfirmation"');
+  });
+
+  it("returns 'Full name is required' when fullName is empty or whitespace", async () => {
+    const res = await request(app)
+      .post("/register")
+      .set("Accept", "application/json")
+      .send({
+        fullName: "   ",
+        matricNumber: "F/ND/24/3210051",
+        email: "student@example.com",
+        departmentId: testDepartmentId,
+        levelId: testLevelId,
+        password: "Password123",
+        passwordConfirmation: "Password123",
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.errors.fullName).toContain("Full name is required");
+  });
+
+  it("returns 'Full name must be at least 2 characters' when fullName is a single character", async () => {
+    const res = await request(app)
+      .post("/register")
+      .set("Accept", "application/json")
+      .send({
+        fullName: "D",
+        matricNumber: "F/ND/24/3210051",
+        email: "student@example.com",
+        departmentId: testDepartmentId,
+        levelId: testLevelId,
+        password: "Password123",
+        passwordConfirmation: "Password123",
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.errors.fullName).toContain("Full name must be at least 2 characters");
+  });
+
+  it("does not report a fullName error when a valid name such as DaveOlana is provided", async () => {
+    const res = await request(app)
+      .post("/register")
+      .set("Accept", "application/json")
+      .send({
+        fullName: "DaveOlana",
+        matricNumber: "invalid-matric",
+        email: "student@example.com",
+        departmentId: testDepartmentId,
+        levelId: testLevelId,
+        password: "Password123",
+        passwordConfirmation: "Password123",
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.errors.fullName).toBeUndefined();
+    expect(res.body.errors.matricNumber).toBeDefined();
+  });
 });
