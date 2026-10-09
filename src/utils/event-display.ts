@@ -11,6 +11,16 @@ export function getLagosTodayDate(now = new Date()): Date {
   return new Date(`${value("year")}-${value("month")}-${value("day")}T00:00:00.000Z`);
 }
 
+export function getPublicDateRange(filter: "upcoming" | "today" | "week" | "month", now = new Date()): { gte: Date; lte?: Date } {
+  const today = getLagosTodayDate(now);
+  if (filter === "upcoming") return { gte: today };
+  if (filter === "today") return { gte: today, lte: today };
+  const end = new Date(today);
+  if (filter === "week") end.setUTCDate(end.getUTCDate() + ((7 - end.getUTCDay()) % 7));
+  else end.setUTCMonth(end.getUTCMonth() + 1, 0);
+  return { gte: today, lte: end };
+}
+
 export function formatEventCardDate(date: Date): string {
   return new Intl.DateTimeFormat("en-NG", {
     weekday: "short",

@@ -4,14 +4,14 @@ import pg from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { EventStatus, LevelCode, OrganizerAuthorizationStatus, PrismaClient, UserRole } from "@prisma/client";
 import { createApp } from "../src/app.js";
-import { formatEventTimeRange, getLagosTodayDate } from "../src/utils/event-display.js";
+import { formatEventTimeRange, getLagosTodayDate, getPublicDateRange } from "../src/utils/event-display.js";
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
 if (!databaseUrl) throw new Error("TEST_DATABASE_URL environment variable is required for tests");
 const app = createApp();
 let pool: pg.Pool;
 let prisma: PrismaClient;
-let categoryId: string, authorizationId: string, departmentId: string, levelId: string;
+let categoryId: string, secondCategoryId: string, authorizationId: string, departmentId: string, secondDepartmentId: string, levelId: string, secondLevelId: string;
 
 beforeAll(() => {
   pool = new pg.Pool({ connectionString: databaseUrl });
@@ -28,13 +28,17 @@ beforeEach(async () => {
   await prisma.eventCategory.deleteMany(); await prisma.academicYearCycle.deleteMany();
   await prisma.department.deleteMany(); await prisma.level.deleteMany();
   const department = await prisma.department.create({ data: { name: "Computer Science", code: "CSC" } });
+  const secondDepartment = await prisma.department.create({ data: { name: "Electrical Engineering", code: "EEE" } });
   const level = await prisma.level.create({ data: { code: LevelCode.ND1, label: "ND Year 1" } });
+  const secondLevel = await prisma.level.create({ data: { code: LevelCode.ND2, label: "ND Year 2" } });
   const category = await prisma.eventCategory.create({ data: { name: "Technology", code: "TECH" } });
+  const secondCategory = await prisma.eventCategory.create({ data: { name: "Career", code: "CAREER" } });
   const cycle = await prisma.academicYearCycle.create({ data: { name: "2026/2027", startDate: new Date("2026-09-01"), endDate: new Date("2027-08-31"), isCurrent: true } });
   const user = await prisma.user.create({ data: { fullName: "Private Owner", email: "owner@example.test", matricNumber: "F/ND/26/9999999", passwordHash: "private-hash", role: UserRole.MEMBER, departmentId: department.id, levelId: level.id } });
   const application = await prisma.organizerApplication.create({ data: { userId: user.id, cycleId: cycle.id, requestedPublicName: "YCT Builders", phoneNumber: "08000000000", reason: "Campus events", status: "APPROVED" } });
   const authorization = await prisma.organizerAuthorization.create({ data: { userId: user.id, cycleId: cycle.id, applicationId: application.id, approvedPublicName: "YCT Builders", status: OrganizerAuthorizationStatus.ACTIVE } });
-  categoryId = category.id; authorizationId = authorization.id; departmentId = department.id; levelId = level.id;
+  categoryId = category.id; secondCategoryId = secondCategory.id; authorizationId = authorization.id;
+  departmentId = department.id; secondDepartmentId = secondDepartment.id; levelId = level.id; secondLevelId = secondLevel.id;
 });
 
 async function createEvent(title: string, status: EventStatus, eventDate: Date, overrides: Record<string, unknown> = {}) {
@@ -60,6 +64,7 @@ describe("public event discovery", () => {
     for (let index = 0; index < 26; index += 1) await createEvent(`Event ${String(index).padStart(2, "0")}`, EventStatus.PUBLISHED, date, { startTime: index < 2 ? "09:00" : "10:00" });
     const response = await request(app).get("/").expect(200);
     expect((response.text.match(/class="public-event-card"/g) ?? [])).toHaveLength(24);
+    expect(response.text).toContain("Showing 24 of 26 events");
     expect(response.text.indexOf("Event 00")).toBeLessThan(response.text.indexOf("Event 01"));
     expect(response.text).not.toContain("Event 24"); expect(response.text).not.toContain("Event 25");
   });
@@ -103,6 +108,98 @@ describe("public event discovery", () => {
   it("formats campus time and uses the Lagos calendar boundary", () => {
     expect(formatEventTimeRange("10:00", "13:00")).toBe("10:00 AM – 1:00 PM");
     expect(getLagosTodayDate(new Date("2026-10-08T23:30:00Z")).toISOString()).toBe("2026-10-09T00:00:00.000Z");
+  });
+
+  it("searches every approved field case-insensitively and normalizes whitespace", async () => {
+    const date = getLagosTodayDate(); date.setUTCDate(date.getUTCDate() + 2);
+    await createEvent("Career Launchpad", EventStatus.PUBLISHED, date, { description: "Build a standout portfolio", venue: "Innovation Hub", organizerPublicName: "Future Builders", categoryId: secondCategoryId });
+    for (const query of ["career launchpad", "STANDOUT PORTFOLIO", "innovation hub", "future builders", "career"]) {
+      expect((await request(app).get("/").query({ q: query }).expect(200)).text).toContain("Career Launchpad");
+    }
+    const normalized = await request(app).get("/?q=%20%20Career%20%20%20Launchpad%20%20").expect(200);
+    expect(normalized.text).toContain('value="Career Launchpad"');
+    expect((await request(app).get("/?q=%20%20%20").expect(200)).text).toContain("Career Launchpad");
+    expect((await request(app).get("/?q=does-not-exist").expect(200)).text).toContain("No events match your search.");
+    const formDefaults = await request(app).get("/?q=career&category=&department=&level=&date=upcoming").expect(200);
+    expect(formDefaults.text).not.toContain("Some filters were not recognized.");
+  });
+
+  it("handles malformed, repeated, overlong, and unknown filters without broadening results", async () => {
+    const date = getLagosTodayDate(); date.setUTCDate(date.getUTCDate() + 2);
+    await createEvent("Must Stay Hidden By Bad Filter", EventStatus.PUBLISHED, date);
+    for (const url of ["/?category=lowercase", "/?category=UNKNOWN", "/?department=UNKNOWN", "/?level=HND2", `/?q=${"x".repeat(101)}`, "/?q=one&q=two"]) {
+      const response = await request(app).get(url).expect(200);
+      expect(response.text).toContain("Some filters were not recognized.");
+      expect(response.text).not.toContain("Must Stay Hidden By Bad Filter");
+    }
+  });
+
+  it("filters categories exactly, persists state, and loads persisted reference options", async () => {
+    const date = getLagosTodayDate(); date.setUTCDate(date.getUTCDate() + 2);
+    await createEvent("Technology Event", EventStatus.PUBLISHED, date);
+    await createEvent("Career Event", EventStatus.PUBLISHED, date, { categoryId: secondCategoryId });
+    const response = await request(app).get("/?category=CAREER").expect(200);
+    expect(response.text).toContain("Career Event"); expect(response.text).not.toContain("Technology Event");
+    expect(response.text).toContain('value="CAREER" selected');
+    expect(response.text).toContain("Electrical Engineering");
+    expect(response.text).toContain("ND Year 2");
+  });
+
+  it("treats department filters as relevance and includes untargeted general events", async () => {
+    const date = getLagosTodayDate(); date.setUTCDate(date.getUTCDate() + 2);
+    const direct = await createEvent("CSC Target", EventStatus.PUBLISHED, date);
+    const unrelated = await createEvent("EEE Target", EventStatus.PUBLISHED, date);
+    await createEvent("General Campus", EventStatus.PUBLISHED, date);
+    await prisma.eventTargetDepartment.create({ data: { eventId: direct.id, departmentId } });
+    await prisma.eventTargetDepartment.create({ data: { eventId: unrelated.id, departmentId: secondDepartmentId } });
+    const response = await request(app).get("/?department=CSC").expect(200);
+    expect(response.text).toContain("CSC Target"); expect(response.text).toContain("General Campus"); expect(response.text).not.toContain("EEE Target");
+    expect(response.text).toContain('value="CSC" selected');
+    await request(app).get(`/events/${unrelated.id}`).expect(200);
+  });
+
+  it("treats level filters as relevance and combines dimensions with AND semantics", async () => {
+    const date = getLagosTodayDate(); date.setUTCDate(date.getUTCDate() + 2);
+    const match = await createEvent("Career Match", EventStatus.PUBLISHED, date, { categoryId: secondCategoryId });
+    const wrongLevel = await createEvent("Career Wrong Level", EventStatus.PUBLISHED, date, { categoryId: secondCategoryId });
+    const general = await createEvent("Career General", EventStatus.PUBLISHED, date, { categoryId: secondCategoryId });
+    await prisma.eventTargetDepartment.createMany({ data: [{ eventId: match.id, departmentId }, { eventId: wrongLevel.id, departmentId }] });
+    await prisma.eventTargetLevel.create({ data: { eventId: match.id, levelId } });
+    await prisma.eventTargetLevel.create({ data: { eventId: wrongLevel.id, levelId: secondLevelId } });
+    const response = await request(app).get("/?q=career&category=CAREER&department=CSC&level=ND1").expect(200);
+    expect(response.text).toContain("Career Match"); expect(response.text).toContain("Career General"); expect(response.text).not.toContain("Career Wrong Level");
+    expect(response.text).toContain('value="ND1" selected'); expect(response.text).toContain('href="/" class="clear-filters"');
+    expect(general.id).toBeTruthy();
+  });
+
+  it("applies AND semantics to paired filters and never leaks private matches", async () => {
+    const date = getLagosTodayDate(); date.setUTCDate(date.getUTCDate() + 2);
+    const targeted = await createEvent("Public Career CSC", EventStatus.PUBLISHED, date, { categoryId: secondCategoryId });
+    await prisma.eventTargetDepartment.create({ data: { eventId: targeted.id, departmentId } });
+    await createEvent("Private Career CSC", EventStatus.DRAFT, date, { categoryId: secondCategoryId });
+    await createEvent("Technology General", EventStatus.PUBLISHED, date);
+    const categoryDepartment = await request(app).get("/?category=CAREER&department=CSC").expect(200);
+    expect(categoryDepartment.text).toContain("Public Career CSC"); expect(categoryDepartment.text).not.toContain("Technology General");
+    const searchCategory = await request(app).get("/?q=CSC&category=CAREER").expect(200);
+    expect(searchCategory.text).toContain("Public Career CSC"); expect(searchCategory.text).not.toContain("Private Career CSC");
+  });
+
+  it("applies today, week, and month as Lagos calendar ranges", async () => {
+    const today = getLagosTodayDate();
+    const tomorrow = new Date(today); tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    await createEvent("Today Event", EventStatus.PUBLISHED, today);
+    await createEvent("Tomorrow Event", EventStatus.PUBLISHED, tomorrow);
+    const todayPage = await request(app).get("/?date=today").expect(200);
+    expect(todayPage.text).toContain("Today Event"); expect(todayPage.text).not.toContain("Tomorrow Event"); expect(todayPage.text).toContain('value="today" selected');
+    expect((await request(app).get("/?date=week").expect(200)).text).toContain("Today Event");
+    expect((await request(app).get("/?date=month").expect(200)).text).toContain("Today Event");
+
+    const saturday = new Date("2026-10-10T22:30:00Z");
+    expect(getPublicDateRange("week", saturday).lte?.toISOString()).toBe("2026-10-11T00:00:00.000Z");
+    const monthEnd = new Date("2026-10-31T22:30:00Z");
+    const range = getPublicDateRange("month", monthEnd);
+    expect(range.gte.toISOString()).toBe("2026-10-31T00:00:00.000Z");
+    expect(range.lte?.toISOString()).toBe("2026-10-31T00:00:00.000Z");
   });
 
   it("keeps authentication and protected entry points unchanged", async () => {

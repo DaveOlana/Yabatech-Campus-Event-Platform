@@ -51,13 +51,14 @@ Registration-era fields/relations introduced here are legacy structures pending 
 - [x] Exclude every non-published status from public routes with a generic 404.
 - [x] Verify visitors require no account and internal data is not projected.
 
-# Milestone 5 — Search, Filtering, and Relevance
+# Milestone 4D — Search, Filtering, and Relevance — COMPLETE
 
-- [ ] Keyword/title search.
-- [ ] Category and date filtering.
-- [ ] Target-department and target-level filtering/relevance.
-- [ ] Keep every published event discoverable regardless of target audience.
-- [ ] Test empty results, combined filters, and private-data exclusion.
+- [x] Case-insensitive public search across approved event fields.
+- [x] Category and Africa/Lagos calendar-date filtering.
+- [x] Target-department and target-level relevance filtering.
+- [x] Include untargeted general events under audience filters.
+- [x] URL-driven state, accurate counts, and a retained 24-card cap.
+- [x] Test empty results, combined filters, validation, and private-data exclusion.
 
 # Milestone 7 — Event Management and Historical Integrity
 

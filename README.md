@@ -64,3 +64,14 @@ Public routes:
 
 - `GET /` — upcoming approved campus events; no account required.
 - `GET /events/:eventId` — approved public event details; no account required.
+
+Public discovery supports shareable GET parameters:
+
+- `/?q=career` — search title, description, venue, organizer name, and category name.
+- `/?category=TECH` — exact persisted category code.
+- `/?department=CSC` — explicitly relevant and general/no-department events.
+- `/?level=ND2` — explicitly relevant and general/no-level events.
+- `/?date=today`, `/?date=week`, or `/?date=month` — Africa/Lagos calendar periods.
+- Parameters may be combined; different filter dimensions use AND semantics.
+
+Results remain chronological and show at most 24 cards. When more matches exist, the page reports the full matching total. Search/filter state requires no account and works without JavaScript.

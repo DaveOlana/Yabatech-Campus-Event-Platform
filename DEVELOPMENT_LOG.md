@@ -4,6 +4,32 @@ Use this file as the handoff record between Claude, Gemini, Codex, and human dev
 
 Newest entries should be added at the top.
 
+## 2026-10-09 — Milestone 4D: Public Search, Filtering, and Relevance
+
+### Status
+
+Complete. Anonymous visitors can search and filter upcoming published events through shareable GET parameters while general events remain discoverable under audience filters.
+
+### Implementation
+
+- Added a focused Zod public-query validator with normalization, singular-parameter enforcement, safe invalid-filter handling, and persisted-reference validation.
+- Extended the public service with typed filters/options/results, a shared Prisma `where` condition for list and count, persisted reference options, relevance-only audience logic, Lagos calendar ranges, and accurate totals under the 24-card limit.
+- Updated the public route to preserve URL state and distinguish malformed, unknown, active, and clean discovery states.
+- Added a responsive semantic GET filter bar, refined result summary, validation notice, and distinct global/filtered empty states. Core filtering requires no JavaScript.
+- Search covers title, description, venue, organizer public name, and category name. Ordering remains date, start time, then title.
+- No schema change or migration was required.
+
+### Verification
+
+- Expanded `tests/public-events.test.ts` to cover search, normalization, validation, reference options, category, department/level relevance, combined AND semantics, date boundaries, counts, state persistence, and privacy regressions.
+- Focused public suite: 15/15 passed.
+- Full suite: 163/163 tests passed across 9 files.
+- TypeScript build and `git diff --check` passed.
+
+### Next recommended task
+
+Do not begin another product milestone until Milestone 4D receives manual visual review on desktop and mobile.
+
 ## 2026-10-09 — Milestone 4C: Public Event Discovery
 
 ### Status

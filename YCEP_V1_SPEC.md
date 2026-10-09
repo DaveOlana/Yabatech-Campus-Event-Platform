@@ -129,6 +129,8 @@ Visitors can open a public detail page for full approved information. Basic V1 s
 
 Milestone 4C establishes the unfiltered discovery baseline. The homepage lists only `PUBLISHED` events dated today or later using the Africa/Lagos calendar date, ordered by event date, start time, then title, with a maximum of 24. Past published events remain available by direct detail URL. All other statuses and unknown identifiers return the same generic not-found response. Public queries use an explicit safe-field projection. Search, filters, and relevance ranking are deferred to their dedicated milestone.
 
+Milestone 4D adds anonymous, URL-driven discovery through `q`, `category`, `department`, `level`, and `date`. Text search is a case-insensitive substring match across title, description, venue, organizer public name, and category name. Category, department, and level use persisted reference codes. Different dimensions combine with AND semantics. Department/level filters include both explicit target matches and untargeted general events; targeting remains relevance metadata and never eligibility. Date values are `upcoming`, `today`, `week`, and `month`, using Africa/Lagos calendar boundaries and never including earlier days. All result sets remain chronologically ordered and show at most 24 cards, with an accurate total count when more matches exist.
+
 ## 11. Event changes, cancellation, and history
 
 Important event records must not be hard-deleted after publication. Operational changes may be supported with appropriate history. Fundamental changes—title, organizer identity, or core purpose/description—require reapproval before the modified event is treated as approved.

@@ -393,6 +393,14 @@ Migration `20260912140539_event_foundation_drafts` remains immutable history. Cl
 
 **Decision:** Public queries constrain event status to `PUBLISHED` at the database boundary and select only approved public fields. The homepage is account-free, uses the Africa/Lagos calendar day, lists today/future events only, orders by date then start time then title, and caps results at 24. Published past events remain accessible at their direct detail URLs. Every other status and an unknown ID return the same generic 404. Search, filtering, recommendations, registration, attendance, and participant features are not part of this milestone.
 
+## D-053 — Public search, filtering, and relevance contract
+
+**Date:** 2026-10-09
+
+**Status:** Implemented in Milestone 4D without a schema migration.
+
+**Decision:** Public discovery accepts `q`, `category`, `department`, `level`, and `date` as singular URL parameters. Search is a case-insensitive substring match over title, description, venue, organizer public name, and category name. Reference filters use persisted codes. Department/level filters include explicit matches plus events with no targets in that dimension; targeting remains relevance-only and never eligibility. Different dimensions combine with AND semantics. Date values mean upcoming, today, today-through-Sunday, or today-through-month-end in Africa/Lagos. Results retain date/time/title ordering and the 24-card cap; a shared query condition powers both cards and the accurate total count. Malformed or unknown filters return a safe empty result rather than broadening visibility. Every query remains `PUBLISHED`-only with the explicit public projection.
+
 # How to change a decision
 
 If a decision must change:
