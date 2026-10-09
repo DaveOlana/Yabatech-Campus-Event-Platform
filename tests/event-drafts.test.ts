@@ -135,6 +135,9 @@ describe("simplified Layer 1 event drafts", () => {
     const page = await agent.get("/organizer/events/new").expect(200);
     expect(page.text).toContain("Recommended audience");
     expect(page.text).toContain("Department not listed?");
+    expect(page.text).toContain('name="targetDepartmentIds"');
+    expect(page.text).toContain('multiple size="8"');
+    expect(page.text).toContain("Search target departments");
     expect(page.text).not.toContain("Registration Limit");
     expect(page.text).not.toContain("Application Questions");
   });

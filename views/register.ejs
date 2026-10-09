@@ -75,22 +75,7 @@
 
       <div class="form-group">
         <label for="departmentId">Department</label>
-        <select
-          id="departmentId"
-          name="departmentId"
-          class="<%= errors.departmentId ? 'input-error' : '' %>"
-          required
-        >
-          <option value="">-- Select Department --</option>
-          <% departments.forEach(dept => { %>
-            <option
-              value="<%= dept.id %>"
-              <%= values.departmentId === dept.id ? 'selected' : '' %>
-            >
-              <%= dept.name %> (<%= dept.code %>)
-            </option>
-          <% }); %>
-        </select>
+        <%- include('partials/department-picker', { id: 'departmentId', name: 'departmentId', departments, valueKey: 'id', selectedValue: values.departmentId, placeholder: 'Select department', searchPlaceholder: 'Search by department name', multiple: false, required: true, showCode: true, errorClass: errors.departmentId ? 'input-error' : '' }) %>
         <% if (errors.departmentId) { %>
           <div class="field-error"><%= errors.departmentId[0] %></div>
         <% } %>

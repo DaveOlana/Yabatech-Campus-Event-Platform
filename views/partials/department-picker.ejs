@@ -1,0 +1,24 @@
+<%
+  const pickerMultiple = typeof multiple !== 'undefined' && multiple;
+  const pickerRequired = typeof required !== 'undefined' && required;
+  const pickerValueKey = typeof valueKey !== 'undefined' ? valueKey : 'id';
+  const pickerPlaceholder = typeof placeholder !== 'undefined' ? placeholder : (pickerMultiple ? 'Choose departments' : 'Select department');
+  const pickerSearchPlaceholder = typeof searchPlaceholder !== 'undefined' ? searchPlaceholder : 'Search departments';
+  const pickerErrorClass = typeof errorClass !== 'undefined' ? errorClass : '';
+  const rawSelected = typeof selectedValue !== 'undefined' ? selectedValue : '';
+  const selectedValues = pickerMultiple ? (Array.isArray(rawSelected) ? rawSelected.map(String) : rawSelected ? [String(rawSelected)] : []) : [String(rawSelected || '')];
+%>
+<select
+  id="<%= id %>"
+  name="<%= name %>"
+  class="department-picker__native js-department-picker <%= pickerErrorClass %>"
+  data-placeholder="<%= pickerPlaceholder %>"
+  data-search-placeholder="<%= pickerSearchPlaceholder %>"
+  <%- pickerMultiple ? 'multiple size="8"' : '' %>
+  <%- pickerRequired ? 'required' : '' %>
+>
+  <% if (!pickerMultiple) { %><option value=""><%= pickerPlaceholder %></option><% } %>
+  <% departments.forEach(function(department) { const optionValue = String(department[pickerValueKey]); %>
+    <option value="<%= optionValue %>" <%= selectedValues.includes(optionValue) ? 'selected' : '' %>><%= department.name %><%= showCode && department.code ? ` (${department.code})` : '' %></option>
+  <% }); %>
+</select>

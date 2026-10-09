@@ -8,31 +8,51 @@
 </head>
 <body>
   <%- include('partials/member-header') %>
-  <main class="container">
+  <main class="container account-page">
     <div class="page-header"><div><h1>My account</h1><p>Your YCEP identity and current academic verification.</p></div></div>
     <section class="card account-summary">
       <div class="account-summary__head">
-        <div><h2><%= user.fullName %></h2><p class="muted"><%= user.email %></p></div>
-        <div class="account-summary__controls"><a class="btn-secondary btn-sm" href="/account/edit">Edit details</a></div>
+        <div><span class="eyebrow">Member profile</span><h2><%= user.fullName %></h2><p class="muted"><%= user.email %></p></div>
+        <div class="account-summary__controls"><a class="btn-secondary btn-sm" href="/account/edit">Edit my details</a></div>
       </div>
-      <dl class="detail-grid account-summary__details">
-        <div class="detail-item"><dt>Matric number</dt><dd><%= user.matricNumber || '—' %></dd></div>
-        <div class="detail-item"><dt>Role</dt><dd><%= user.role %></dd></div>
-        <% if(user.department){ %><div class="detail-item"><dt>Department</dt><dd><%= user.department.name %> (<%= user.department.code %>)</dd></div><% } %>
-        <% if(user.level){ %><div class="detail-item"><dt>Level</dt><dd><%= user.level.code %> — <%= user.level.label %></dd></div><% } %>
-        <div class="detail-item"><dt>Academic cycle</dt><dd><%= currentCycle ? currentCycle.name : 'None configured' %></dd></div>
-        <div class="detail-item"><dt>Verification status</dt><dd><%= currentVerification ? currentVerification.status : 'Unverified' %></dd></div>
-        <% if(currentVerification && currentVerification.expiresAt){ %><div class="detail-item"><dt>Verification expires</dt><dd><%= new Date(currentVerification.expiresAt).toLocaleDateString('en-NG') %></dd></div><% } %>
-      </dl>
+
+      <div class="account-overview-grid">
+        <section class="account-panel" aria-labelledby="academic-details-heading">
+          <span class="account-panel__index" aria-hidden="true">01</span>
+          <h3 id="academic-details-heading">Academic details</h3>
+          <dl class="account-detail-list">
+            <div><dt>Matric number</dt><dd><%= user.matricNumber || '—' %></dd></div>
+            <% if(user.department){ %><div><dt>Department</dt><dd><%= user.department.name %> <span><%= user.department.code %></span></dd></div><% } %>
+            <% if(user.level){ %><div><dt>Current level</dt><dd><%= user.level.code %> — <%= user.level.label %></dd></div><% } %>
+          </dl>
+        </section>
+
+        <section class="account-panel account-panel--verification" aria-labelledby="verification-heading">
+          <span class="account-panel__index" aria-hidden="true">02</span>
+          <h3 id="verification-heading">Current verification</h3>
+          <p class="verification-statement"><%= currentVerification && currentVerification.status === 'ACTIVE' ? 'Your student identity is verified for this academic cycle.' : currentVerification && currentVerification.status === 'EXPIRED' ? 'Your student identity verification has expired. You can still access your account and history.' : 'Your student identity is not currently verified.' %></p>
+          <dl class="account-detail-list">
+            <div><dt>Status</dt><dd><%= currentVerification ? (currentVerification.status === 'ACTIVE' ? 'Current' : currentVerification.status) : 'Not verified' %></dd></div>
+            <div><dt>Academic cycle</dt><dd><%= currentCycle ? currentCycle.name : 'None configured' %></dd></div>
+            <% if(currentVerification && currentVerification.expiresAt){ %><div><dt>Valid until</dt><dd><%= new Date(currentVerification.expiresAt).toLocaleDateString('en-NG') %></dd></div><% } %>
+          </dl>
+        </section>
+      </div>
+
       <% if(user.role==='MEMBER'){ %>
-        <div class="account-actions">
-          <h2>Organizer workspace</h2>
-          <p class="muted">Review your organizer status or apply for privileges to propose campus events.</p>
-          <div class="actions"><a href="/organizer/status" class="btn-secondary">View organizer status</a><a href="/organizer/apply" class="btn-ghost">Apply for privileges</a></div>
-        </div>
-        <div class="management-access">
-          <div><h2>Management access</h2><p class="muted">For authorized YABATECH event-management personnel.</p></div>
-          <a class="btn-secondary" href="/admin/login">Management sign in</a>
+        <div class="account-access-grid">
+          <section class="account-action-panel">
+            <span class="eyebrow">Publish events</span>
+            <h2>Organizer workspace</h2>
+            <p>Review your application or use approved organizer privileges to manage event proposals.</p>
+            <div class="actions"><a href="/organizer/status" class="btn-primary">Open organizer workspace</a><a href="/organizer/apply" class="btn-ghost">Apply for privileges</a></div>
+          </section>
+          <section class="account-action-panel account-action-panel--management">
+            <span class="eyebrow">Institutional access</span>
+            <h2>Management access</h2>
+            <p>For authorized YABATECH event-management personnel. This uses a separate protected sign-in.</p>
+            <a class="btn-secondary" href="/admin/login">Management sign in</a>
+          </section>
         </div>
       <% } %>
     </section>

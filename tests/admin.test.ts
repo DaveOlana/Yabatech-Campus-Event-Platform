@@ -296,6 +296,8 @@ describe("Milestone 2 — Admin Authentication", () => {
     expect(res.text).toContain('autocomplete="current-password"');
     expect(res.text).toContain("Authorized event-management access for YABATECH.");
     expect(res.text).toContain('href="/login">Back to member sign in</a>');
+    expect(res.text).toContain('href="/login">Member sign in</a>');
+    expect(res.text).not.toContain('href="/admin/login">Management sign in</a>');
   });
 
   it("successfully authenticates ADMIN with valid username and password", async () => {

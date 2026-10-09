@@ -9,7 +9,7 @@ import { sessionCookieOptions, sessionProxyEnabled, sessionStoreOptions } from "
 import { pruneExpiredSessions } from "../scripts/prune-sessions.js";
 import {
   PRODUCTION_DEPARTMENTS, PRODUCTION_SEMESTERS, internalDepartmentCode,
-  productionReferenceInput, seedProductionReferenceData,
+  productionReferenceInput, seedProductionReferenceData, syncProductionDepartments,
 } from "../scripts/seed-production-reference.js";
 
 const originalNodeEnv = process.env.NODE_ENV;
@@ -79,6 +79,34 @@ describe("Milestone 5C deployment configuration", () => {
   it("uses deterministic internal department codes", () => {
     expect(internalDepartmentCode("Computer Science")).toBe("YCEP-COMPUTER-SCIENCE");
     expect(new Set(PRODUCTION_DEPARTMENTS.map(internalDepartmentCode)).size).toBe(PRODUCTION_DEPARTMENTS.length);
+  });
+
+  it("syncs departments idempotently while preserving canonical IDs, custom additions, and unrelated data", async () => {
+    const existingComputerScience = await prisma.department.findUnique({ where: { name: "Computer Science" } })
+      ?? await prisma.department.create({ data: { name: "Computer Science", code: "LOCAL-CSC" } });
+    const custom = await prisma.department.upsert({
+      where: { code: "MGMT-CUSTOM" },
+      update: {},
+      create: { name: "Management Custom Department", code: "MGMT-CUSTOM" },
+    });
+    const beforeCounts = {
+      users: await prisma.user.count(), events: await prisma.event.count(), applications: await prisma.organizerApplication.count(),
+      authorizations: await prisma.organizerAuthorization.count(), audits: await prisma.auditLog.count(),
+    };
+    const beforeCycles = await prisma.academicYearCycle.findMany({ orderBy: { id: "asc" } });
+
+    await syncProductionDepartments(prisma);
+    const secondRun = await syncProductionDepartments(prisma);
+
+    expect(secondRun.created).toBe(0);
+    expect(await prisma.department.count({ where: { name: "Computer Science" } })).toBe(1);
+    expect((await prisma.department.findUniqueOrThrow({ where: { name: "Computer Science" } })).id).toBe(existingComputerScience.id);
+    expect((await prisma.department.findUniqueOrThrow({ where: { id: custom.id } })).code).toBe("MGMT-CUSTOM");
+    expect(await prisma.academicYearCycle.findMany({ orderBy: { id: "asc" } })).toEqual(beforeCycles);
+    expect({
+      users: await prisma.user.count(), events: await prisma.event.count(), applications: await prisma.organizerApplication.count(),
+      authorizations: await prisma.organizerAuthorization.count(), audits: await prisma.auditLog.count(),
+    }).toEqual(beforeCounts);
   });
 
   it("seeds canonical reference data idempotently and preserves approved additions", async () => {

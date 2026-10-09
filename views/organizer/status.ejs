@@ -14,14 +14,11 @@
     <p class="muted">Your current authorization and application history.</p>
 
     <section aria-labelledby="current-organizer-status">
-      <h2 id="current-organizer-status" class="cycle-heading"><span>Current cycle</span><span class="cycle-heading__value"><%= currentCycle ? currentCycle.name : 'None configured' %></span></h2>
+      <h2 id="current-organizer-status" class="cycle-heading"><span>Current cycle</span><span class="cycle-heading__divider" aria-hidden="true">/</span><span class="cycle-heading__value"><%= currentCycle ? currentCycle.name : 'None configured' %></span></h2>
 
       <% if (effectiveStatus === 'ACTIVE') { %>
         <div class="organizer-state organizer-state--active">
-          <div class="organizer-state__heading">
-            <h2>Approved organizer</h2>
-            <span class="badge badge-active">Active Organizer</span>
-          </div>
+          <div class="organizer-state__heading"><div><span class="organizer-state__label">Authorization granted</span><h2>Approved organizer</h2></div><p class="organizer-state__summary">Ready to publish this cycle</p></div>
           <p>
             Approved Public Name: <strong><%= currentAuthorization.approvedPublicName %></strong>
           </p>
@@ -37,20 +34,14 @@
         </div>
       <% } else if (effectiveStatus === 'PENDING') { %>
         <div class="organizer-state organizer-state--warning">
-          <div class="organizer-state__heading">
-            <h2>Under review</h2>
-            <span class="badge badge-pending">Application Pending</span>
-          </div>
+          <div class="organizer-state__heading"><div><span class="organizer-state__label">Submitted to Management</span><h2>Under review</h2></div><p class="organizer-state__summary">Decision pending</p></div>
           <p>
             Your application for <strong><%= currentPendingApplication.requestedPublicName %></strong> was submitted on <%= new Date(currentPendingApplication.createdAt).toLocaleDateString() %> and is currently under review by YABATECH Management.
           </p>
         </div>
       <% } else if (effectiveStatus === 'REJECTED') { %>
         <div class="organizer-state organizer-state--danger">
-          <div class="organizer-state__heading">
-            <h2>Application not approved</h2>
-            <span class="badge badge-rejected">Application Rejected</span>
-          </div>
+          <div class="organizer-state__heading"><div><span class="organizer-state__label">Management decision</span><h2>Application not approved</h2></div><p class="organizer-state__summary">Review the feedback below</p></div>
           <% if (currentLatestApplication && currentLatestApplication.adminReviewNotes) { %>
             <p>
               <strong>Management Review Notes:</strong> <%= currentLatestApplication.adminReviewNotes %>
@@ -62,10 +53,7 @@
         </div>
       <% } else if (effectiveStatus === 'REVOKED') { %>
         <div class="organizer-state organizer-state--danger">
-          <div class="organizer-state__heading">
-            <h2>Organizer privilege revoked</h2>
-            <span class="badge badge-revoked">Privilege Revoked</span>
-          </div>
+          <div class="organizer-state__heading"><div><span class="organizer-state__label">Authorization ended</span><h2>Organizer privilege revoked</h2></div><p class="organizer-state__summary">Unavailable this cycle</p></div>
           <p>
             Your organizer authorization for this cycle was revoked on <%= currentAuthorization && currentAuthorization.revokedAt ? new Date(currentAuthorization.revokedAt).toLocaleDateString() : '—' %>.
           </p>
@@ -78,10 +66,7 @@
         </div>
       <% } else if (effectiveStatus === 'EXPIRED') { %>
         <div class="organizer-state organizer-state--warning">
-          <div class="organizer-state__heading">
-            <h2>Authorization expired</h2>
-            <span class="badge badge-expired">Authorization Expired</span>
-          </div>
+          <div class="organizer-state__heading"><div><span class="organizer-state__label">Previous-cycle access</span><h2>Authorization expired</h2></div><p class="organizer-state__summary">Renewal required</p></div>
           <p>
             Your organizer authorization has expired with the completion of the academic cycle.
           </p>
@@ -90,7 +75,7 @@
           </div>
         </div>
       <% } else { %>
-        <div class="organizer-state"><div class="organizer-state__heading"><h2>No current application</h2><span class="badge badge-draft">Not applied</span></div><p class="muted">You do not currently hold organizer privileges or have a pending application for this academic cycle.</p>
+        <div class="organizer-state"><div class="organizer-state__heading"><div><span class="organizer-state__label">Organizer access</span><h2>No current application</h2></div><p class="organizer-state__summary">Not requested</p></div><p class="muted">You do not currently hold organizer privileges or have a pending application for this academic cycle.</p>
         <div class="actions">
           <a href="/organizer/apply" class="btn-primary btn-sm">Apply to Become an Organizer</a>
         </div></div>
@@ -118,9 +103,7 @@
                   <td><%= app.cycle ? app.cycle.name : '—' %></td>
                   <td><strong><%= app.requestedPublicName %></strong></td>
                   <td>
-                    <span class="badge <%= app.status === 'APPROVED' ? 'badge-active' : app.status === 'PENDING' ? 'badge-pending' : 'badge-rejected' %>">
-                      <%= app.status %>
-                    </span>
+                    <span class="application-status application-status--<%= app.status.toLowerCase() %>"><%= app.status === 'PENDING' ? 'Awaiting decision' : app.status.charAt(0) + app.status.slice(1).toLowerCase() %></span>
                   </td>
                   <td class="cell-wrap-clamp"><%= app.adminReviewNotes || '—' %></td>
                 </tr>

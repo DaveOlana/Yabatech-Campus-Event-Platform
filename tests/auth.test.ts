@@ -325,6 +325,8 @@ describe("Authentication: Login & Sessions", () => {
     expect(editPage.status).toBe(200);
     expect(editPage.text).toContain("Edit your details");
     expect(editPage.text).toContain('disabled');
+    expect(editPage.text).toContain('class="department-picker__native js-department-picker');
+    expect(editPage.text).toContain("Mass Communication");
 
     const response = await agent.post("/account/edit").set("Accept", "application/json").send({
       fullName: "Jane Updated", email: "jane.updated@yabatech.edu.ng",

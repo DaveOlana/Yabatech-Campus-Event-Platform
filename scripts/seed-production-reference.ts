@@ -43,6 +43,30 @@ export function internalDepartmentCode(name: string): string {
   return base.length <= 80 ? base : `${base.slice(0, 71)}-${crypto.createHash("sha256").update(name).digest("hex").slice(0, 8).toUpperCase()}`;
 }
 
+export async function syncProductionDepartments(
+  db: PrismaClient | Prisma.TransactionClient = prisma,
+): Promise<{ created: number; preserved: number; total: number }> {
+  let created = 0;
+  let preserved = 0;
+
+  for (const name of PRODUCTION_DEPARTMENTS) {
+    if (await db.department.findUnique({ where: { name } })) {
+      preserved += 1;
+      continue;
+    }
+
+    const baseCode = internalDepartmentCode(name);
+    const conflict = await db.department.findUnique({ where: { code: baseCode } });
+    const code = conflict
+      ? `${baseCode}-${crypto.createHash("sha256").update(name).digest("hex").slice(0, 8).toUpperCase()}`
+      : baseCode;
+    await db.department.create({ data: { name, code } });
+    created += 1;
+  }
+
+  return { created, preserved, total: await db.department.count() };
+}
+
 export function productionReferenceInput(env = process.env): ProductionReferenceInput {
   const cycleName = env.YCEP_ACADEMIC_CYCLE_NAME?.trim();
   const start = env.YCEP_ACADEMIC_CYCLE_START;
@@ -61,13 +85,7 @@ export async function seedProductionReferenceData(input: ProductionReferenceInpu
     ]) await tx.level.upsert({ where: { code: level.code }, create: level, update: {} });
     for (const semester of PRODUCTION_SEMESTERS) await tx.academicSemester.upsert({ where: { code: semester.code }, create: semester, update: {} });
     for (const category of PRODUCTION_CATEGORIES) await tx.eventCategory.upsert({ where: { code: category.code }, create: category, update: {} });
-    for (const name of PRODUCTION_DEPARTMENTS) {
-      if (await tx.department.findUnique({ where: { name } })) continue;
-      const baseCode = internalDepartmentCode(name);
-      const conflict = await tx.department.findUnique({ where: { code: baseCode } });
-      const code = conflict ? `${baseCode}-${crypto.createHash("sha256").update(name).digest("hex").slice(0, 8).toUpperCase()}` : baseCode;
-      await tx.department.create({ data: { name, code } });
-    }
+    await syncProductionDepartments(tx);
     await tx.academicYearCycle.updateMany({ where: { isCurrent: true, name: { not: input.cycleName } }, data: { isCurrent: false } });
     await tx.academicYearCycle.upsert({
       where: { name: input.cycleName },

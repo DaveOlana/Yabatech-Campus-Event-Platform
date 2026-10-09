@@ -5,6 +5,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { EventStatus, LevelCode, OrganizerAuthorizationStatus, PrismaClient, UserRole } from "@prisma/client";
 import { createApp } from "../src/app.js";
 import { formatEventTimeRange, getLagosTodayDate, getPublicDateRange } from "../src/utils/event-display.js";
+import { PRODUCTION_DEPARTMENTS, syncProductionDepartments } from "../scripts/seed-production-reference.js";
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
 if (!databaseUrl) throw new Error("TEST_DATABASE_URL environment variable is required for tests");
@@ -155,6 +156,17 @@ describe("public event discovery", () => {
     expect(response.text).toContain('value="CAREER" selected');
     expect(response.text).toContain("Electrical Engineering");
     expect(response.text).toContain("ND Year 2");
+  });
+
+  it("renders the complete canonical and Management-approved department catalogue in the searchable public picker", async () => {
+    await syncProductionDepartments(prisma);
+    await prisma.department.create({ data: { name: "Management Approved Studies", code: "MAS" } });
+    const response = await request(app).get("/").expect(200);
+    expect(response.text).toContain('class="department-picker__native js-department-picker');
+    expect(response.text).toContain('name="department"');
+    for (const name of PRODUCTION_DEPARTMENTS) expect(response.text).toContain(name);
+    expect(response.text).toContain("Management Approved Studies");
+    expect(response.text).not.toContain(">Other department<");
   });
 
   it("treats department filters as relevance and includes untargeted general events", async () => {

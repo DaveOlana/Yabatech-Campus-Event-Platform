@@ -15,6 +15,7 @@
     "test:migrate": "tsx scripts/migrate-test.ts",
     "db:seed": "tsx prisma/seed.ts",
     "db:reference:production": "tsx scripts/seed-production-reference.ts",
+    "db:departments:sync": "tsx scripts/sync-departments.ts",
     "sessions:prune": "tsx scripts/prune-sessions.ts",
     "admin:bootstrap": "tsx scripts/bootstrap-admin.ts",
     "admin:reset-password": "tsx scripts/bootstrap-admin.ts --reset-password",

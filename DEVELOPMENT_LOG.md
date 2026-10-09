@@ -4,6 +4,21 @@ Use this file as the handoff record between Claude, Gemini, Codex, and human dev
 
 Newest entries should be added at the top.
 
+## 2026-10-09 — Local catalogue sync and department-picker UX
+
+### Status
+
+Implemented and intentionally uncommitted. The local development catalogue now contains all 56 approved departments without replacing the existing Computer Science row, and long department controls use one progressively enhanced searchable picker.
+
+### Scope and verification
+
+- Added additive, idempotent `npm run db:departments:sync`, reusing the production catalogue and deterministic internal-code rules without changing cycles or creating users, events, organizers, audits, or credentials.
+- Synchronized `ycep_dev` from 1 to 56 departments. Computer Science retained ID `d3db1a7e-0e68-4372-b668-a3084c6f63fd` and its existing member references; a second run created zero rows, and duplicate name/code checks returned none.
+- Added a reusable Vanilla JavaScript department picker to public discovery, registration, profile editing, and organizer event targeting. It preserves native-select fallback, URL-driven GET filtering, multi-selection, keyboard operation, ARIA state, internal scrolling, and the Management-gated department-suggestion path.
+- Replaced the recursive `/admin/login` navigation item with `Member sign in` while leaving authenticated Management navigation and authentication behavior unchanged.
+- Refined account and organizer-status information hierarchy and strengthened the page-responsive ambient animation without introducing status pills or glowing circles. Reduced-motion users receive a static background.
+- Final verification: 199/199 tests passed across 11 files; TypeScript build, Prisma validation, JavaScript syntax checks, local HTTP smoke checks, and `git diff --check` passed.
+
 ## 2026-10-09 — Milestone 5C: Vercel + Neon deployment adaptation
 
 ### Status
