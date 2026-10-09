@@ -4,6 +4,29 @@ Use this file as the handoff record between Claude, Gemini, Codex, and human dev
 
 Newest entries should be added at the top.
 
+## 2026-10-09 — Milestone 4C: Public Event Discovery
+
+### Status
+
+Complete. Visitors can browse upcoming Management-approved events without an account and open public detail pages for any published event, including past events by direct URL. Non-published and missing events share a generic 404.
+
+### Implementation
+
+- Added an explicit public-event projection service, public routes for `/` and `/events/:eventId`, Africa/Lagos-safe date handling, deterministic ordering, and a 24-event homepage cap.
+- Added responsive flyer/poster cards, fallback artwork, an empty state, and a public detail view with category, schedule, venue, organizer identity, and recommended audience.
+- Kept search, filters, recommendations, registration, participants, and attendance outside this milestone.
+- No schema change or migration was required.
+
+### Verification
+
+- Added database-backed public visibility, ordering/cap, past-detail, generic-404, fallback, formatting, data-leakage, and protected-route regression tests in `tests/public-events.test.ts`.
+- Full suite: 156/156 tests passed across 9 files.
+- TypeScript build passed with zero errors; `git diff --check` passed.
+
+### Next recommended task
+
+Milestone 5: design and implement basic public search/filtering without allowing audience targeting to restrict visibility.
+
 ## 2026-10-09 — Legacy Milestone 4A Simplification Implemented
 
 ### Status

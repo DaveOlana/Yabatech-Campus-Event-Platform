@@ -58,4 +58,9 @@ V1 is complete when this works without manual database edits:
 
 ## Current implementation note
 
-Milestone 4B is implemented. Authorized organizers can submit owned drafts for Management review; Management can approve them to `PUBLISHED` or reject them with feedback. Lifecycle decisions use PostgreSQL row locks, live organizer-trust revalidation, and atomic audit records. Public discovery remains the next unstarted milestone.
+Milestone 4C is implemented. The public homepage shows at most 24 upcoming `PUBLISHED` events in deterministic date/time/title order, and each published event has a public detail page. Past published events remain directly accessible, while every non-published status returns the same generic not-found response. Search and filtering remain a later milestone.
+
+Public routes:
+
+- `GET /` — upcoming approved campus events; no account required.
+- `GET /events/:eventId` — approved public event details; no account required.

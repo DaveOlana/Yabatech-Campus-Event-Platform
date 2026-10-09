@@ -42,17 +42,16 @@ Registration-era fields/relations introduced here are legacy structures pending 
 - [x] Transactionally lock contested decisions.
 - [x] Test permissions, valid flow, invalid transitions, and trust changes.
 
-# Milestone 5 — Publication and Public Discovery — Not Started
+# Milestone 4C — Public Event Discovery — COMPLETE
 
-- [ ] Publish approved events only.
-- [ ] Public flyer/poster-centered event feed.
-- [ ] Public event detail page.
-- [ ] Upcoming-event ordering.
-- [ ] Exclude drafts, pending, and rejected events from public routes.
-- [ ] Display cancelled/completed history where appropriate.
-- [ ] Verify visitors require no account.
+- [x] Publish approved events only.
+- [x] Public flyer/poster-centered event feed.
+- [x] Public event detail page, including direct access to past published events.
+- [x] Upcoming-event ordering in Africa/Lagos calendar context, capped at 24.
+- [x] Exclude every non-published status from public routes with a generic 404.
+- [x] Verify visitors require no account and internal data is not projected.
 
-# Milestone 6 — Search, Filtering, and Relevance
+# Milestone 5 — Search, Filtering, and Relevance
 
 - [ ] Keyword/title search.
 - [ ] Category and date filtering.

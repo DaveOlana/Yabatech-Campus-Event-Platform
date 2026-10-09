@@ -14,13 +14,14 @@ describe('YCEP Application Foundation', () => {
     expect(typeof response.body.uptime).toBe('number');
   });
 
-  it('renders minimal YCEP landing page on GET /', async () => {
+  it('renders the public event discovery page on GET /', async () => {
     const response = await request(app).get('/');
 
     expect(response.status).toBe(200);
     expect(response.headers['content-type']).toMatch(/html/);
-    expect(response.text).toContain('YABATECH Campus Events Platform');
-    expect(response.text).toContain('Running');
+    expect(response.text).toContain('Discover what');
+    expect(response.text).toContain('Upcoming events');
+    expect(response.text).not.toContain('Running');
   });
 
   it('returns 404 for unknown routes', async () => {

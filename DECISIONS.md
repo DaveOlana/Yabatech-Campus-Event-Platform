@@ -385,6 +385,14 @@ Migration `20260912140539_event_foundation_drafts` remains immutable history. Cl
 
 **Decision:** Milestone 4B implements only `DRAFT → PENDING_APPROVAL → PUBLISHED | REJECTED`. Submission and management decisions use PostgreSQL row locking and atomic audit writes. Approval revalidates the owning organizer's current authorization and member verification; rejection remains available if that trust later becomes invalid. Rejected events are terminal and view-only in this milestone. Public discovery, cancellation, completion, and external registration links remain deferred.
 
+## D-052 — Public discovery baseline
+
+**Date:** 2026-10-09
+
+**Status:** Implemented in Milestone 4C without a schema migration.
+
+**Decision:** Public queries constrain event status to `PUBLISHED` at the database boundary and select only approved public fields. The homepage is account-free, uses the Africa/Lagos calendar day, lists today/future events only, orders by date then start time then title, and caps results at 24. Published past events remain accessible at their direct detail URLs. Every other status and an unknown ID return the same generic 404. Search, filtering, recommendations, registration, attendance, and participant features are not part of this milestone.
+
 # How to change a decision
 
 If a decision must change:

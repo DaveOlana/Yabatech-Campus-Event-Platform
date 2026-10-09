@@ -22,6 +22,7 @@ Do not add internal attendee registration, attendee applications, participant li
 - `EventTargetDepartment` and `EventTargetLevel` influence discovery/relevance only. They never restrict public visibility or participation.
 - Ordinary visitors do not need accounts to discover published events.
 - Draft, pending, rejected, account, and Management data are not public.
+- Public event reads must constrain status to `PUBLISHED` in the database query and use an explicit safe-field projection. The homepage uses the Africa/Lagos calendar boundary, excludes past events, orders by date/time/title, and returns at most 24. Past published events may remain directly accessible. Unknown and non-published detail URLs must share the same generic 404.
 
 ## Inspect before editing
 

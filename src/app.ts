@@ -2,7 +2,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import express, { Express } from 'express';
 import { healthRouter } from './routes/health.route.js';
-import { indexRouter } from './routes/index.route.js';
+import { publicEventsRouter } from './routes/public-events.route.js';
 import { registrationRouter } from './routes/registration.route.js';
 import { authRouter } from './routes/auth.route.js';
 import { adminRouter } from './routes/admin.route.js';
@@ -33,7 +33,7 @@ export function createApp(): Express {
 
   // Routes
   app.use(healthRouter);
-  app.use(indexRouter);
+  app.use(publicEventsRouter);
   app.use(registrationRouter);
   app.use(authRouter);
   app.use(adminRouter);

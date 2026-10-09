@@ -127,6 +127,8 @@ The public event feed is the primary product surface. It should be visually cent
 
 Visitors can open a public detail page for full approved information. Basic V1 search/filtering may cover keyword/title, category, date, target department, and target level. Public routes expose published-event information only and never leak draft, review, account, session, or administrative data.
 
+Milestone 4C establishes the unfiltered discovery baseline. The homepage lists only `PUBLISHED` events dated today or later using the Africa/Lagos calendar date, ordered by event date, start time, then title, with a maximum of 24. Past published events remain available by direct detail URL. All other statuses and unknown identifiers return the same generic not-found response. Public queries use an explicit safe-field projection. Search, filters, and relevance ranking are deferred to their dedicated milestone.
+
 ## 11. Event changes, cancellation, and history
 
 Important event records must not be hard-deleted after publication. Operational changes may be supported with appropriate history. Fundamental changes—title, organizer identity, or core purpose/description—require reapproval before the modified event is treated as approved.
