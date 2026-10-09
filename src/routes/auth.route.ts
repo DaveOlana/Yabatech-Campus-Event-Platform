@@ -7,6 +7,8 @@ import {
   requireActiveVerification,
   isJsonRequest,
 } from "../middleware/auth.middleware.js";
+import { memberLoginLimiter } from "../middleware/rate-limit.middleware.js";
+import { memberLoginSchema } from "../validators/auth.validator.js";
 
 export const authRouter = Router();
 
@@ -41,11 +43,12 @@ authRouter.get("/login", (req: Request, res: Response) => {
  * - Session regenerated to prevent fixation.
  * - Only user ID stored in session (no cached roles, verifications, passwords).
  */
-authRouter.post("/login", async (req: Request, res: Response, next: NextFunction) => {
-  const { matricNumber, password } = req.body;
+authRouter.post("/login", memberLoginLimiter, async (req: Request, res: Response, next: NextFunction) => {
+  const parsed = memberLoginSchema.safeParse(req.body);
+  const { matricNumber, password } = parsed.success ? parsed.data : { matricNumber: "", password: "" };
   const jsonExpected = isJsonRequest(req);
 
-  if (!matricNumber || !password || typeof matricNumber !== "string" || typeof password !== "string") {
+  if (!parsed.success) {
     if (jsonExpected) {
       res.status(401).json({ success: false, message: GENERIC_AUTH_ERROR });
       return;
@@ -134,7 +137,7 @@ authRouter.post("/logout", (req: Request, res: Response, next: NextFunction) => 
   req.session.destroy((err) => {
     if (err) return next(err);
 
-    res.clearCookie("ycep.sid");
+    res.clearCookie("ycep.sid", { path: "/", httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production" });
 
     if (jsonExpected) {
       res.status(200).json({ success: true, message: "Logged out successfully" });

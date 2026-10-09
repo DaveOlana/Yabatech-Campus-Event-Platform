@@ -10,10 +10,10 @@ function isValidCalendarDate(value: string): boolean {
   return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 }
 
-function isHttpUrl(value: string): boolean {
+function isHttpsUrl(value: string): boolean {
   try {
     const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
+    return url.protocol === "https:";
   } catch {
     return false;
   }
@@ -35,7 +35,7 @@ export const eventDraftSchema = z
     title: z.string().trim().min(1, "Event title is required").min(3, "Event title must be at least 3 characters").max(200, "Event title cannot exceed 200 characters"),
     description: z.string().trim().min(1, "Event description is required").min(10, "Event description must be at least 10 characters").max(5000, "Event description cannot exceed 5000 characters"),
     categoryId: z.string().uuid("Please select a valid event category"),
-    posterUrl: z.string().trim().url("Poster URL must be a valid URL").max(500, "Poster URL cannot exceed 500 characters").refine(isHttpUrl, "Poster URL must use http or https").optional().or(z.literal("")).nullable().transform((value) => value && value.trim().length > 0 ? value.trim() : null),
+    posterUrl: z.string().trim().url("Poster URL must be a valid URL").max(500, "Poster URL cannot exceed 500 characters").refine(isHttpsUrl, "Poster URL must use https").optional().or(z.literal("")).nullable().transform((value) => value && value.trim().length > 0 ? value.trim() : null),
     eventDate: z.string().trim().regex(dateRegex, "Event date must be in YYYY-MM-DD format").refine(isValidCalendarDate, "Event date must be a valid calendar date"),
     startTime: z.string().trim().regex(timeRegex, "Start time must be in 24-hour format (HH:mm)"),
     endTime: z.string().trim().regex(timeRegex, "End time must be in 24-hour format (HH:mm)"),

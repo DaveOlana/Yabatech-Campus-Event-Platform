@@ -1,11 +1,11 @@
-<header class="site-header">
+<div data-csrf-token="<%= csrfToken %>" hidden></div><script src="/js/csrf-forms.js" defer></script><header class="site-header">
   <div class="site-header__inner">
     <a class="brand" href="/" aria-label="YCEP home"><img class="brand__logo" src="/assets/brand/ycep-navbar.png" alt="YCEP"></a>
     <nav class="site-nav" aria-label="Main navigation">
       <% if (typeof authorization !== 'undefined' && authorization) { %><a href="/organizer/events">My Events</a><% } %>
       <a href="/organizer/status">Organizer</a>
       <a href="/account">Account</a>
-      <% if (typeof user !== 'undefined' && user) { %><form action="/logout" method="POST"><button class="nav-signout" type="submit">Sign out</button></form><% } %>
+      <% if (typeof user !== 'undefined' && user) { %><form action="/logout" method="POST"><%- include('csrf-field') %><button class="nav-signout" type="submit">Sign out</button></form><% } %>
     </nav>
   </div>
 </header>

@@ -7,6 +7,7 @@ import {
   CycleConfigurationError,
   ValidationError,
 } from "../services/registration.service.js";
+import { registrationLimiter } from "../middleware/rate-limit.middleware.js";
 
 export const registrationRouter = Router();
 
@@ -53,7 +54,7 @@ registrationRouter.get("/register", async (_req: Request, res: Response) => {
  * POST /register
  * Handles member registration submission.
  */
-registrationRouter.post("/register", async (req: Request, res: Response) => {
+registrationRouter.post("/register", registrationLimiter, async (req: Request, res: Response) => {
   const jsonExpected = isJsonRequest(req);
 
   // 1. Zod validation
@@ -119,8 +120,7 @@ registrationRouter.post("/register", async (req: Request, res: Response) => {
 
     if (error instanceof DuplicateConflictError) {
       statusCode = 409;
-      errorMessage = error.message;
-      errors[error.field] = [error.message];
+      errorMessage = "An account with these details already exists.";
     } else if (error instanceof CycleConfigurationError) {
       statusCode = 503;
       errorMessage = error.message;

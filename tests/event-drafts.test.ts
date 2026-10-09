@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
-import request from "supertest";
+import request from "./helpers/http.js";
 import bcrypt from "bcrypt";
 import pg from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -205,13 +205,13 @@ describe("simplified Layer 1 event drafts", () => {
     expect(timeResponse.text).toContain("End time must be after start time");
   });
 
-  it("accepts HTTP/HTTPS posters and rejects unsafe schemes", async () => {
+  it("accepts HTTPS posters and rejects insecure or unsafe schemes", async () => {
     const { user } = await setupOrganizer();
     const agent = await login(user.matricNumber!);
-    await agent.post("/organizer/events").type("form").send(payload({ posterUrl: "http://example.com/a.jpg" })).expect(302);
+    await agent.post("/organizer/events").type("form").send(payload({ posterUrl: "http://example.com/a.jpg" })).expect(400);
     const response = await agent.post("/organizer/events").type("form").send(payload({ title: "Unsafe Poster", posterUrl: "javascript:alert(1)" }));
     expect(response.status).toBe(400);
-    expect(response.text).toContain("Poster URL must use http or https");
+    expect(response.text).toContain("Poster URL must use https");
   });
 
   it("rejects missing categories and nonexistent target references transactionally", async () => {

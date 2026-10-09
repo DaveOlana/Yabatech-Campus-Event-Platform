@@ -19,6 +19,7 @@
         <p style="margin: 0.25rem 0 0 0; color: #475569;">Platform oversight and privileged operations</p>
       </div>
       <form action="/admin/logout" method="POST" style="margin: 0;">
+        <%- include('../partials/csrf-field') %>
         <button type="submit" class="btn-danger btn-sm">Sign Out</button>
       </form>
     </div>

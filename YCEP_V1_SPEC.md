@@ -94,7 +94,7 @@ Layer 1 supports:
 
 - title and clear public description;
 - category;
-- optional validated flyer/poster;
+- optional validated HTTPS flyer/poster URL for newly created or edited events;
 - event date, start/end time, and venue;
 - public organizer identity;
 - one primary organizer authorization;
@@ -173,6 +173,8 @@ The pre-pivot migration introduced `ParticipationMode`, registration deadline/li
 ## 15. Security and data integrity
 
 V1 requires backend authorization, public access only to published data, secure HTTP-only sessions, bcrypt password hashing, environment-based secrets, input and flyer/poster validation, protection against unauthorized state changes, database constraints, auditable Management decisions, historical preservation, and transactional locking for contested approval transitions where necessary.
+
+Duplicate registration conflicts use a generic response that does not disclose whether the matric number or email address already exists.
 
 The frozen stack remains Node.js 24, TypeScript, Express, EJS, Vanilla JavaScript/CSS, PostgreSQL, Prisma, Zod, session authentication, bcrypt, Nodemailer behind an `EmailService` abstraction if later required, Vitest, and Supertest.
 

@@ -10,7 +10,7 @@
     <p>Talks, workshops, career opportunities, social activities, and campus experiences—approved by YABATECH Management.</p>
   </section>
 
-  <form class="discovery-filters" method="get" action="/" role="search" aria-label="Search and filter campus events">
+  <form class="discovery-filters <%= hasActiveFilters ? 'has-active-filters' : '' %>" method="get" action="/" role="search" aria-label="Search and filter campus events">
     <div class="discovery-search">
       <label for="event-search">Search events</label>
       <div class="discovery-search__row"><input id="event-search" name="q" type="search" maxlength="100" value="<%= filters.q %>" placeholder="Title, venue, organizer, or keyword"><button type="submit">Search</button></div>
@@ -35,5 +35,4 @@
   </section>
 </main>
 <%- include('partials/footer') %>
-<script>document.querySelectorAll('[data-poster-image]').forEach(function(image){image.addEventListener('error',function(){this.hidden=true;var fallback=this.parentElement.querySelector('[data-poster-fallback]');if(fallback)fallback.hidden=false;});});</script>
 </body></html>

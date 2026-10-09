@@ -32,6 +32,14 @@ YCEP V1 does not manage attendee registration, participant lists, attendance, wa
 - Secure session authentication and bcrypt
 - Vitest and Supertest
 
+## Security configuration
+
+`DATABASE_URL` is required. Tests require `TEST_DATABASE_URL`. Production requires `NODE_ENV=production` and a random `SESSION_SECRET` of at least 32 characters; the application fails closed when these are missing. Local HTTP keeps the session cookie non-Secure, while production requires HTTPS and marks it Secure. Do not set `TRUST_PROXY` until the deployment proxy hop or subnet is explicitly reviewed. HSTS is intentionally deferred to deployment readiness.
+
+Every browser mutation uses a session-backed CSRF token. Login and registration are rate-limited in memory; a shared limiter store is required if production runs multiple application instances. Newly entered poster URLs must use HTTPS.
+
+Security verification commands are `npm test`, `npm run build`, `npm run prisma:validate`, and `npm audit`. Do not use forced audit upgrades without reviewing their compatibility.
+
 ## Documentation read order
 
 1. `YCEP_V1_SPEC.md` — authoritative simplified V1 behavior.
@@ -58,7 +66,7 @@ V1 is complete when this works without manual database edits:
 
 ## Current implementation note
 
-Milestone 4C is implemented. The public homepage shows at most 24 upcoming `PUBLISHED` events in deterministic date/time/title order, and each published event has a public detail page. Past published events remain directly accessible, while every non-published status returns the same generic not-found response. Search and filtering remain a later milestone.
+Milestones 4C–4F are implemented. The public homepage shows at most 24 upcoming `PUBLISHED` events in deterministic date/time/title order, with shareable search/filter controls and polished responsive event cards. Each published event has a public detail page. Past published events remain directly accessible, while every non-published status returns the same generic not-found response.
 
 Public routes:
 

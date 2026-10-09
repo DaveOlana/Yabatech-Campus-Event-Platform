@@ -19,6 +19,8 @@ import {
   adminRejectApplicationSchema,
   adminRevokeAuthorizationSchema,
 } from "../validators/organizer.validator.js";
+import { adminLoginLimiter } from "../middleware/rate-limit.middleware.js";
+import { adminLoginSchema } from "../validators/auth.validator.js";
 
 export const adminRouter = Router();
 
@@ -60,11 +62,12 @@ adminRouter.get("/admin/login", async (req: Request, res: Response) => {
  * - If audit log creation fails, the session is destroyed to avoid leaving
  *   the user with a privileged authenticated session.
  */
-adminRouter.post("/admin/login", async (req: Request, res: Response, next: NextFunction) => {
-  const { email, password } = req.body;
+adminRouter.post("/admin/login", adminLoginLimiter, async (req: Request, res: Response, next: NextFunction) => {
+  const parsed = adminLoginSchema.safeParse(req.body);
+  const { email, password } = parsed.success ? parsed.data : { email: "", password: "" };
   const jsonExpected = isJsonRequest(req);
 
-  if (!email || !password || typeof email !== "string" || typeof password !== "string") {
+  if (!parsed.success) {
     if (jsonExpected) {
       res.status(401).json({ success: false, message: GENERIC_ADMIN_AUTH_ERROR });
       return;
@@ -131,7 +134,7 @@ adminRouter.post("/admin/login", async (req: Request, res: Response, next: NextF
         });
       } catch (auditErr) {
         req.session.destroy(() => {});
-        res.clearCookie("ycep.sid");
+        res.clearCookie("ycep.sid", { path: "/", httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production" });
         return next(auditErr);
       }
 
@@ -186,7 +189,7 @@ adminRouter.post("/admin/logout", requireAdmin, async (req: Request, res: Respon
   req.session.destroy((err) => {
     if (err) return next(err);
 
-    res.clearCookie("ycep.sid");
+    res.clearCookie("ycep.sid", { path: "/", httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production" });
 
     if (jsonExpected) {
       res.status(200).json({ success: true, message: "Admin logged out successfully" });
@@ -548,4 +551,3 @@ adminRouter.post(
     }
   }
 );
-

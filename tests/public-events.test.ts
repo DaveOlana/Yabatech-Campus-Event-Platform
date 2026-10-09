@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import request from "supertest";
+import request from "./helpers/http.js";
 import pg from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { EventStatus, LevelCode, OrganizerAuthorizationStatus, PrismaClient, UserRole } from "@prisma/client";

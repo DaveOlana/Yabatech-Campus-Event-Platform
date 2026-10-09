@@ -18,7 +18,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
-import request from "supertest";
+import request from "./helpers/http.js";
 import bcrypt from "bcrypt";
 import pg from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -244,7 +244,7 @@ describe("POST /register (Member Registration)", () => {
 
     expect([400, 409]).toContain(res2.status);
     expect(res2.body.success).toBe(false);
-    expect(res2.body.message).toMatch(/matric number already exists/i);
+    expect(res2.body.message).toBe("An account with these details already exists.");
   });
 
   it("rejects duplicate email with understandable message", async () => {
@@ -277,7 +277,7 @@ describe("POST /register (Member Registration)", () => {
 
     expect([400, 409]).toContain(res2.status);
     expect(res2.body.success).toBe(false);
-    expect(res2.body.message).toMatch(/email address already exists/i);
+    expect(res2.body.message).toBe("An account with these details already exists.");
   });
 
   it("existing member registration still requires matric number", async () => {

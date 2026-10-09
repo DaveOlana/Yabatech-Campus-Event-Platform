@@ -28,7 +28,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
-import request from "supertest";
+import request from "./helpers/http.js";
 import bcrypt from "bcrypt";
 import pg from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";

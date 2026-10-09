@@ -409,6 +409,14 @@ Migration `20260912140539_event_foundation_drafts` remains immutable history. Cl
 
 **Decision:** Published events are immutable in V1; replacements use a fresh draft and approval. Today/upcoming/past are derived from the Africa/Lagos event date, and `COMPLETED` remains unused. The only approved post-publication transition is irreversible `PUBLISHED → CANCELLED`. The current exact owner or Management may cancel with a public 10–500 character reason. The transition is row-locked, actor-revalidated, and committed atomically with cancellation metadata and one `EVENT_CANCELLED` audit. Public lists/search remain strictly `PUBLISHED`; a direct detail query may return `PUBLISHED` or `CANCELLED`, and a cancelled page shows its reason without actor identity. Later organizer trust loss does not automatically unpublish an approved event. Organizer history remains current-authorization-scoped; Management receives separate queue and history surfaces.
 
+## D-055 — V1 browser security boundary
+
+**Date:** 2026-10-09
+
+**Status:** Implemented in Milestone 5A without a schema migration.
+
+**Decision:** All browser mutations use a cryptographically random session-backed synchronizer token. Member login allows 10 failed attempts per 15 minutes per client IP, Management login allows 5, and registration allows 5 per hour; separate in-memory stores are acceptable only for a single-process V1 deployment. Login regenerates the session and logout remains CSRF-protected POST. Cookies are HttpOnly, SameSite=Lax, path `/`, and Secure only in production. Helmet provides a nonce-free, self-hosted script CSP and security headers; HSTS and proxy trust remain disabled until deployment topology is approved. Newly entered poster URLs require HTTPS, while historical data is not rewritten. Duplicate registration conflicts use one generic message.
+
 # How to change a decision
 
 If a decision must change:

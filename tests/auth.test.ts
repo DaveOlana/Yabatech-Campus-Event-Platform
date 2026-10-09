@@ -22,7 +22,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
-import request from "supertest";
+import request from "./helpers/http.js";
 import bcrypt from "bcrypt";
 import pg from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -155,7 +155,7 @@ describe("Authentication: Login & Sessions", () => {
       delete process.env.SESSION_SECRET;
 
       expect(() => createSessionMiddleware()).toThrow(
-        "SESSION_SECRET environment variable is required in production"
+        "SESSION_SECRET must be at least 32 characters in production"
       );
     } finally {
       if (previousNodeEnv === undefined) delete process.env.NODE_ENV;

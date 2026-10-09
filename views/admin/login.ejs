@@ -8,9 +8,6 @@
 </head>
 <body class="auth-page">
   <%- include('../partials/admin-login-header') %>
-  <header>
-    <h1>YABATECH Campus Events Platform</h1>
-  </header>
   <main class="auth-panel">
     <div class="auth-heading"><span class="badge badge-pending">Management</span><h1>Management sign in</h1><p>Authenticate to review organizer applications and event proposals.</p></div>
 
@@ -21,6 +18,7 @@
     <% } %>
 
     <form action="/admin/login" method="POST" novalidate>
+      <%- include('../partials/csrf-field') %>
       <div class="form-group">
         <label for="email">Institutional Admin Email</label>
         <input
@@ -46,15 +44,10 @@
         >
       </div>
 
-      <button type="submit" class="btn-secondary btn-block">Sign In as Administrator</button>
+      <button type="submit" class="btn-primary btn-block">Sign in as administrator</button>
     </form>
 
-    <p style="margin-top: 1.5rem; font-size: 0.9rem;">
-      Student or campus member? <a href="/login">Student Sign In</a>
-    </p>
-    <p style="font-size: 0.9rem;">
-      <a href="/">Return to Home</a>
-    </p>
+    <div class="auth-links"><p>Student or campus member? <a href="/login">Member sign in</a></p><p><a href="/">Return to home</a></p></div>
   </main>
   <footer>
     <p>&copy; <%= new Date().getFullYear() %> YABATECH Campus Events Platform</p>

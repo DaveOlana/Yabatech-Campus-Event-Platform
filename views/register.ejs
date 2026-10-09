@@ -8,9 +8,6 @@
 </head>
 <body class="auth-page auth-page--register">
   <%- include('partials/public-header') %>
-  <header>
-    <h1>YABATECH Campus Events Platform</h1>
-  </header>
   <main class="auth-panel auth-panel--wide">
     <div class="auth-heading"><h1>Create your account</h1><p>Join YCEP with your YABATECH student identity. Current-cycle verification is granted automatically.</p></div>
 
@@ -21,6 +18,7 @@
     <% } %>
 
     <form action="/register" method="POST" novalidate id="registerForm">
+      <%- include('partials/csrf-field') %>
       <div class="form-group">
         <label for="fullName">Full Name</label>
         <input
@@ -155,28 +153,9 @@
       <button type="submit" class="btn-primary btn-block">Register</button>
     </form>
 
-    <script>
-      // Clear visual error indications as soon as the user edits an invalid field
-      document.querySelectorAll('#registerForm input, #registerForm select').forEach(function(el) {
-        el.addEventListener('input', function() {
-          if (this.classList.contains('input-error')) {
-            this.classList.remove('input-error');
-            var parent = this.closest('.form-group');
-            if (parent) {
-              var err = parent.querySelector('.field-error');
-              if (err) err.style.display = 'none';
-            }
-          }
-        });
-      });
-    </script>
+    <script src="/js/registration-form.js" defer></script>
 
-    <p style="margin-top: 1.5rem; font-size: 0.9rem;">
-      Already a member? <a href="/login">Sign In</a>
-    </p>
-    <p style="font-size: 0.9rem;">
-      <a href="/">Return to Home</a>
-    </p>
+    <div class="auth-links"><p>Already a member? <a href="/login">Sign in</a></p><p><a href="/">Return to home</a></p></div>
   </main>
   <footer>
     <p>&copy; <%= new Date().getFullYear() %> YABATECH Campus Events Platform</p>

@@ -8,100 +8,97 @@
 </head>
 <body>
   <%- include('../partials/member-header') %>
-  <header>
-    <h1>YABATECH Campus Events Platform</h1>
-  </header>
   <main class="main-wide organizer-status-page">
     <span class="eyebrow">Organizer workspace</span>
     <h1>Organizer status</h1>
     <p class="muted">Your current authorization and application history.</p>
 
-    <section style="margin: 1.5rem 0; padding: 1.25rem; border: 1px solid #e2e8f0; border-radius: 6px; background-color: #f8fafc;">
-      <h3 style="margin-top: 0;">Current Cycle Status (<%= currentCycle ? currentCycle.name : 'None' %>)</h3>
+    <section aria-labelledby="current-organizer-status">
+      <h2 id="current-organizer-status">Current cycle <span class="muted">&middot; <%= currentCycle ? currentCycle.name : 'None configured' %></span></h2>
 
       <% if (effectiveStatus === 'ACTIVE') { %>
-        <div style="background-color: #ecfdf5; border: 1px solid #10b981; color: #065f46; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem;">
-          <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <strong>Status:</strong>
+        <div class="organizer-state organizer-state--active">
+          <div class="organizer-state__heading">
+            <h2>Approved organizer</h2>
             <span class="badge badge-active">Active Organizer</span>
           </div>
-          <p style="margin: 0.5rem 0 0 0;">
+          <p>
             Approved Public Name: <strong><%= currentAuthorization.approvedPublicName %></strong>
           </p>
-          <p style="margin: 0.25rem 0 0 0; font-size: 0.85rem;">
+          <p class="helper-text">
             Granted on: <%= new Date(currentAuthorization.grantedAt).toLocaleDateString() %>
           </p>
-          <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: #065f46;">
+          <p class="muted">
             Your organizer authorization is active for this cycle. You can create and manage private event drafts.
           </p>
-          <div style="margin-top: 0.75rem;">
+          <div class="actions">
             <a href="/organizer/events" class="btn-primary btn-sm">Manage Event Drafts</a>
           </div>
         </div>
       <% } else if (effectiveStatus === 'PENDING') { %>
-        <div style="background-color: #eff6ff; border: 1px solid #3b82f6; color: #1e40af; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem;">
-          <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <strong>Status:</strong>
+        <div class="organizer-state organizer-state--warning">
+          <div class="organizer-state__heading">
+            <h2>Under review</h2>
             <span class="badge badge-pending">Application Pending</span>
           </div>
-          <p style="margin: 0.5rem 0 0 0;">
+          <p>
             Your application for <strong><%= currentPendingApplication.requestedPublicName %></strong> was submitted on <%= new Date(currentPendingApplication.createdAt).toLocaleDateString() %> and is currently under review by YABATECH Management.
           </p>
         </div>
       <% } else if (effectiveStatus === 'REJECTED') { %>
-        <div style="background-color: #fef2f2; border: 1px solid #ef4444; color: #991b1b; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem;">
-          <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <strong>Status:</strong>
+        <div class="organizer-state organizer-state--danger">
+          <div class="organizer-state__heading">
+            <h2>Application not approved</h2>
             <span class="badge badge-rejected">Application Rejected</span>
           </div>
           <% if (currentLatestApplication && currentLatestApplication.adminReviewNotes) { %>
-            <p style="margin: 0.5rem 0 0 0;">
+            <p>
               <strong>Management Review Notes:</strong> <%= currentLatestApplication.adminReviewNotes %>
             </p>
           <% } %>
-          <div style="margin-top: 1rem;">
+          <div class="actions">
             <a href="/organizer/apply" class="btn-primary btn-sm">Submit Fresh Application</a>
           </div>
         </div>
       <% } else if (effectiveStatus === 'REVOKED') { %>
-        <div style="background-color: #fef2f2; border: 1px solid #dc2626; color: #7f1d1d; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem;">
-          <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <strong>Status:</strong>
+        <div class="organizer-state organizer-state--danger">
+          <div class="organizer-state__heading">
+            <h2>Organizer privilege revoked</h2>
             <span class="badge badge-revoked">Privilege Revoked</span>
           </div>
-          <p style="margin: 0.5rem 0 0 0;">
+          <p>
             Your organizer authorization for this cycle was revoked on <%= currentAuthorization && currentAuthorization.revokedAt ? new Date(currentAuthorization.revokedAt).toLocaleDateString() : '—' %>.
           </p>
           <% if (currentAuthorization && currentAuthorization.revocationReason) { %>
-            <p style="margin: 0.5rem 0 0 0;"><strong>Reason:</strong> <%= currentAuthorization.revocationReason %></p>
+            <p><strong>Reason:</strong> <%= currentAuthorization.revocationReason %></p>
           <% } %>
-          <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: #991b1b;">
+          <p class="muted">
             Revocation is final for the current academic cycle. You may reapply in the next academic cycle.
           </p>
         </div>
       <% } else if (effectiveStatus === 'EXPIRED') { %>
-        <div style="background-color: #fffbeb; border: 1px solid #f59e0b; color: #92400e; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem;">
-          <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <strong>Status:</strong>
+        <div class="organizer-state organizer-state--warning">
+          <div class="organizer-state__heading">
+            <h2>Authorization expired</h2>
             <span class="badge badge-expired">Authorization Expired</span>
           </div>
-          <p style="margin: 0.5rem 0 0 0;">
+          <p>
             Your organizer authorization has expired with the completion of the academic cycle.
           </p>
-          <div style="margin-top: 1rem;">
+          <div class="actions">
             <a href="/organizer/apply" class="btn-primary btn-sm">Apply for Renewal</a>
           </div>
         </div>
       <% } else { %>
-        <p style="color: #64748b;">You do not currently hold organizer privileges or have a pending application for this academic cycle.</p>
-        <div style="margin-top: 1rem;">
+        <div class="organizer-state"><div class="organizer-state__heading"><h2>No current application</h2><span class="badge badge-draft">Not applied</span></div><p class="muted">You do not currently hold organizer privileges or have a pending application for this academic cycle.</p>
+        <div class="actions">
           <a href="/organizer/apply" class="btn-primary btn-sm">Apply to Become an Organizer</a>
-        </div>
+        </div></div>
       <% } %>
     </section>
 
-    <section style="margin: 1.5rem 0; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 6px;">
-      <h3 style="margin-top: 0;">Application History</h3>
+    <section class="organizer-history" aria-labelledby="application-history">
+      <h2 id="application-history">Application history</h2>
       <% if (applicationsHistory && applicationsHistory.length > 0) { %>
         <div class="table-container">
           <table>
@@ -132,16 +129,14 @@
           </table>
         </div>
       <% } else { %>
-        <p style="color: #64748b;">No previous organizer applications on record.</p>
+        <div class="empty-state"><h2>No application history</h2><p>Your previous organizer applications will appear here.</p></div>
       <% } %>
     </section>
 
-    <p style="margin-top: 1.5rem;">
+    <p class="back-link">
       <a href="/account">&larr; Back to My Account</a>
     </p>
   </main>
-  <footer>
-    <p>&copy; <%= new Date().getFullYear() %> YABATECH Campus Events Platform</p>
-  </footer>
+  <%- include('../partials/footer') %>
 </body>
 </html>

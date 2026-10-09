@@ -4,6 +4,75 @@ Use this file as the handoff record between Claude, Gemini, Codex, and human dev
 
 Newest entries should be added at the top.
 
+## 2026-10-09 — Milestone 5A: Security Hardening and V1 Acceptance
+
+### Status
+
+Complete. Browser mutations now have session-backed CSRF protection, abuse-prone entry points are throttled, responses carry deliberate security headers, request parsing is bounded, and unexpected errors pass through a safe centralized boundary.
+
+### Implementation
+
+- Added Node-crypto synchronizer tokens, shared form integration, constant-time validation, safe HTML/JSON 403 responses, and real-token Supertest helpers.
+- Added separate in-memory member-login (10/15m), Management-login (5/15m), and registration (5/hour) limiters.
+- Added Helmet with a self-hosted script CSP, frame blocking, nosniff, referrer and permissions policies; HSTS and proxy trust remain deliberately disabled pending deployment topology.
+- Made session cookie/path/rolling/pruning behavior explicit and strengthened production secret validation to 32 characters.
+- Added 32 KB JSON/form limits, parameter limiting, terminal 404 handling, safe parser/500 responses, and redacted structured error metadata.
+- Added login Zod schemas, generic duplicate-registration conflicts, and HTTPS-only newly entered poster URLs. Historical poster data was not rewritten.
+- Added static CSRF, poster-fallback, and registration scripts. A narrow `style-src-attr 'unsafe-inline'` compatibility exception remains for legacy server-rendered style attributes; scripts do not allow unsafe-inline or unsafe-eval.
+
+### Dependency assessment
+
+- Added `helmet` and `express-rate-limit`; lockfile reviewed through install and audit output.
+- Audit before remediation reported 13 advisories (3 critical, 6 high, 4 moderate), including production-path `proxy-addr`, `qs`, `brace-expansion`, and `fast-uri` findings.
+- A bounded `npm audit fix` removed one package and updated six packages without a forced or major upgrade. Express resolved to 4.22.3, `proxy-addr` to 2.0.8, `qs` to 6.16.0, `brace-expansion` to 2.1.7, and `fast-uri` to 3.1.8.
+- Audit after remediation reports 7 advisories (2 critical, 4 high, 1 moderate). Four high findings appear in `npm audit --omit=dev` through Prisma CLI/config's `deepmerge-ts` and unused MySQL driver path; the remaining Vitest/mocker/tinypool findings are development/test-only. npm offers only forced breaking downgrades/upgrades for these, so they are recorded as residual tooling risk.
+
+### PostgreSQL warning
+
+- Reproduced with `--trace-deprecation` during concurrent cancellation. The stack terminates in Prisma adapter `PgTransaction.performIO/queryRaw`; it did not identify an overlapping application query in that path.
+- No speculative transaction/locking rewrite was made. Current concurrency tests pass; track the adapter warning before pg 9.
+
+### Verification
+
+- Full suite: 175/175 tests passed across 10 files, including 6 focused security tests.
+- Build, Prisma validation/migration status, audit, and `git diff --check` recorded at final handoff.
+- No Prisma schema or migration change; all 8 existing migrations remain intact.
+
+### Deployment requirements
+
+- Approve exact proxy topology before enabling proxy trust, validate Secure cookies behind that topology, select a shared limiter store for multiple instances, and approve production HSTS/domain coverage.
+
+## 2026-10-09 — Milestone 4F: Final V1 UI Polish and Acceptance
+
+### Status
+
+Complete. YCEP's V1 surfaces now share a restrained, responsive design system across public discovery, organizer workflows, Management review, account, authorization, and authentication views.
+
+### Implementation
+
+- Refined reusable color, spacing, radius, elevation, control, badge, tab, empty-state, and responsive styles without introducing a UI framework.
+- Reduced homepage hero depth, tightened discovery controls, added active-filter treatment, stabilized event-card content, and improved intentional no-poster artwork.
+- Improved public event-detail reading proportions and preserved a restrained, prominent cancellation notice.
+- Refined organizer event rows, lifecycle presentation, cancellation guidance, account information, and organizer authorization/history hierarchy.
+- Unified member and Management authentication, polished 403/404 states, and retained lightweight navigation/footer shells.
+- Added tablet and narrow-mobile adjustments, visible keyboard focus, 40–44px controls, semantic headings/labels, and reduced-motion support.
+
+### Scope and data safety
+
+- UI/UX changes only: no product rules, route or form contracts, service logic, Prisma schema, migrations, or development data changed.
+- No demo accounts or events were created.
+
+### Verification
+
+- Full suite: 169/169 tests passed across 9 files; no behavioral tests required modification.
+- TypeScript production build and `git diff --check` passed.
+- Prisma reports all 8 existing migrations applied; no schema or migration file changed.
+- Route and service modules are unchanged, preserving product behavior and contracts.
+
+### Next recommended task
+
+Perform the final manual browser acceptance review with representative organizer and Management accounts before deployment readiness work.
+
 ## 2026-10-09 — Milestone 4E: Event Management and History
 
 ### Status

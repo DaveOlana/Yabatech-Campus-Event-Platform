@@ -35,7 +35,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
-import request from "supertest";
+import request from "./helpers/http.js";
 import bcrypt from "bcrypt";
 import pg from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -66,18 +66,15 @@ let prisma: PrismaClient;
 const app = createApp();
 
 // Isolated test app for testing requireOrganizer without exposing test endpoints in production
-const testGuardApp = createApp();
-testGuardApp.get(
-  "/test-guard/organizer-only",
-  requireOrganizer,
-  (req, res) => {
+const testGuardApp = createApp((guardApp) => guardApp.get(
+  "/test-guard/organizer-only", requireOrganizer, (req, res) => {
     res.status(200).json({
       success: true,
       message: "Authorized organizer access granted.",
       authorization: req.organizerAuthorization,
     });
   }
-);
+));
 
 let testDeptId: string;
 let testLevelId: string;

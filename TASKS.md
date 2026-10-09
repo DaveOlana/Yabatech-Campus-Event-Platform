@@ -69,22 +69,22 @@ Registration-era fields/relations introduced here are legacy structures pending 
 - [x] Preserve cancelled events and keep `COMPLETED` unused.
 - [x] Separate the pending queue from Management event history.
 
-# Milestone 9 — Layer 1 UI and Content Polish
+# Milestone 4F — Final V1 UI Polish and Acceptance — COMPLETE
 
-- [ ] Responsive, accessible flyer/poster cards and detail pages.
-- [ ] Clear public event information and fallback imagery.
-- [ ] Accessible organizer/Management workflows.
-- [ ] Empty, loading, validation, and error states.
-- [ ] Image/flyer validation.
+- [x] Responsive, accessible flyer/poster cards and editorial event details.
+- [x] Compact public discovery controls, clear result context, and intentional fallback artwork.
+- [x] Consistent organizer, Management, account, authorization, and authentication surfaces.
+- [x] Polished lifecycle notices, empty states, validation feedback, 403, and 404 states.
+- [x] Shared design tokens, controls, focus treatment, reduced motion, and mobile breakpoints.
 
 # Milestone 10 — Security, QA, and Acceptance
 
-- [ ] Backend authorization and status-transition review.
-- [ ] CSRF/session, secrets, input, and image/file security review.
-- [ ] Concurrency and sensitive-data exposure review.
-- [ ] Run all simplified-V1 acceptance scenarios.
-- [ ] Confirm public routes expose published data only.
-- [ ] Confirm yearly expiry preserves history while blocking protected actions.
+- [x] Backend authorization and status-transition review.
+- [x] CSRF/session, secrets, input, and poster security review.
+- [x] Concurrency and sensitive-data exposure review.
+- [x] Run all simplified-V1 acceptance scenarios.
+- [x] Confirm public routes expose published data only.
+- [x] Confirm yearly expiry preserves history while blocking protected actions.
 
 # Milestone 11 — Deployment Readiness
 

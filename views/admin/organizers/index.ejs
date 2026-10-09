@@ -106,7 +106,7 @@
                   <td><%= auth.user.fullName %></td>
                   <td><code><%= auth.user.matricNumber %></code></td>
                   <td>
-                    <form action="/admin/organizer-authorizations/<%= auth.id %>/revoke" method="POST" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;" onsubmit="return confirm('Are you sure you want to revoke this organizer authorization? This action is final for the current academic cycle.');">
+                    <form action="/admin/organizer-authorizations/<%= auth.id %>/revoke" method="POST" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
                       <label for="revocationReason-<%= auth.id %>" class="sr-only">Revocation Reason for <%= auth.approvedPublicName %></label>
                       <input
                         type="text"

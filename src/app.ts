@@ -1,6 +1,7 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
 import express, { Express } from 'express';
+import helmet from 'helmet';
 import { healthRouter } from './routes/health.route.js';
 import { publicEventsRouter } from './routes/public-events.route.js';
 import { registrationRouter } from './routes/registration.route.js';
@@ -10,19 +11,34 @@ import { organizerRouter } from './routes/organizer.route.js';
 import { organizerEventsRouter } from './routes/organizer-events.route.js';
 import { adminEventsRouter } from './routes/admin-events.route.js';
 import { createSessionMiddleware } from './session.js';
+import { ensureCsrfToken, verifyCsrfToken } from './middleware/csrf.middleware.js';
+import { notFoundHandler, applicationErrorHandler } from './middleware/error.middleware.js';
+import { validateRuntimeEnvironment } from './config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export function createApp(): Express {
+export function createApp(configure?: (app: Express) => void): Express {
+  validateRuntimeEnvironment();
   const app = express();
 
-  // Middleware
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+  app.disable('x-powered-by');
+  app.use(helmet({
+    contentSecurityPolicy: { directives: {
+      defaultSrc: ["'self'"], scriptSrc: ["'self'"], styleSrc: ["'self'"], styleSrcAttr: ["'unsafe-inline'"], imgSrc: ["'self'", "https:", "data:"],
+      fontSrc: ["'self'"], connectSrc: ["'self'"], formAction: ["'self'"], frameAncestors: ["'none'"], baseUri: ["'self'"], objectSrc: ["'none'"], upgradeInsecureRequests: null,
+    } },
+    hsts: false,
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  }));
+  app.use((_req, res, next) => { res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()'); next(); });
+  app.use(express.json({ limit: '32kb', strict: true }));
+  app.use(express.urlencoded({ extended: true, limit: '32kb', parameterLimit: 100 }));
 
   // Session middleware
   app.use(createSessionMiddleware());
+  app.use(ensureCsrfToken);
+  app.use(verifyCsrfToken);
 
   // View engine setup
   app.set('view engine', 'ejs');
@@ -40,6 +56,11 @@ export function createApp(): Express {
   app.use(adminEventsRouter);
   app.use(organizerRouter);
   app.use(organizerEventsRouter);
+
+  configure?.(app);
+
+  app.use(notFoundHandler);
+  app.use(applicationErrorHandler);
 
   return app;
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import request from 'supertest';
+import request from './helpers/http.js';
 import { app } from '../src/app.js';
 
 describe('YCEP Application Foundation', () => {

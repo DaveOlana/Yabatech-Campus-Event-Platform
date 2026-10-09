@@ -37,8 +37,8 @@ export async function ensureSessionTable(pgPool: pg.Pool = pool): Promise<void> 
  */
 export function createSessionMiddleware(pgPool: pg.Pool = pool) {
   const configuredSecret = process.env.SESSION_SECRET;
-  if (!configuredSecret && process.env.NODE_ENV === "production") {
-    throw new Error("SESSION_SECRET environment variable is required in production");
+  if (process.env.NODE_ENV === "production" && (!configuredSecret || configuredSecret.length < 32)) {
+    throw new Error("SESSION_SECRET must be at least 32 characters in production");
   }
   const secret = configuredSecret || "ycep-dev-default-secret-do-not-use-in-production";
 
@@ -46,6 +46,7 @@ export function createSessionMiddleware(pgPool: pg.Pool = pool) {
     pool: pgPool,
     tableName: "session",
     createTableIfMissing: true,
+    pruneSessionInterval: 15 * 60,
   });
 
   return session({
@@ -54,10 +55,12 @@ export function createSessionMiddleware(pgPool: pg.Pool = pool) {
     secret,
     resave: false,
     saveUninitialized: false,
+    rolling: false,
     cookie: {
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
+      path: "/",
       maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
     },
   });
