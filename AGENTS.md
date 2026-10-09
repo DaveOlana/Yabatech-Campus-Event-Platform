@@ -74,6 +74,8 @@ The frozen V1 stack is:
 - Nodemailer behind an `EmailService` abstraction if email is later approved
 - Vitest and Supertest
 
+Production uses one Vercel Fluid-compute Express function and Neon PostgreSQL. Runtime queries use the pooled `DATABASE_URL`; deliberate Prisma CLI migrations use `DIRECT_DATABASE_URL`. Do not run migrations or DDL during request handling. Production sessions use the migrated PostgreSQL `session` table with runtime creation and timer pruning disabled. Vercel client addresses may be taken only from the Vercel-controlled header when `VERCEL=1`; never enable broad Express proxy trust.
+
 Do not change the stack without explicit approval.
 
 ## Tests
@@ -93,3 +95,4 @@ When uncertain, choose the least destructive implementation, preserve V1 behavio
 - Public errors must not expose stacks, database details, paths, secrets, cookies, session IDs, authorization headers, CSRF tokens, or request bodies.
 - Production secrets fail closed. Proxy trust remains disabled until an exact deployment hop or subnet is approved; never use broad `trust proxy = true`.
 - Dependency upgrades must be bounded, lockfile-reviewed, and fully verified. Do not use forced audit upgrades casually.
+- The scrutiny-deployment rate limiter remains per Fluid instance and is not globally authoritative. Production Neon credentials belong only to Vercel Production, never untrusted Preview deployments.

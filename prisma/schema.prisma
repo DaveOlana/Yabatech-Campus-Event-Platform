@@ -108,6 +108,15 @@ model AcademicYearCycle {
   organizerAuthorizations OrganizerAuthorization[]
 }
 
+/// The two institution-wide semester names used by YCEP reference data.
+model AcademicSemester {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 // ─── User ─────────────────────────────────────────────────────────────────────
 
 /// A YCEP account. May be a normal MEMBER or an ADMIN.

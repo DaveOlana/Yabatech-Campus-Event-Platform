@@ -441,6 +441,22 @@ Migration `20260912140539_event_foundation_drafts` remains immutable history. Cl
 
 **Decision:** Member authentication remains matric number plus password. The single `ADMIN` authenticates separately with a required Management username plus password; the normalized comparison is trimmed, collapses repeated whitespace, and is case-insensitive. Members cannot have Management usernames. Management passwords require at least 8 characters and remain bcrypt-hashed. Username and password changes require current-password confirmation, are ADMIN-only and CSRF-protected, and write credential-change audits without password metadata. Password changes invalidate prior Management sessions and regenerate the current session. Bootstrap and deliberate reset/update commands consume ignored environment variables, preserve the existing ADMIN row and relationships, and never print plaintext credentials.
 
+## D-059 — Vercel and Neon scrutiny deployment foundation
+
+**Date:** 2026-10-09
+
+**Status:** Implemented by forward migration `20261009190000_vercel_neon_session_foundation`.
+
+**Decision:** YCEP retains its Express/EJS architecture as one Node 24 Vercel Fluid-compute function backed by Neon PostgreSQL. Runtime access uses a bounded module-scoped `pg.Pool` with Neon's pooled URL; Prisma migration commands use a separate direct URL. The shared session table is migration-owned, production table creation and pruning timers are disabled, and expired sessions are removed deliberately. Secure-cookie proxy recognition and forwarded client addresses are trusted only when `VERCEL=1`; broad Express proxy trust remains prohibited. The scrutiny rate limiter remains per-instance with its reduced global guarantee documented, and Preview deployments receive no production database credentials.
+
+## D-060 — Production reference data and two-semester structure
+
+**Date:** 2026-10-09
+
+**Status:** Implemented.
+
+**Decision:** Production initialization is separate from development seeding and requires explicit academic-cycle name/start/end values. YCEP stores exactly the canonical semester names First Semester and Second Semester, four programme levels, the approved event categories, and the initial reviewed department catalogue. Department codes beginning `YCEP-` are deterministic internal identifiers, not claims about institutional codes. Re-running initialization is additive and idempotent: it does not delete Management-approved departments or create users, organizers, events, audits, or Management credentials. Missing departments continue through the event suggestion and Management approval workflow.
+
 # How to change a decision
 
 If a decision must change:

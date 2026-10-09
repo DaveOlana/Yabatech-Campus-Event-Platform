@@ -26,6 +26,30 @@ export async function ensureSessionTable(pgPool: pg.Pool = pool): Promise<void> 
   `);
 }
 
+export function sessionStoreOptions(pgPool: pg.Pool = pool) {
+  const production = process.env.NODE_ENV === "production";
+  return {
+    pool: pgPool,
+    tableName: "session",
+    createTableIfMissing: !production,
+    pruneSessionInterval: production ? false as const : 15 * 60,
+  };
+}
+
+export function sessionCookieOptions() {
+  return {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 1000 * 60 * 60 * 24 * 7,
+  };
+}
+
+export function sessionProxyEnabled(): boolean {
+  return process.env.VERCEL === "1";
+}
+
 /**
  * Creates the express-session middleware backed by PostgreSQL via connect-pg-simple.
  *
@@ -42,12 +66,7 @@ export function createSessionMiddleware(pgPool: pg.Pool = pool) {
   }
   const secret = configuredSecret || "ycep-dev-default-secret-do-not-use-in-production";
 
-  const store = new PgSession({
-    pool: pgPool,
-    tableName: "session",
-    createTableIfMissing: true,
-    pruneSessionInterval: 15 * 60,
-  });
+  const store = new PgSession(sessionStoreOptions(pgPool));
 
   return session({
     store,
@@ -56,12 +75,7 @@ export function createSessionMiddleware(pgPool: pg.Pool = pool) {
     resave: false,
     saveUninitialized: false,
     rolling: false,
-    cookie: {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
-    },
+    proxy: sessionProxyEnabled(),
+    cookie: sessionCookieOptions(),
   });
 }

@@ -4,6 +4,21 @@ Use this file as the handoff record between Claude, Gemini, Codex, and human dev
 
 Newest entries should be added at the top.
 
+## 2026-10-09 — Milestone 5C: Vercel + Neon deployment adaptation
+
+### Status
+
+Implemented without deploying. YCEP remains one Express/EJS application and now has bounded Neon pooling, direct Prisma migration URL support, a migration-owned shared session table, Vercel-aware client addresses and secure-cookie proxy handling, database readiness, deliberate session cleanup, and production-safe canonical reference initialization.
+
+### Scope
+
+- Pinned Node 24, retained zero-configuration `src/server.ts`, and added no `vercel.json`.
+- Added migration `20261009190000_vercel_neon_session_foundation` for PostgreSQL sessions and the two canonical semester records supported by the schema.
+- Added an idempotent production command requiring explicit cycle dates; it populates four levels, two semesters, seven event categories, and the supplied 56-department catalogue with internal `YCEP-` codes while preserving later additions.
+- Production uses pooled `DATABASE_URL`; Prisma CLI prefers `DIRECT_DATABASE_URL`. Preview environments must not receive production credentials.
+- Production disables session DDL and pruning timers; `npm run sessions:prune` provides bounded cleanup. The existing scrutiny limiter remains per-instance and is explicitly not globally authoritative.
+- Management bootstrap remains separate and no development users, organizers, events, audits, or credentials are copied.
+
 ## 2026-10-09 — Management username authentication and credential controls
 
 ### Status

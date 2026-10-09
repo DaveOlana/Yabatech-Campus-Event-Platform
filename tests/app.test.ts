@@ -21,6 +21,7 @@ describe('YCEP Application Foundation', () => {
     expect(response.headers['content-type']).toMatch(/html/);
     expect(response.text).toContain('Campus life');
     expect(response.text).toContain('Upcoming events');
+    expect(response.text).toContain('href="/admin/login">Management</a>');
     expect(response.text).not.toContain('Running');
   });
 

@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { isIP } from "node:net";
 import { ipKeyGenerator, rateLimit } from "express-rate-limit";
 import { isJsonRequest } from "./auth.middleware.js";
 
@@ -8,7 +9,16 @@ function handler(req: Request, res: Response): void {
   else res.status(429).render("error", { title: "Too many attempts — YCEP", message });
 }
 
-const testAwareKey = (req: Request) => process.env.NODE_ENV === "test" ? req.sessionID : ipKeyGenerator(req.ip!);
+export function normalizedClientAddress(req: Request): string {
+  if (process.env.VERCEL === "1") {
+    const forwarded = req.get("x-vercel-forwarded-for")?.trim();
+    if (forwarded && !forwarded.includes(",") && isIP(forwarded)) return ipKeyGenerator(forwarded);
+  }
+  const remote = req.socket.remoteAddress || req.ip || "unknown";
+  return remote === "unknown" ? remote : ipKeyGenerator(remote);
+}
+
+const testAwareKey = (req: Request) => process.env.NODE_ENV === "test" ? req.sessionID : normalizedClientAddress(req);
 const base = { standardHeaders: "draft-7" as const, legacyHeaders: false, handler, keyGenerator: testAwareKey, skipSuccessfulRequests: true };
 export const memberLoginLimiter = rateLimit({ ...base, windowMs: 15 * 60_000, limit: 10 });
 export const adminLoginLimiter = rateLimit({ ...base, windowMs: 15 * 60_000, limit: 5 });

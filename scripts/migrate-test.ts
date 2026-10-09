@@ -23,6 +23,7 @@ execSync("npx prisma migrate deploy", {
   env: {
     ...process.env,
     DATABASE_URL: testUrl,
+    DIRECT_DATABASE_URL: testUrl,
   },
 });
 

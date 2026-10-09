@@ -4,6 +4,9 @@
   "description": "YABATECH Campus Events Platform",
   "main": "dist/server.js",
   "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
@@ -11,6 +14,8 @@
     "test": "vitest run",
     "test:migrate": "tsx scripts/migrate-test.ts",
     "db:seed": "tsx prisma/seed.ts",
+    "db:reference:production": "tsx scripts/seed-production-reference.ts",
+    "sessions:prune": "tsx scripts/prune-sessions.ts",
     "admin:bootstrap": "tsx scripts/bootstrap-admin.ts",
     "admin:reset-password": "tsx scripts/bootstrap-admin.ts --reset-password",
     "prisma:validate": "prisma validate",

@@ -64,6 +64,8 @@ Existing identity rules remain authoritative:
 
 Matric numbers are trimmed, whitespace around separators is removed, and letters are uppercased. The V1 structural rule remains `^[A-Z]{1,4}/[A-Z]{2,4}/\d{2}/\d{7}$`; it does not prove central YABATECH enrollment. Member and Management passwords require at least 8 characters and are bcrypt-hashed.
 
+Production reference data is initialized separately from development fixtures. The active academic cycle is supplied explicitly, and the two semester names are `First Semester` and `Second Semester`. The initial department catalogue is additive: missing programmes continue through the organizer suggestion and Management approval workflow, and approved additions are never removed by later reference-data runs.
+
 ## 5. Organizer verification
 
 The implemented two-entity model remains authoritative:

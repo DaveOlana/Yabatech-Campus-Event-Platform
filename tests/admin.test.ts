@@ -388,6 +388,12 @@ describe("Milestone 2 — Authorization & Routing", () => {
     expect(res.header.location).toBe("/admin/login");
   });
 
+  it("keeps every Management workspace destination protected", async () => {
+    for (const path of ["/admin/organizers", "/admin/events", "/admin/events/history", "/admin/account"]) {
+      await request(app).get(path).expect(302).expect("Location", "/admin/login");
+    }
+  });
+
   it("unauthenticated JSON request to /admin returns 401", async () => {
     const res = await request(app).get("/admin").set("Accept", "application/json");
     expect(res.status).toBe(401);
@@ -421,6 +427,11 @@ describe("Milestone 2 — Authorization & Routing", () => {
     expect(res.status).toBe(200);
     expect(res.text).toContain("Management workspace");
     expect(res.text).toContain(ADMIN_USERNAME);
+    expect(res.text).toContain('href="/admin/organizers">Organizer applications</a>');
+    expect(res.text).toContain('href="/admin/events">Event approvals</a>');
+    expect(res.text).toContain('href="/admin/events/history">History</a>');
+    expect(res.text).toContain('href="/admin/account">Account</a>');
+    expect(res.text).toContain('action="/admin/logout" method="POST"');
   });
 
   it("authenticated ADMIN accessing /account is redirected to /admin", async () => {

@@ -34,6 +34,34 @@ YCEP V1 does not manage attendee registration, participant lists, attendance, wa
 - Secure session authentication and bcrypt
 - Vitest and Supertest
 
+## Vercel + Neon deployment
+
+YCEP deploys unchanged as a Node 24 Express/EJS application on one Vercel Fluid-compute function. Use Neon's pooled endpoint for permanent `DATABASE_URL` runtime access and its direct endpoint as `DIRECT_DATABASE_URL` only for `prisma migrate deploy`. Production also requires `NODE_ENV=production` and a random `SESSION_SECRET` of at least 32 characters. `PORT` and `TRUST_PROXY` are not user-configured on Vercel.
+
+Generate the session secret in PowerShell without writing it to a repository file:
+
+```powershell
+[Convert]::ToBase64String(
+  [Security.Cryptography.RandomNumberGenerator]::GetBytes(48)
+)
+```
+
+Apply migrations deliberately before deployment, then initialize canonical data with explicit cycle values:
+
+```powershell
+$env:DIRECT_DATABASE_URL="<Neon direct URL>"
+npx prisma migrate deploy
+$env:DATABASE_URL="<Neon pooled URL>"
+$env:YCEP_ACADEMIC_CYCLE_NAME="<confirmed session name>"
+$env:YCEP_ACADEMIC_CYCLE_START="<ISO date>"
+$env:YCEP_ACADEMIC_CYCLE_END="<ISO date>"
+npm run db:reference:production
+```
+
+The production reference command is idempotent, creates no users/events, uses exactly First Semester and Second Semester, and preserves later Management-approved departments. Bootstrap Management separately with `npm run admin:bootstrap`. Its username/password variables are temporary and are not required by the running app. Run `npm run sessions:prune` occasionally during scrutiny to remove expired sessions.
+
+The initial login/registration limiter remains in memory per Fluid instance: recycling resets counters and another instance can provide another allowance. Revisit a shared limiter before broad institutional launch. Give production database/session variables only to Vercel's Production environment; Preview deployments must not receive production Neon access.
+
 ## Security configuration
 
 `DATABASE_URL` is required. Tests require `TEST_DATABASE_URL`. Production requires `NODE_ENV=production` and a random `SESSION_SECRET` of at least 32 characters; the application fails closed when these are missing. Local HTTP keeps the session cookie non-Secure, while production requires HTTPS and marks it Secure. Do not set `TRUST_PROXY` until the deployment proxy hop or subnet is explicitly reviewed. HSTS is intentionally deferred to deployment readiness.

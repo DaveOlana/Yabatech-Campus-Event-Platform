@@ -178,6 +178,7 @@ describe("Authentication: Login & Sessions", () => {
     expect(res.text).toContain('id="password"');
     expect(res.text).toContain('name="password"');
     expect(res.text).toContain('autocomplete="current-password"');
+    expect(res.text).toContain('href="/admin/login">Management sign in</a>');
     expect(res.text).not.toContain('name="fullName"');
   });
 

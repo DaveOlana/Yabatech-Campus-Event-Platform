@@ -21,7 +21,20 @@ if (!connectionString) {
   throw new Error("DATABASE_URL environment variable is required");
 }
 
-const pool = new pg.Pool({ connectionString });
+export function databasePoolOptions(environment = process.env.NODE_ENV): pg.PoolConfig {
+  return environment === "production"
+    ? {
+        connectionString,
+        max: 5,
+        min: 0,
+        connectionTimeoutMillis: 15_000,
+        idleTimeoutMillis: 10_000,
+        allowExitOnIdle: true,
+      }
+    : { connectionString };
+}
+
+const pool = new pg.Pool(databasePoolOptions());
 const adapter = new PrismaPg(pool);
 
 export const prisma = new PrismaClient({ adapter });
