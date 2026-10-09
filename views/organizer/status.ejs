@@ -30,8 +30,11 @@
             Granted on: <%= new Date(currentAuthorization.grantedAt).toLocaleDateString() %>
           </p>
           <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: #065f46;">
-            Your organizer authorization is active for this cycle. Event creation and management tools will unlock as upcoming platform milestones roll out.
+            Your organizer authorization is active for this cycle. You can create and manage private event drafts.
           </p>
+          <div style="margin-top: 0.75rem;">
+            <a href="/organizer/events" class="btn-primary btn-sm">Manage Event Drafts</a>
+          </div>
         </div>
       <% } else if (effectiveStatus === 'PENDING') { %>
         <div style="background-color: #eff6ff; border: 1px solid #3b82f6; color: #1e40af; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem;">

@@ -62,6 +62,10 @@ afterAll(async () => {
 
 beforeEach(async () => {
   // Clean all tables in proper order
+  await prisma.eventTargetDepartment.deleteMany();
+  await prisma.eventTargetLevel.deleteMany();
+  await prisma.event.deleteMany();
+  await prisma.eventCategory.deleteMany();
   await prisma.organizerAuthorization.deleteMany();
   await prisma.organizerApplication.deleteMany();
   await prisma.auditLog.deleteMany();

@@ -29,7 +29,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, LevelCode, UserRole, VerificationStatus } from "@prisma/client";
 import dotenv from "dotenv";
 import { createApp } from "../src/app.js";
-import { ensureSessionTable } from "../src/session.js";
+import { createSessionMiddleware, ensureSessionTable } from "../src/session.js";
 
 dotenv.config();
 
@@ -67,6 +67,10 @@ afterAll(async () => {
 beforeEach(async () => {
   // Clean all data in proper foreign key order
   await pool.query('DELETE FROM "session"');
+  await prisma.eventTargetDepartment.deleteMany();
+  await prisma.eventTargetLevel.deleteMany();
+  await prisma.event.deleteMany();
+  await prisma.eventCategory.deleteMany();
   await prisma.organizerAuthorization.deleteMany();
   await prisma.organizerApplication.deleteMany();
   await prisma.auditLog.deleteMany();
@@ -142,6 +146,26 @@ async function createVerification(userId: string, cycleId: string, status: Verif
 // ── Tests ───────────────────────────────────────────────────────────────────
 
 describe("Authentication: Login & Sessions", () => {
+  it("refuses to start in production without an explicit session secret", () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    const previousSecret = process.env.SESSION_SECRET;
+
+    try {
+      process.env.NODE_ENV = "production";
+      delete process.env.SESSION_SECRET;
+
+      expect(() => createSessionMiddleware()).toThrow(
+        "SESSION_SECRET environment variable is required in production"
+      );
+    } finally {
+      if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = previousNodeEnv;
+
+      if (previousSecret === undefined) delete process.env.SESSION_SECRET;
+      else process.env.SESSION_SECRET = previousSecret;
+    }
+  });
+
   it("renders the login page with correct username/password autocomplete attributes", async () => {
     const res = await request(app).get("/login");
     expect(res.status).toBe(200);

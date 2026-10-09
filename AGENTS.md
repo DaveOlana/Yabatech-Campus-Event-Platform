@@ -1,249 +1,80 @@
 # AGENTS.md — Instructions for AI Coding Agents
 
-These instructions apply to Claude, Gemini, Codex, and any other AI coding agent working on YCEP.
+These instructions apply to every coding agent working on YCEP.
 
-## 1. Source of truth
+## Source of truth and scope
 
-Read `YCEP_V1_SPEC.md` before modifying product behaviour.
+Read `YCEP_V1_SPEC.md`, then `DECISIONS.md`, before changing product behavior. D-049 and later decisions supersede the former registration-heavy direction.
 
-If code and specification disagree:
+YCEP V1 is a trusted YABATECH campus event publishing and discovery platform. Its core loop is:
 
-1. do not silently choose one;
-2. identify the conflict;
-3. preserve data and working behaviour where possible;
-4. update the implementation only when the intended V1 behaviour is clear.
+```text
+Verified organizer → draft → submit → Management review → publish → public discovery
+```
 
-Do not invent new product rules when the specification already defines them.
+Do not add internal attendee registration, attendee applications, participant lists, registration limits/deadlines, registration history, attendance, waitlists, registration notifications, or external registration links. External links are deferred Layer 2 work.
 
-## 2. Protect V1 scope
+## Preserve domain distinctions
 
-Do not add features outside V1 merely because they are easy or attractive.
+- Organizer is an approved capability on a verified member account, not a separate authentication system.
+- Organizer approval and event approval are separate trust gates.
+- Every event has one authorization-bound primary organizer.
+- `EventTargetDepartment` and `EventTargetLevel` influence discovery/relevance only. They never restrict public visibility or participation.
+- Ordinary visitors do not need accounts to discover published events.
+- Draft, pending, rejected, account, and Management data are not public.
 
-Examples intentionally outside V1 include:
+## Inspect before editing
 
-- QR-code attendance;
-- online payments;
-- SMS/WhatsApp notifications;
-- advanced recommendation engines;
-- venue reservation systems;
-- complex organization-account infrastructure;
-- waitlists;
-- comments/reviews;
-- certificates;
-- advanced analytics.
+Inspect related schema, migrations, services, routes, middleware, templates, tests, and authorization rules before changing a feature. Prefer targeted changes over replacing working subsystems.
 
-Record such ideas in `FUTURE_IDEAS.md`.
+## Historical data and migrations
 
-## 3. Inspect before editing
+Prefer explicit status transitions over hard deletion for important domain records. Do not hard-delete published events, organizer applications/authorizations, approval decisions, or audit history.
 
-Before changing a feature:
+Never rewrite applied migrations. Schema cleanup requires a new forward migration, data-impact review, and preservation of history.
 
-- inspect related models/schema;
-- inspect routes/controllers/views/services;
-- inspect authorization rules;
-- inspect tests;
-- inspect migrations;
-- inspect templates/components using the feature.
+## Permissions and security
 
-Avoid replacing a working subsystem when a targeted change is enough.
-
-## 4. Preserve domain distinctions
-
-Never collapse these concepts into one:
-
-### Recommended audience vs registration eligibility
-
-Recommended audience influences discovery/relevance.
-
-Eligibility determines who may register/apply.
-
-An event may be recommended to ND1 Computer Science students while still allowing everyone to register.
-
-Do not model department + level as a single nullable pair. Use independent relationships:
-- `EventTargetDepartment`
-- `EventTargetLevel`
-- `EventEligibleDepartment`
-- `EventEligibleLevel`
-
-Eligibility rules:
-- No eligible departments selected = all departments allowed.
-- No eligible levels selected = all levels allowed.
-- If department restrictions exist, the member must belong to an allowed department.
-- If level restrictions exist, the member must belong to an allowed level.
-- If both exist, the member must satisfy both.
-- Target departments/levels influence discovery only and never automatically block participation.
-
-### Registration vs attendance
-
-A registration does not mean the participant attended.
-
-Attendance is recorded separately.
-
-### Account vs verification
-
-An account persists.
-
-Yearly verification can expire.
-
-Do not delete accounts automatically when yearly verification expires.
-
-A new member with a valid, unassigned YABATECH matric number receives `ACTIVE` verification for the current yearly cycle automatically upon registration. Normal member registration does **not** require manual administrator approval.
-
-### Member vs organizer
-
-Organizer is an approved capability on a normal YCEP account, not a separate unrelated authentication system.
-
-Manual YABATECH Management approval begins when a member applies for organizer privileges.
-
-### Organizer approval vs event approval
-
-An approved organizer still requires event approval for each event.
-
-## 5. Historical data must survive
-
-Prefer status changes over hard deletion for important domain records.
-
-Do not hard-delete:
-
-- events that have been published;
-- registrations/applications with history;
-- attendance records;
-- approval decisions;
-- important admin actions.
-
-Use states such as cancelled, rejected, completed, expired, or archived.
-
-## 6. Security rules
-
-- Never hardcode passwords, API keys, SMTP credentials, secret keys, or admin credentials.
-- Keep secrets in environment configuration.
-- Enforce authorization on the backend, not only by hiding UI buttons.
-- Do not expose participant lists publicly.
-- Do not expose unrelated user data to organizers.
+- Enforce authorization on the backend.
+- Derive organizer ownership, organizer public identity, cycle, and event status server-side.
+- Sensitive owner actions are not automatically granted to future co-organizers.
+- Management functions belong only to the dedicated `ADMIN` account.
+- Never hardcode secrets or credentials.
 - Never store plaintext passwords.
-- Validate uploaded images/files.
-- Protect state-changing operations against unauthorized requests.
+- Use secure HTTP-only session cookies and bcrypt.
+- Validate input and poster/file handling.
+- Protect state-changing operations against unauthorized requests and CSRF.
+- Do not expose unrelated account or administrative data.
+- Log important Management actions transactionally wherever practical.
 
-## 7. Permissions
+## Event lifecycle
 
-Use the permission matrix in `YCEP_V1_SPEC.md`.
+The lifecycle is `DRAFT`, `PENDING_APPROVAL`, `PUBLISHED`, `REJECTED`, `CANCELLED`, and `COMPLETED`. Validate transitions explicitly.
 
-Sensitive primary-organizer actions should not automatically be given to co-organizers.
+Only an authorized owner can submit a draft. Only Management can approve/reject and thereby publish. Fundamental changes such as title, organizer identity, or core purpose require reapproval. Operational changes must preserve event history.
 
-Admin functions belong only to the YABATECH Management account/role.
+## Architecture
 
-## 8. Event changes
+The frozen V1 stack is:
 
-Operational changes such as date, time, venue, registration deadline, or registration limit may be updated while preserving registrations and notifying affected participants.
+- Node.js 24 and TypeScript
+- Express.js
+- EJS, Vanilla JavaScript, and Vanilla CSS
+- PostgreSQL for development and production; SQLite is prohibited
+- Prisma
+- Zod
+- Session authentication with secure HTTP-only cookies and bcrypt
+- Nodemailer behind an `EmailService` abstraction if email is later approved
+- Vitest and Supertest
 
-Fundamental changes such as event title, organizer identity, or core purpose/description should trigger reapproval before the modified event is treated as approved.
+Do not change the stack without explicit approval.
 
-## 9. Registration limits
+## Tests
 
-Registration limit is an organizer-defined registration ceiling, not a claim about physical venue capacity.
+For material work, test permissions, valid flows, invalid transitions, expiry, ownership isolation, spoofing protection, and relevant concurrency. Run focused and full suites. Do not report completion with unexplained failures.
 
-For approval-based events:
+## Handoffs
 
-- pending applications do not consume the limit;
-- approved applicants do;
-- the organizer cannot approve beyond the configured limit.
+At meaningful milestones, update `DEVELOPMENT_LOG.md` with changes, migrations, tests, unresolved issues, and the next task. Product behavior changes require corresponding updates to `DECISIONS.md` and `YCEP_V1_SPEC.md`.
 
-For open-registration events:
-
-- registered participants consume the limit.
-
-Unlimited registration is allowed.
-
-### Concurrency and locking
-
-Registration limits must be enforced transactionally.
-
-PostgreSQL is the mandatory database for both development and production. Do NOT document or use SQLite as an alternative development database.
-
-When numeric registration-limit logic is implemented, concurrency must be handled using PostgreSQL transactions and an appropriate synchronization/locking strategy (such as row-level locking via `SELECT ... FOR UPDATE` or serializable isolation) to prevent race conditions and overbooking.
-
-## 10. Tests
-
-For every material feature:
-
-- add/update tests;
-- test permissions;
-- test valid flow;
-- test invalid transitions;
-- test expired verification;
-- test cancellation;
-- test duplicate registration/application;
-- test registration-limit behaviour.
-
-Run the relevant test suite after changes.
-
-Do not report "done" when tests are failing unless the failure is clearly documented.
-
-## 11. Database changes
-
-Do not casually rewrite migrations or wipe development data.
-
-For schema changes:
-
-- explain the change;
-- create proper migrations;
-- consider existing data;
-- use constraints where appropriate;
-- preserve historical records.
-
-## 12. Handoffs between models
-
-At the end of a meaningful milestone, update `DEVELOPMENT_LOG.md` with:
-
-- what was implemented;
-- files/modules changed;
-- migrations added;
-- tests run and results;
-- unresolved issues;
-- next recommended task.
-
-If a decision changes product behaviour, update `DECISIONS.md` and `YCEP_V1_SPEC.md`.
-
-## 13. Architecture changes
-
-The engineering baseline for YCEP V1 is frozen as follows:
-
-- **Runtime:** Node.js 24, TypeScript
-- **Backend:** Express.js
-- **Frontend:** EJS server-rendered templates, Vanilla JavaScript, Vanilla CSS
-- **Database:** PostgreSQL (for both development and production; SQLite is prohibited)
-- **ORM:** Prisma
-- **Validation:** Zod
-- **Authentication:** Session-based authentication, secure HTTP-only cookies, bcrypt password hashing
-- **Email:** Nodemailer behind an `EmailService` abstraction (dev environments must not require real production email credentials)
-- **Testing:** Vitest, Supertest
-
-Do not switch frameworks, databases, template engines, authentication strategies, frontend architecture, deployment platform, or major dependencies without explicit approval.
-
-Work strictly within this frozen stack.
-
-## 14. Coding behaviour
-
-Prefer:
-
-- clear names;
-- small focused functions/services;
-- explicit status transitions;
-- reusable authorization checks;
-- database constraints for critical invariants;
-- readable code over clever abstractions.
-
-Avoid:
-
-- giant files;
-- duplicated business rules;
-- status strings scattered everywhere;
-- client-side-only enforcement;
-- unnecessary dependencies;
-- speculative abstractions for future features.
-
-## 15. When uncertain
-
-Do not guess silently.
-
-Document the ambiguity in the development log and choose the least destructive implementation that preserves V1 behaviour.
+When uncertain, choose the least destructive implementation, preserve V1 behavior, and document the ambiguity rather than silently inventing a rule.

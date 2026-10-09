@@ -107,6 +107,10 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await pool.query('DELETE FROM "session"');
+  await prisma.eventTargetDepartment.deleteMany();
+  await prisma.eventTargetLevel.deleteMany();
+  await prisma.event.deleteMany();
+  await prisma.eventCategory.deleteMany();
   await prisma.organizerAuthorization.deleteMany();
   await prisma.organizerApplication.deleteMany();
   await prisma.auditLog.deleteMany();

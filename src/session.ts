@@ -36,8 +36,11 @@ export async function ensureSessionTable(pgPool: pg.Pool = pool): Promise<void> 
  * - Usable over normal HTTP in development/testing
  */
 export function createSessionMiddleware(pgPool: pg.Pool = pool) {
-  const secret =
-    process.env.SESSION_SECRET || "ycep-dev-default-secret-do-not-use-in-production";
+  const configuredSecret = process.env.SESSION_SECRET;
+  if (!configuredSecret && process.env.NODE_ENV === "production") {
+    throw new Error("SESSION_SECRET environment variable is required in production");
+  }
+  const secret = configuredSecret || "ycep-dev-default-secret-do-not-use-in-production";
 
   const store = new PgSession({
     pool: pgPool,

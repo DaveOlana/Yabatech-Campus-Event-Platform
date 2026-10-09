@@ -4,6 +4,257 @@ Use this file as the handoff record between Claude, Gemini, Codex, and human dev
 
 Newest entries should be added at the top.
 
+## 2026-10-09 — Legacy Milestone 4A Simplification Implemented
+
+### Status
+
+Complete. Registration-era event structures were removed through a new forward migration. Event drafts now implement only the D-049 Layer 1 publishing/discovery contract. Event submission and Management approval remain not started.
+
+### Database preflight
+
+- `ycep_dev`: 0 Events; 0 eligible-department rows; 0 eligible-level rows; 0 application questions; 0 deadlines; 0 limits; 0 non-empty eligibility instructions; no participation-mode groups; no event identities to report.
+- `ycep_test`: 1 disposable Event using the default `OPEN_REGISTRATION` enum value; 0 legacy relation rows; 0 deadlines; 0 limits; 0 non-empty eligibility instructions.
+- No meaningful development participation data was at risk.
+
+### Migration
+
+- Added and applied `20261009010424_simplify_layer1_events` to `ycep_test` first and then `ycep_dev` after tests passed.
+- Dropped `ApplicationQuestion`, `EventEligibleDepartment`, and `EventEligibleLevel`.
+- Dropped Event columns `participation_mode`, `registration_deadline`, `registration_limit`, and `eligibility_instructions`.
+- Dropped PostgreSQL enum `ParticipationMode`.
+- Preserved immutable migration `20260912140539_event_foundation_drafts` unchanged.
+- Final migration status: both databases up to date with all 6 migrations.
+
+### Implementation
+
+- Simplified Prisma relations and regenerated Prisma Client.
+- Reduced `eventDraftSchema` to Layer 1 event information, schedule/venue, and target audience.
+- Removed participation normalization, eligibility validation/writes, questions, deadlines, and limits from the event service.
+- Preserved transactional create/update, server-derived ownership/identity/status, DRAFT-only access, cross-cycle isolation, strict dates/times, HTTP/HTTPS poster URLs, and target-ID deduplication.
+- Simplified organizer create/edit/detail/index views and removed registration-era controls and mode switching.
+- Added clear discovery-only targeting guidance.
+
+### Tests and verification
+
+- Focused event-draft suite: 15/15 passed.
+- Full Vitest suite: 144/144 passed across 8 files.
+- TypeScript build: passed with 0 errors.
+- Prisma validation: passed.
+- `git diff --check`: run in final verification.
+
+### Governance
+
+- Added D-050 approving the removal.
+- Updated `AGENTS.md`, `YCEP_V1_SPEC.md`, `TASKS.md`, and `README.md` to reflect the clean Layer 1 domain.
+- Historical decisions and development-log entries remain preserved.
+
+### Next recommended task
+
+Milestone 5: event submission and YABATECH Management approval/rejection. Do not begin Layer 2 external registration work.
+
+## 2026-10-09 — V1 Product Pivot Formalized (Documentation Only)
+
+### Status
+
+Approved product pivot recorded. No application code, Prisma schema, migration, test, or database state was changed.
+
+### Why the scope changed
+
+YCEP's highest-value problem is fragmented campus event discovery. The previous V1 combined trusted publishing with internal attendee registration, applications, participant management, notifications, and attendance. The approved simplification completes a clearer product first: trusted organizer → event draft → Management review → publication → public discovery.
+
+### What remains valuable
+
+- Member identity/yearly verification as the foundation for trusted organizers.
+- Organizer application, review, authorization, revocation, and audit history.
+- Dedicated Management identity and backend authorization.
+- Authorization-bound event ownership and draft isolation.
+- Categories, flyer/poster, title, description, schedule, venue, and organizer public identity.
+- `EventTargetDepartment` and `EventTargetLevel` for filtering and relevance.
+- Historical preservation, explicit transitions, transactional review, and audit rules.
+
+### What moved outside primary V1
+
+- Internal attendee registration/applications and answers.
+- Participant/applicant management.
+- Internal registration limits/deadline enforcement.
+- Participant cancellation and registration history.
+- Attendance, no-shows, QR attendance, and waitlists.
+- Registration confirmation/reminder emails.
+
+External registration links are deferred to Layer 2. The future direction may link to legitimate external services without synchronizing attendee state, but no such feature was implemented or designed here.
+
+### Legacy Milestone 4A structures
+
+`ParticipationMode`, `registrationDeadline`, `registrationLimit`, `eligibilityInstructions`, `EventEligibleDepartment`, `EventEligibleLevel`, and `ApplicationQuestion` remain in the schema and existing migration. They are legacy Milestone 4A structures pending deliberate simplification review. Migration history must never be rewritten; approved removal requires a new forward migration and data-impact review.
+
+### Documentation changed
+
+- `YCEP_V1_SPEC.md`: Simplified publishing/discovery specification.
+- `DECISIONS.md`: D-049 pivot and explicit supersession record.
+- `TASKS.md`: Layer 1 roadmap and deferred Layer 2.
+- `README.md`: Updated product description and V1 success criteria.
+- `DEVELOPMENT_LOG.md`: This historical pivot record.
+
+### Next recommended task
+
+Resume Layer 1 with event submission and Management approval/rejection. Conduct the legacy-structure simplification review deliberately without rewriting the Milestone 4A migration.
+
+## 2026-09-13 — Independent Milestone 4A Engineering Audit
+
+### Status
+
+Audit complete. Milestone 4A remains within the frozen V1 architecture and scope. Six local defects were corrected without changing migrations or implementing Milestone 4B: draft detail/edit queries now exclude non-draft events; event validation rejects malformed limits, impossible dates, unsafe poster URL schemes, and duplicate relation IDs; registration deadlines now round-trip explicitly in West Africa Time; and production startup now requires an explicit session secret.
+
+### Database and migration verification
+
+- Existing `ycep-postgres` container was started without recreation, reset, or volume changes.
+- Prisma schema validation passed.
+- Both `ycep_dev` and `ycep_test` report all 5 migrations applied.
+- Migration `20260912140539_event_foundation_drafts` has matching on-disk/database SHA-256 `33d7b0472c1039902283b28bb203a8851f52813a2326c22427c71ea08b9e6efd` in both databases.
+- No business-schema drift exists. `ycep_test` additionally contains the expected `connect-pg-simple`-managed `public.session` table; `ycep_dev` did not contain it because no persisted development login session had initialized the store. No Prisma migration manipulates `session`.
+- Development seed completed twice without duplicate reference rows: 4 levels, 1 CSC department, 1 named cycle, and 7 distinct seeded category codes.
+
+### Tests and runtime verification
+
+- Pre-fix baseline event suite: 22/22 passed.
+- Post-fix focused suites: 45/45 passed (event drafts plus authentication/session).
+- Full suite: 156/156 passed across 8 files.
+- Final event suite after the WAT deadline correction: 27/27 passed.
+- Final TypeScript build passed.
+- Local HTTP smoke checks passed for `/`, `/health`, `/login`, and `/admin/login`; unauthenticated account, organizer, draft, and admin-queue routes redirected to the correct login surface.
+- In-app browser control could not be initialized after two attempts because its local control bridge lacked required sandbox metadata. No further browser retries were made; authenticated page rendering remains covered by Supertest.
+
+### Remaining recommendations
+
+- Add explicit CSRF tokens for authenticated state-changing forms before V1 hardening.
+- Add authentication rate limiting and deployment-aware reverse-proxy configuration before production.
+- Revalidate organizer authorization/state inside the event write transaction to close narrow revocation/status-transition race windows before event lifecycle transitions expand.
+- Remove or replace the production-visible `/account/protected-action` demonstration route when a real protected member action exists.
+- Configure the next academic cycle before relying on the development seed after 2025/2026.
+- Address the `pg` deprecation warning caused by overlapping query activity in the test/application session setup before upgrading to pg 9.
+
+---
+
+## 2026-09-12 — Milestone 4A: Event Foundation & Organizer Draft Creation
+
+### Status
+
+Complete. Milestone 4A establishes the core event draft lifecycle for authorized organizers. Events are strictly authorization-bound, cycle-scoped, and restricted to `DRAFT` status. Public event discovery, Management event approval, attendee registration/applications, notifications, attendance, and co-organizers are preserved outside this milestone. All 150 automated tests pass across all 8 test files, TypeScript build passes with 0 errors, and database migration status is clean and synchronized across both `ycep_dev` and `ycep_test`.
+
+### Completed
+
+- **Data Modeling & Migration:**
+  - Added Prisma schema models in `prisma/schema.prisma`:
+    - `Event`: Core event entity referencing `OrganizerAuthorization` via `primaryOrganizerAuthorizationId` with `onDelete: Restrict`. Captures server-side snapshot `organizerPublicName`. Omitted redundant `cycleId` (derived directly through authorization).
+    - `EventCategory`: Categorical taxonomy seeded with 7 default campus categories.
+    - `EventTargetDepartment`, `EventTargetLevel`: Independent junction tables for discovery and relevance targeting.
+    - `EventEligibleDepartment`, `EventEligibleLevel`: Independent junction tables for registration eligibility constraints.
+    - `ApplicationQuestion`: Ordered text application prompts (`orderIndex`, `questionText`) for `APPROVAL_REQUIRED` events (omits unapproved `isRequired` flag).
+  - Enums: `EventStatus` (`DRAFT`, `PENDING_APPROVAL`, `PUBLISHED`, `COMPLETED`, `REJECTED`, `CANCELLED`), `ParticipationMode` (`NO_REGISTRATION`, `OPEN_REGISTRATION`, `APPROVAL_REQUIRED`).
+  - Generated and executed migration `20260912140539_event_foundation_drafts` on both `ycep_dev` and `ycep_test`.
+  - Configured idempotent development seed in `prisma/seed.ts` for default event categories.
+
+- **Domain Validation & Service Layer:**
+  - `src/validators/event.validator.ts`: Comprehensive Zod validation with superRefine rules:
+    - Minimum/maximum length constraints on title, description, and venue.
+    - Valid 24-hour time format (HH:mm) and strict rule that `endTime > startTime`.
+    - Timezone-safe registration deadline parsing ensuring deadline is on or before event start date/time.
+    - Positive registration limits (`> 0`, max 50,000).
+    - Maximum 5 application questions for approval-required events.
+  - `src/services/event.service.ts`:
+    - Server-side participation mode normalizer (`normalizeParticipationFields`):
+      - `NO_REGISTRATION`: `registrationDeadline = null`, `registrationLimit = null`, 0 questions.
+      - `OPEN_REGISTRATION`: optional deadline/limit preserved, questions stripped (0 questions).
+      - `APPROVAL_REQUIRED`: optional deadline/limit preserved, up to 5 ordered questions preserved.
+    - Draft lifecycle operations (`createEventDraft`, `getOrganizerEventDrafts`, `getOrganizerEventDraftById`, `updateEventDraft`, `getEventFormData`).
+    - Scoped draft access strictly to `req.organizerAuthorization.id`:
+      - Primary authorization ID and snapshot public name derived exclusively server-side.
+      - Another organizer receives 404.
+      - Cross-cycle security: the same member re-approved in a later academic cycle receives a new `OrganizerAuthorization` and cannot view or edit draft events created under an earlier cycle's authorization.
+
+- **Routing & Views:**
+  - `src/routes/organizer-events.route.ts`:
+    - `GET /organizer/events`: Lists drafts owned by the authenticated current-cycle authorization.
+    - `GET /organizer/events/new`: Form to compose a new event draft with category, date/time, venue, participation mode, target audience, and eligibility selectors.
+    - `POST /organizer/events`: Creates draft event and atomic junction records.
+    - `GET /organizer/events/:id`: View draft details, target audience, eligibility, and configured application questions.
+    - `GET /organizer/events/:id/edit`: Pre-populated edit form for existing drafts.
+    - `POST /organizer/events/:id`: Updates draft event operational details, junctions, and questions.
+    - Guarded with `organizerEventsRouter.use("/organizer/events", requireOrganizer)`.
+  - Views:
+    - `views/organizer/events/index.ejs`: Draft listing with status badges and creation CTAs.
+    - `views/organizer/events/new.ejs`: Rich compose view with dynamic mode selector and question builder.
+    - `views/organizer/events/edit.ejs`: Pre-populated edit interface.
+    - `views/organizer/events/detail.ejs`: Detailed preview showing draft configuration, target audience, eligibility, and questions.
+    - Integrated navigation links into `views/account.ejs` and `views/organizer/status.ejs`.
+
+- **Scope Boundaries Preserved:**
+  - `EventCoOrganizer` relation explicitly omitted.
+  - Events remain in `DRAFT` status; no submission for approval, no public routes, no attendee registrations, no notifications, no attendance.
+
+- **Automated Tests:**
+  - Authored `tests/event-drafts.test.ts` covering 22 discrete scenarios:
+    - Unauthenticated, non-organizer, revoked-organizer, and admin access denials.
+    - Server-side authorization binding and public name snapshot.
+    - Spoofed client identity/authorization field stripping.
+    - Scoped access and cross-cycle authorization isolation (returns 404).
+    - Participation mode normalization across all 3 modes.
+    - Max 5 application questions validation.
+    - Target audience vs. eligibility junction table independence and default unconstrained semantics.
+    - Validation constraints (times, deadlines, limits, invalid categories).
+    - Scope proof of omitted co-organizers and public route privacy.
+  - Updated teardowns across `tests/admin.test.ts`, `tests/auth.test.ts`, `tests/identity.test.ts`, `tests/organizer.test.ts`, and `tests/registration.test.ts` to clean event tables in foreign key order.
+  - Total test suite: 150 tests passing across all 8 files.
+
+### Important files created/modified
+
+- `prisma/schema.prisma` [MODIFIED]: Added `Event`, `EventCategory`, junctions, and `ApplicationQuestion`.
+- `prisma/migrations/20260912140539_event_foundation_drafts/migration.sql` [NEW]: Milestone 4A migration.
+- `prisma/seed.ts` [MODIFIED]: Default event category seed data.
+- `src/validators/event.validator.ts` [NEW]: Event draft Zod schemas and validation refinements.
+- `src/services/event.service.ts` [NEW]: Event draft service and participation mode normalizer.
+- `src/routes/organizer-events.route.ts` [NEW]: Organizer event draft routes.
+- `src/app.ts` [MODIFIED]: Mounted `organizerEventsRouter`.
+- `views/organizer/events/index.ejs` [NEW]: Drafts list view.
+- `views/organizer/events/new.ejs` [NEW]: Draft creation form.
+- `views/organizer/events/edit.ejs` [NEW]: Draft edit form.
+- `views/organizer/events/detail.ejs` [NEW]: Draft detail view.
+- `views/account.ejs` [MODIFIED]: Added Event Drafts link.
+- `views/organizer/status.ejs` [MODIFIED]: Added Event Drafts link.
+- `tests/event-drafts.test.ts` [NEW]: 22 automated tests.
+- `tests/admin.test.ts`, `tests/auth.test.ts`, `tests/identity.test.ts`, `tests/organizer.test.ts`, `tests/registration.test.ts` [MODIFIED]: Event table teardown maintenance.
+- `TASKS.md` [MODIFIED]: Updated Milestone 4 checklist.
+- `DECISIONS.md` [MODIFIED]: Recorded decisions D-044 through D-048.
+- `DEVELOPMENT_LOG.md` [MODIFIED]: Recorded Milestone 4A entry.
+
+### Test results
+
+- Test runner: Vitest v3.2.7
+- 8 test files, **150 tests passing (100% pass rate)**:
+  - `tests/event-drafts.test.ts`: 22 tests passing
+  - `tests/organizer.test.ts`: 32 tests passing
+  - `tests/registration.test.ts`: 23 tests passing
+  - `tests/identity.test.ts`: 27 tests passing
+  - `tests/admin.test.ts`: 25 tests passing
+  - `tests/auth.test.ts`: 17 tests passing
+  - `tests/app.test.ts`: 3 tests passing
+  - `tests/db.test.ts`: 1 test passing
+- TypeScript compilation (`tsc`): 0 errors.
+- Migration status: 5 migrations applied and verified on both `ycep_dev` and `ycep_test`.
+
+### Unresolved issues
+
+None.
+
+### Recommended next task
+
+**Milestone 5 — Event Approval Workflow**
+- Implement draft submission by organizers (`status: PENDING_APPROVAL`).
+- Build YABATECH Management admin approval/rejection queue with feedback reason.
+- Enforce that operational changes preserve registrations while fundamental changes trigger reapproval.
+
+---
+
 ## 2026-09-12 — Milestone 3: Stabilization Pass (UX, Form Semantics, UI Consistency, Responsive Admin)
 
 ### Status

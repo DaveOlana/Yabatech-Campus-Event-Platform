@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <h1>YABATECH Campus Events Platform</h1>
+  </header>
+  <main class="main-wide">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+      <div>
+        <h2 style="margin-bottom: 0.25rem;">My Event Drafts</h2>
+        <p style="margin: 0; color: #64748b;">
+          Authorized Organizer: <strong><%= authorization.approvedPublicName %></strong>
+        </p>
+      </div>
+      <div>
+        <a href="/organizer/events/new" class="btn-primary">+ Create New Event Draft</a>
+      </div>
+    </div>
+
+    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 1rem; margin-bottom: 1.5rem;">
+      <p style="margin: 0; font-size: 0.9rem; color: #475569;">
+        <strong>Draft Scope:</strong> In Milestone 4A, events created here are saved as private drafts. They are visible only to your active organizer authorization and are not yet publicly published or submitted for administrative review.
+      </p>
+    </div>
+
+    <% if (drafts && drafts.length > 0) { %>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Category</th>
+              <th>Date & Time</th>
+              <th>Venue</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% drafts.forEach(function(draft) { %>
+              <tr>
+                <td>
+                  <strong><%= draft.title %></strong>
+                </td>
+                <td><%= draft.category ? draft.category.name : 'Uncategorized' %></td>
+                <td>
+                  <%= new Date(draft.eventDate).toLocaleDateString() %><br>
+                  <small style="color: #64748b;"><%= draft.startTime %> – <%= draft.endTime %></small>
+                </td>
+                <td><%= draft.venue %></td>
+                <td>
+                  <span class="badge badge-pending">DRAFT</span>
+                </td>
+                <td style="white-space: nowrap;">
+                  <a href="/organizer/events/<%= draft.id %>" class="btn-secondary btn-sm">View</a>
+                  <a href="/organizer/events/<%= draft.id %>/edit" class="btn-primary btn-sm">Edit</a>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+    <% } else { %>
+      <div style="text-align: center; padding: 3rem 1rem; border: 1px dashed #cbd5e1; border-radius: 8px; background-color: #f8fafc;">
+        <h3 style="margin-top: 0; color: #334155;">No Event Drafts Yet</h3>
+        <p style="color: #64748b; max-width: 500px; margin: 0 auto 1.5rem auto;">
+          You haven't created any event drafts for the current academic cycle. Start planning an event proposal by drafting its schedule, audience, and participation settings.
+        </p>
+        <a href="/organizer/events/new" class="btn-primary">Create Your First Draft</a>
+      </div>
+    <% } %>
+
+    <div style="margin-top: 2rem; display: flex; gap: 1rem; font-size: 0.9rem;">
+      <a href="/organizer/status">Organizer Status</a>
+      <span>&bull;</span>
+      <a href="/account">My Account</a>
+      <span>&bull;</span>
+      <a href="/">Return to Home</a>
+    </div>
+  </main>
+  <footer>
+    <p>&copy; <%= new Date().getFullYear() %> YABATECH Campus Events Platform</p>
+  </footer>
+</body>
+</html>

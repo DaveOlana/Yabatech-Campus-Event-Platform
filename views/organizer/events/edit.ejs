@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title><%= title %></title><link rel="stylesheet" href="/css/style.css"></head>
+<body><main class="container"><a href="/organizer/events/<%= event.id %>">← Draft details</a><h1>Edit Event Draft</h1>
+<% if (errorMessage) { %><div class="alert alert-error"><%= errorMessage %></div><% } %>
+<form method="post" action="/organizer/events/<%= event.id %>" novalidate>
+<section class="card"><h2>Event Information</h2>
+<label for="title">Title</label><input id="title" name="title" value="<%= values.title || '' %>" required maxlength="200"><% if (errors.title) { %><div class="field-error"><%= errors.title %></div><% } %>
+<label for="description">Description</label><textarea id="description" name="description" rows="7" required maxlength="5000"><%= values.description || '' %></textarea><% if (errors.description) { %><div class="field-error"><%= errors.description %></div><% } %>
+<label for="categoryId">Category</label><select id="categoryId" name="categoryId" required><option value="">Select a category</option><% categories.forEach(function(category) { %><option value="<%= category.id %>" <%= values.categoryId === category.id ? 'selected' : '' %>><%= category.name %></option><% }) %></select><% if (errors.categoryId) { %><div class="field-error"><%= errors.categoryId %></div><% } %>
+<label for="posterUrl">Poster URL (optional)</label><input id="posterUrl" name="posterUrl" type="url" value="<%= values.posterUrl || '' %>"><% if (errors.posterUrl) { %><div class="field-error"><%= errors.posterUrl %></div><% } %></section>
+<section class="card"><h2>Schedule &amp; Venue</h2>
+<label for="eventDate">Date</label><input id="eventDate" name="eventDate" type="date" value="<%= values.eventDate || '' %>" required><% if (errors.eventDate) { %><div class="field-error"><%= errors.eventDate %></div><% } %>
+<label for="startTime">Start time</label><input id="startTime" name="startTime" type="time" value="<%= values.startTime || '' %>" required><% if (errors.startTime) { %><div class="field-error"><%= errors.startTime %></div><% } %>
+<label for="endTime">End time</label><input id="endTime" name="endTime" type="time" value="<%= values.endTime || '' %>" required><% if (errors.endTime) { %><div class="field-error"><%= errors.endTime %></div><% } %>
+<label for="venue">Venue</label><input id="venue" name="venue" value="<%= values.venue || '' %>" required maxlength="200"><% if (errors.venue) { %><div class="field-error"><%= errors.venue %></div><% } %></section>
+<section class="card"><h2>Recommended Audience</h2><p>Targeting helps YCEP recommend or filter this event. Every published event remains visible to everyone.</p>
+<fieldset><legend>Departments</legend><% departments.forEach(function(department) { const selected = values.targetDepartmentIds && values.targetDepartmentIds.includes(department.id); %><label><input type="checkbox" name="targetDepartmentIds" value="<%= department.id %>" <%= selected ? 'checked' : '' %>> <%= department.name %></label><% }) %></fieldset>
+<fieldset><legend>Levels</legend><% levels.forEach(function(level) { const selected = values.targetLevelIds && values.targetLevelIds.includes(level.id); %><label><input type="checkbox" name="targetLevelIds" value="<%= level.id %>" <%= selected ? 'checked' : '' %>> <%= level.code %> — <%= level.label %></label><% }) %></fieldset></section>
+<button type="submit">Save Changes</button></form></main></body></html>

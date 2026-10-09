@@ -280,6 +280,103 @@ When numeric registration-limit logic is implemented, concurrency must be handle
 - Prevents race conditions and duplicate authorization generation under concurrent administrative reviews.
 - All state-changing administrative organizer mutations (`ORGANIZER_APPLICATION_APPROVED`, `ORGANIZER_APPLICATION_REJECTED`, `ORGANIZER_AUTHORIZATION_REVOKED`) write their respective `AuditLog` records in the exact same database transaction. If the audit log fails, the entire mutation is rolled back.
 
+## D-044 — Authorization-bound event ownership and snapshot public identity
+
+**Decision:**
+- Primary event ownership is bound to `OrganizerAuthorization` via `primaryOrganizerAuthorizationId` with `onDelete: Restrict`, rather than directly to a raw `User`.
+- `organizerPublicName` is stored directly on `Event` as an immutable snapshot derived exclusively server-side from `OrganizerAuthorization.approvedPublicName` at event creation time.
+- Draft creation, listing, viewing, and editing are scoped strictly to the organizer's active current-cycle `OrganizerAuthorization.id`.
+- If a member is approved as an organizer in a subsequent cycle, they receive a new `OrganizerAuthorization` and cannot view or edit draft events created under an earlier cycle's authorization (preventing cross-cycle draft pollution).
+- Neither `primaryOrganizerAuthorizationId`, `organizerPublicName`, user identity, nor cycle information may be submitted by or accepted from client forms; all are populated server-side from `req.organizerAuthorization`.
+
+## D-045 — Omission of redundant Event cycleId in favour of single source of truth
+
+**Decision:**
+- An explicit `cycleId` column is omitted from the `Event` model.
+- Because `Event.primaryOrganizerAuthorizationId` references `OrganizerAuthorization`, which already contains `cycleId`, the event's academic cycle context is deterministically accessible via the relationship without denormalization.
+- Omitting a redundant `cycleId` prevents multi-column synchronization inconsistencies and eliminates any potential for client or application layer drift between the authorization cycle and the event cycle.
+
+## D-046 — Independent junction modelling for target audience vs. registration eligibility
+
+**Decision:**
+- Recommended target audience and registration eligibility are strictly separated and modeled via four independent relational junction tables:
+  1. `EventTargetDepartment` (`eventId`, `departmentId`)
+  2. `EventTargetLevel` (`eventId`, `levelId`)
+  3. `EventEligibleDepartment` (`eventId`, `departmentId`)
+  4. `EventEligibleLevel` (`eventId`, `levelId`)
+- Target audience influences discovery and recommendation ranking only and never blocks registration.
+- Registration eligibility governs who is permitted to register or apply.
+- If no eligible departments are assigned to an event (0 rows in `EventEligibleDepartment`), all departments are eligible.
+- If no eligible levels are assigned to an event (0 rows in `EventEligibleLevel`), all levels are eligible.
+- If restrictions exist, the student must satisfy all configured constraints.
+
+## D-047 — Server-side normalization of participation mode constraints
+
+**Decision:**
+- Participation mode (`NO_REGISTRATION`, `OPEN_REGISTRATION`, `APPROVAL_REQUIRED`) constraints are enforced and normalized server-side in the domain service layer, regardless of browser input:
+  1. `NO_REGISTRATION`:
+     - `registrationDeadline = null`
+     - `registrationLimit = null`
+     - 0 `ApplicationQuestion` records persisted.
+  2. `OPEN_REGISTRATION`:
+     - Optional `registrationDeadline` allowed.
+     - Optional `registrationLimit` allowed.
+     - 0 `ApplicationQuestion` records persisted (stripped if submitted).
+  3. `APPROVAL_REQUIRED`:
+     - Optional `registrationDeadline` allowed.
+     - Optional `registrationLimit` allowed.
+     - Up to 5 ordered text questions (`ApplicationQuestion`) persisted.
+
+## D-048 — Application question constraints and deferral of co-organizer subsystem
+
+**Decision:**
+- `ApplicationQuestion` stores ordered text questions (`questionText`, `orderIndex`) for `APPROVAL_REQUIRED` events.
+- An unapproved `isRequired` boolean is explicitly omitted in V1; all questions configured by the organizer are simple text prompts.
+- Co-organizer relations (`EventCoOrganizer`) are explicitly excluded from Milestone 4A and deferred to Milestone 9 to keep the event foundation tightly focused on draft management and authorization invariants.
+- Event status in Milestone 4A is strictly `DRAFT`. State transitions (`PENDING_APPROVAL`, `PUBLISHED`, `COMPLETED`, `REJECTED`, `CANCELLED`) and public discovery are deferred to Milestones 5 and 6.
+
+## D-049 — Simplified V1 is trusted event publishing and public discovery
+
+**Date:** 2026-10-09
+
+**Status:** Approved. This supersedes the registration-heavy V1 direction wherever the two conflict.
+
+**Decision:** YCEP V1 is primarily a trusted YABATECH campus event publishing and discovery platform. Its required loop is verified organizer → event draft → submission → YABATECH Management review → approval/rejection → publication → public discovery. Ordinary viewers do not require accounts.
+
+YCEP governs organizer trust, event approval, and event visibility. It does not own attendee registration in simplified V1. A later Layer 2 may link to Luma, Google Forms, Microsoft Forms, Eventbrite, or another legitimate service. The external service—not YCEP—governs registration; YCEP will not synchronize attendee status.
+
+The following earlier decisions are superseded as active V1 requirements:
+
+- D-012 insofar as it requires an internal registration-eligibility system; target audience remains useful for discovery.
+- D-013 through D-016: internal participation modes, limits, approval counts, and cancellation.
+- D-020 insofar as it requires attendee registration/application notifications.
+- D-021: manual attendance in V1.
+- D-023 insofar as it requires preserving registrations or notifying participants; fundamental changes still require reapproval.
+- D-024: attendee application questions in V1.
+- D-027 insofar as CSV export concerns participant records.
+- D-031 and D-032 insofar as they require internal eligibility and registration-limit implementation; PostgreSQL remains mandatory.
+- D-046 insofar as registration-eligibility junctions are active V1 design; target-audience junctions remain approved.
+- D-047: participation-mode normalization as an active V1 requirement.
+- D-048 insofar as application questions are active V1; its Milestone 4A history and co-organizer deferral remain recorded.
+
+D-001 is narrowed: YCEP remains a campus event platform, but simplified V1 is not a complete registration, participant-management, or attendance platform.
+
+Existing `ParticipationMode`, `registrationDeadline`, `registrationLimit`, `eligibilityInstructions`, `EventEligibleDepartment`, `EventEligibleLevel`, and `ApplicationQuestion` structures are **legacy Milestone 4A structures pending deliberate simplification review**. They must not be removed in place or treated as permission to build the old attendee workflow. Any removal requires a new forward migration and preserved migration history.
+
+`EventTargetDepartment` and `EventTargetLevel` remain approved for discovery, filtering, and simple relevance. They do not control registration or public visibility.
+
+## D-050 — Remove legacy Milestone 4A attendee structures
+
+**Date:** 2026-10-09
+
+**Status:** Implemented by forward migration `20261009010424_simplify_layer1_events`.
+
+**Decision:** Following D-049, remove `ParticipationMode`, the Event registration/deadline/limit/eligibility fields, `EventEligibleDepartment`, `EventEligibleLevel`, and `ApplicationQuestion`. These objects have no Layer 1 purpose and must not remain as an attractive path back to the superseded attendee-management product.
+
+Preserve `EventTargetDepartment` and `EventTargetLevel` solely for public discovery, filtering, and relevance. Targeting never restricts public visibility.
+
+Migration `20260912140539_event_foundation_drafts` remains immutable history. Cleanup is forward-only through migration `20261009010424_simplify_layer1_events`.
+
 # How to change a decision
 
 If a decision must change:
@@ -289,5 +386,3 @@ If a decision must change:
 3. update `YCEP_V1_SPEC.md`;
 4. update affected tasks/tests;
 5. record the change in `DEVELOPMENT_LOG.md`.
-
-

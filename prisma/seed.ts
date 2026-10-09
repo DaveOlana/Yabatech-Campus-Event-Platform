@@ -70,6 +70,27 @@ async function main() {
   });
   console.log(`  ✓ Academic Cycle: ${cycle.name} (current: ${cycle.isCurrent})`);
 
+  // ── Development event categories ──────────────────────────────────────────
+  // Configurable development seed defaults (not frozen as permanent taxonomy invariants).
+  const categories = [
+    { code: "ACADEMIC", name: "Academic", description: "Lectures, symposiums, and academic conferences" },
+    { code: "WORKSHOP", name: "Workshop", description: "Hands-on training, skills acquisition, and bootcamps" },
+    { code: "SEMINAR", name: "Seminar", description: "Presentations, guest lectures, and panel discussions" },
+    { code: "SOCIAL", name: "Social", description: "Student gatherings, cultural days, and networking events" },
+    { code: "SPORTS", name: "Sports", description: "Intramural competitions, athletics, and fitness events" },
+    { code: "TECH", name: "Technology", description: "Hackathons, tech exhibitions, and developer meetups" },
+    { code: "CAREER", name: "Career", description: "Job fairs, resume clinics, and industry recruitment" },
+  ];
+
+  for (const cat of categories) {
+    const category = await prisma.eventCategory.upsert({
+      where: { code: cat.code },
+      update: { name: cat.name, description: cat.description },
+      create: cat,
+    });
+    console.log(`  ✓ Event Category: ${category.name} (${category.code})`);
+  }
+
   console.log("\n🌱 Seed complete.");
 }
 

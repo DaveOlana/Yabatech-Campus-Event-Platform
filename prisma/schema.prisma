@@ -45,6 +45,17 @@ enum OrganizerAuthorizationStatus {
   EXPIRED
 }
 
+/// Lifecycle state of an event.
+/// Milestone 4A operates exclusively with DRAFT.
+enum EventStatus {
+  DRAFT
+  PENDING_APPROVAL
+  PUBLISHED
+  COMPLETED
+  REJECTED
+  CANCELLED
+}
+
 // ─── Department ───────────────────────────────────────────────────────────────
 
 /// Academic department at YABATECH.
@@ -56,7 +67,8 @@ model Department {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users User[]
+  users        User[]
+  targetEvents EventTargetDepartment[]
 }
 
 // ─── Level ────────────────────────────────────────────────────────────────────
@@ -70,7 +82,8 @@ model Level {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  users User[]
+  users        User[]
+  targetEvents EventTargetLevel[]
 }
 
 // ─── AcademicYearCycle ────────────────────────────────────────────────────────
@@ -220,9 +233,94 @@ model OrganizerAuthorization {
   createdAt          DateTime                     @default(now()) @map("created_at")
   updatedAt          DateTime                     @updatedAt @map("updated_at")
 
+  events             Event[]                      @relation("OrganizerEvents")
+
   @@unique([userId, cycleId])
   @@index([userId])
   @@index([cycleId])
   @@index([status])
 }
 
+// ─── EventCategory ────────────────────────────────────────────────────────────
+
+/// Configurable campus event category.
+model EventCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique /// e.g. "Academic", "Workshop", "Technology"
+  code        String   @unique /// e.g. "ACADEMIC", "WORKSHOP", "TECH"
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  events Event[]
+}
+
+// ─── Event ────────────────────────────────────────────────────────────────────
+
+/// Primary campus event model.
+/// Cycle-bound ownership is enforced via primaryOrganizerAuthorizationId.
+/// An event's academic cycle is derived directly through its organizer authorization.
+model Event {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  posterUrl   String?  @map("poster_url")
+
+  categoryId String        @map("category_id")
+  category   EventCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  eventDate DateTime @map("event_date") @db.Date
+  startTime String   @map("start_time")
+  endTime   String   @map("end_time")
+  venue     String
+
+  primaryOrganizerAuthorizationId String                 @map("primary_organizer_authorization_id")
+  primaryOrganizerAuthorization   OrganizerAuthorization @relation("OrganizerEvents", fields: [primaryOrganizerAuthorizationId], references: [id], onDelete: Restrict)
+
+  organizerPublicName String @map("organizer_public_name")
+
+  status EventStatus @default(DRAFT)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  targetDepartments EventTargetDepartment[]
+  targetLevels      EventTargetLevel[]
+
+  @@index([primaryOrganizerAuthorizationId])
+  @@index([categoryId])
+  @@index([status])
+  @@index([eventDate])
+}
+
+// ─── EventTargetDepartment ────────────────────────────────────────────────────
+
+/// Recommended discovery audience: Department(s). Does not restrict public visibility.
+model EventTargetDepartment {
+  id           String     @id @default(uuid())
+  eventId      String     @map("event_id")
+  event        Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  departmentId String     @map("department_id")
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  @@unique([eventId, departmentId])
+  @@index([eventId])
+  @@index([departmentId])
+}
+
+// ─── EventTargetLevel ─────────────────────────────────────────────────────────
+
+/// Recommended discovery audience: Level(s). Does not restrict public visibility.
+model EventTargetLevel {
+  id        String   @id @default(uuid())
+  eventId   String   @map("event_id")
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  levelId   String   @map("level_id")
+  level     Level    @relation(fields: [levelId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([eventId, levelId])
+  @@index([eventId])
+  @@index([levelId])
+}

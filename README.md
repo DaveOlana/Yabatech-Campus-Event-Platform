@@ -1,53 +1,61 @@
-# YCEP — Project Development Guide
+# YCEP — YABATECH Campus Events Platform
 
-YCEP stands for **YABATECH Campus Events Platform**.
+YCEP is a **trusted YABATECH campus event publishing and discovery platform**. It gives students one public place to find Management-approved events that would otherwise be scattered across WhatsApp, flyers, departmental groups, social media, and word of mouth.
 
-This repository should be built against the documents in this folder. The academic proposal explains the project for school submission, but these files define how the software itself should be implemented.
+## V1 product focus
 
-## Read order for any AI coding agent
+The public student experience is the primary surface. Visitors do not need an account to browse approved events.
 
-1. `YCEP_V1_SPEC.md` — product source of truth.
-2. `AGENTS.md` — rules for Claude, Gemini, Codex, or any other coding agent.
-3. `DECISIONS.md` — important product and engineering decisions already made.
-4. `TASKS.md` — milestone-based implementation plan.
-5. `DEVELOPMENT_LOG.md` — completed work, current state, and handoff notes.
-6. `FUTURE_IDEAS.md` — ideas intentionally excluded from V1.
+```text
+Verified organizer creates a draft
+              ↓
+Organizer submits the event
+              ↓
+YABATECH Management reviews it
+              ↓
+Approved event is published
+              ↓
+Students discover it publicly
+```
 
-## Core rule
+Authentication remains required for organizers and YABATECH Management. Member identity and yearly verification provide the trusted foundation for organizer approval.
 
-**Do not add a feature to V1 just because it sounds useful or is technically easy.**
+YCEP V1 does not manage attendee registration, participant lists, attendance, waitlists, or registration notifications. A later Layer 2 may link to external registration services, but only after the publishing/discovery loop is complete.
 
-If a new idea appears during implementation:
+## Engineering stack
 
-- record it in `FUTURE_IDEAS.md`;
-- do not implement it unless V1 is intentionally revised;
-- if it changes an existing business rule, record the revision in `DECISIONS.md` and update `YCEP_V1_SPEC.md`.
+- Node.js 24 and TypeScript
+- Express.js
+- EJS, Vanilla JavaScript, and Vanilla CSS
+- PostgreSQL for development and production
+- Prisma ORM and Zod validation
+- Secure session authentication and bcrypt
+- Vitest and Supertest
 
-## Before coding
+## Documentation read order
 
-The first engineering session should:
+1. `YCEP_V1_SPEC.md` — authoritative simplified V1 behavior.
+2. `AGENTS.md` — coding-agent rules.
+3. `DECISIONS.md` — historical and current decisions.
+4. `TASKS.md` — active milestone roadmap.
+5. `DEVELOPMENT_LOG.md` — completed work and handoffs.
+6. `FUTURE_IDEAS.md` — ideas outside active V1.
 
-- inspect the existing repository;
-- identify the current stack and project structure;
-- compare the implementation with `YCEP_V1_SPEC.md`;
-- identify contradictions, missing migrations, or unsafe assumptions;
-- propose an architecture/build sequence;
-- avoid large code generation until the structure is understood.
+Historical decisions remain deliberately. When an older registration-heavy decision conflicts with the approved pivot, the newer superseding decision controls.
 
 ## Definition of V1 success
 
-YCEP V1 is successful when this flow works end to end without manual database edits:
+V1 is complete when this works without manual database edits:
 
-1. A user creates an account with YABATECH matric details.
-2. The account becomes active/verified for the current yearly cycle.
-3. The user can browse public events.
-4. A verified member applies for organizer privileges.
-5. YABATECH Management approves the organizer.
-6. The organizer creates an event and submits it for approval.
-7. YABATECH Management approves and publishes it.
-8. A member registers or applies, depending on the event participation mode.
-9. The organizer manages participants/applicants.
-10. The member can cancel their registration/application where allowed.
-11. The organizer records attendance.
-12. Event updates/cancellation preserve history and trigger required email notifications.
-13. Completed/cancelled events remain available as historical records.
+1. A verified member applies to become an organizer.
+2. Management approves the organizer.
+3. The organizer creates and edits an event draft.
+4. The organizer submits the event.
+5. Management approves or rejects it.
+6. An approved event becomes public.
+7. A visitor without an account can browse, search/filter, and open it.
+8. Draft, pending, rejected, account, and administrative data remain protected.
+
+## Current implementation note
+
+The registration-era Milestone 4A structures were removed through forward migration `20261009010424_simplify_layer1_events`. The original Milestone 4A migration remains immutable history. Event drafts now contain only Layer 1 publishing/discovery information and recommended-audience targets.

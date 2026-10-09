@@ -1,0 +1,8 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title><%= title %></title><link rel="stylesheet" href="/css/style.css"></head>
+<body><main class="container"><a href="/organizer/events">← My event drafts</a><h1><%= event.title %></h1><p><strong>Status:</strong> <%= event.status %></p>
+<% if (event.posterUrl) { %><img src="<%= event.posterUrl %>" alt="Poster for <%= event.title %>" style="max-width:100%;height:auto"><% } %>
+<section class="card"><h2>Event Information</h2><p><%= event.description %></p><p><strong>Category:</strong> <%= event.category.name %></p><p><strong>Organizer:</strong> <%= event.organizerPublicName %></p></section>
+<section class="card"><h2>Schedule &amp; Venue</h2><p><strong>Date:</strong> <%= new Date(event.eventDate).toLocaleDateString('en-NG', { dateStyle: 'long', timeZone: 'UTC' }) %></p><p><strong>Time:</strong> <%= event.startTime %>–<%= event.endTime %> WAT</p><p><strong>Venue:</strong> <%= event.venue %></p></section>
+<section class="card"><h2>Recommended Audience</h2><p>Targeting supports discovery only. Every published event remains visible to everyone.</p><p><strong>Departments:</strong> <%= event.targetDepartments.length ? event.targetDepartments.map(td => td.department.name).join(', ') : 'All departments' %></p><p><strong>Levels:</strong> <%= event.targetLevels.length ? event.targetLevels.map(tl => tl.level.code).join(', ') : 'All levels' %></p></section>
+<a href="/organizer/events/<%= event.id %>/edit">Edit Draft</a></main></body></html>
