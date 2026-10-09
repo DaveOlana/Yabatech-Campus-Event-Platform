@@ -6,8 +6,8 @@
   <title><%= title %></title>
   <link rel="stylesheet" href="/css/style.css">
 </head>
-<body>
-  <%- include('../partials/admin-header') %>
+<body class="management-page">
+  <%- include('../partials/admin-header', { activeManagementNav: 'account' }) %>
   <main class="container admin-account-page">
     <div class="page-header"><div><span class="eyebrow">Management security</span><h1>Account</h1><p>Change the dedicated Management sign-in credentials.</p></div></div>
     <% if(updated === 'username'){ %><div class="alert-success">Management username updated.</div><% } %>

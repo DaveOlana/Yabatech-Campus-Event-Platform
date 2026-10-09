@@ -6,16 +6,14 @@
   <title><%= title %></title>
   <link rel="stylesheet" href="/css/style.css">
 </head>
-<body>
-  <%- include('../../partials/admin-header') %>
-  <header>
-    <h1>YABATECH Campus Events Platform</h1>
-  </header>
+<body class="management-page">
+  <%- include('../../partials/admin-header', { activeManagementNav: 'organizers' }) %>
   <main class="main-wide">
-    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+    <div class="page-header">
       <div>
-        <h2 style="margin: 0;">Organizer Verification Management</h2>
-        <p style="margin: 0.25rem 0 0 0; color: #475569;">
+        <span class="eyebrow">Management</span>
+        <h1>Organizer applications</h1>
+        <p>
           Review applications and manage organizer authorizations for <strong><%= currentCycle ? currentCycle.name : 'No active cycle' %></strong>
         </p>
       </div>
@@ -30,14 +28,11 @@
       </div>
     <% } %>
 
-    <!-- Pending Applications Section -->
-    <section style="margin-bottom: 2rem; padding: 1.25rem; border: 1px solid #e2e8f0; border-radius: 6px;">
-      <h3 style="margin-top: 0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
-        <span>Actionable Pending Applications (Current Cycle)</span>
-        <span class="badge badge-pending">
-          <%= pendingApplications.length %> Pending
-        </span>
-      </h3>
+    <section class="management-section">
+      <div class="management-section__heading">
+        <div><span class="eyebrow">Current cycle</span><h2>Applications awaiting review</h2></div>
+        <div class="queue-metric" aria-label="<%= pendingApplications.length %> applications awaiting review"><strong><%= pendingApplications.length %></strong><span>awaiting review</span></div>
+      </div>
 
       <% if (pendingApplications && pendingApplications.length > 0) { %>
         <div class="table-container">
@@ -73,18 +68,15 @@
           </table>
         </div>
       <% } else { %>
-        <p style="color: #64748b;">No pending organizer applications awaiting review for the current cycle.</p>
+        <p class="muted">No organizer applications are waiting for review in the current cycle.</p>
       <% } %>
     </section>
 
-    <!-- Active Authorizations Section -->
-    <section style="margin-bottom: 2rem; padding: 1.25rem; border: 1px solid #e2e8f0; border-radius: 6px;">
-      <h3 style="margin-top: 0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
-        <span>Active Authorizations (Current Cycle)</span>
-        <span class="badge badge-active">
-          <%= activeAuthorizations.length %> Active
-        </span>
-      </h3>
+    <section class="management-section">
+      <div class="management-section__heading">
+        <div><span class="eyebrow">Current cycle</span><h2>Authorized organizers</h2></div>
+        <div class="queue-metric" aria-label="<%= activeAuthorizations.length %> authorized organizers"><strong><%= activeAuthorizations.length %></strong><span>authorized organizers</span></div>
+      </div>
 
       <% if (activeAuthorizations && activeAuthorizations.length > 0) { %>
         <div class="table-container">
@@ -129,7 +121,7 @@
           </table>
         </div>
       <% } else { %>
-        <p style="color: #64748b;">No active organizer authorizations currently active in this cycle.</p>
+        <p class="muted">No organizer authorizations are currently available for this cycle.</p>
       <% } %>
     </section>
 
@@ -137,8 +129,6 @@
       <a href="/admin">&larr; Back to Management Console</a>
     </p>
   </main>
-  <footer>
-    <p>&copy; <%= new Date().getFullYear() %> YABATECH Campus Events Platform</p>
-  </footer>
+  <%- include('../../partials/footer') %>
 </body>
 </html>

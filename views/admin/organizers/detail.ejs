@@ -6,16 +6,14 @@
   <title><%= title %></title>
   <link rel="stylesheet" href="/css/style.css">
 </head>
-<body>
-  <%- include('../../partials/admin-header') %>
-  <header>
-    <h1>YABATECH Campus Events Platform</h1>
-  </header>
+<body class="management-page">
+  <%- include('../../partials/admin-header', { activeManagementNav: 'organizers' }) %>
   <main class="main-wide">
-    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+    <div class="page-header">
       <div>
-        <h2 style="margin: 0;">Review Organizer Application</h2>
-        <p style="margin: 0.25rem 0 0 0; color: #475569;">Application ID: <code><%= application.id %></code></p>
+        <span class="eyebrow">Organizer application</span>
+        <h1>Review application</h1>
+        <p>Application ID: <code><%= application.id %></code></p>
       </div>
       <div>
         <a href="/admin/organizers" class="btn-secondary btn-sm">&larr; Back to Queue</a>
@@ -169,8 +167,6 @@
       <a href="/admin/organizers">&larr; Back to Applications Queue</a>
     </p>
   </main>
-  <footer>
-    <p>&copy; <%= new Date().getFullYear() %> YABATECH Campus Events Platform</p>
-  </footer>
+  <%- include('../../partials/footer') %>
 </body>
 </html>

@@ -6,8 +6,8 @@
   <title><%= title %></title>
   <link rel="stylesheet" href="/css/style.css">
 </head>
-<body>
-  <%- include('../../partials/admin-header') %>
+<body class="management-page">
+  <%- include('../../partials/admin-header', { activeManagementNav: event.status==='PENDING_APPROVAL' ? 'events' : 'history' }) %>
   <main class="container">
     <p><a href="<%= event.status==='PENDING_APPROVAL'?'/admin/events':'/admin/events/history' %>">&larr; <%= event.status==='PENDING_APPROVAL'?'Event review':'Event history' %></a></p>
     <div class="page-header"><div><span class="badge badge-<%= event.status.toLowerCase().replace('_','-') %>"><%= event.status.replace('_',' ') %></span><h1><%= event.title %></h1><p>Submitted by <strong><%= event.organizerPublicName %></strong> &middot; <%= event.submittedAt?new Date(event.submittedAt).toLocaleString('en-NG'):'Not submitted' %></p></div></div>

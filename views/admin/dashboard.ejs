@@ -6,84 +6,38 @@
   <title><%= title %></title>
   <link rel="stylesheet" href="/css/style.css">
 </head>
-<body>
-  <%- include('../partials/admin-header') %>
-  <header>
-    <h1>YABATECH Campus Events Platform</h1>
-  </header>
+<body class="management-page">
+  <%- include('../partials/admin-header', { activeManagementNav: 'dashboard' }) %>
   <main class="main-wide management-dashboard">
-    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
-      <div>
-        <span class="eyebrow">Management workspace</span>
-        <h1 style="margin: 0;">Dashboard</h1>
-        <p style="margin: 0.25rem 0 0 0; color: #475569;">Platform oversight and privileged operations</p>
-      </div>
-      <form action="/admin/logout" method="POST" style="margin: 0;">
-        <%- include('../partials/csrf-field') %>
-        <button type="submit" class="btn-danger btn-sm">Sign Out</button>
-      </form>
+    <div class="page-header"><div><span class="eyebrow">Management workspace</span><h1>Dashboard</h1><p>Platform oversight and privileged operations.</p></div></div>
+
+    <div class="management-summary-grid">
+      <section class="card management-summary-card">
+        <span class="eyebrow">Identity</span>
+        <h2>Management account</h2>
+        <dl class="management-facts"><div><dt>Name</dt><dd><%= user.fullName %></dd></div><div><dt>Username</dt><dd><%= user.managementUsername %></dd></div><div><dt>Role</dt><dd><%= user.role %></dd></div></dl>
+      </section>
+      <section class="card management-summary-card">
+        <span class="eyebrow">System</span>
+        <h2>Platform status</h2>
+        <dl class="management-facts"><div><dt>Database</dt><dd><%= systemStatus.database %></dd></div><div><dt>Academic cycle</dt><dd><%= systemStatus.activeCycle %></dd></div><div><dt>Service</dt><dd>Operational</dd></div></dl>
+      </section>
     </div>
 
-    <section style="margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 6px; background-color: #f8fafc;">
-      <h3 style="margin-top: 0;">Administrator Identity</h3>
-      <p><strong>Name:</strong> <%= user.fullName %></p>
-      <p><strong>Username:</strong> <%= user.managementUsername %></p>
-      <p><strong>Role:</strong> <span class="badge badge-active"><%= user.role %></span></p>
+    <section class="card management-operations">
+      <div><span class="eyebrow">Queues</span><h2>Management operations</h2><p class="muted">Review organizer requests and submitted events.</p></div>
+      <div class="actions"><a href="/admin/organizers" class="btn-secondary">Organizer applications</a><a href="/admin/events" class="btn-secondary">Event approvals</a></div>
     </section>
 
-    <section style="margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 6px;">
-      <h3 style="margin-top: 0;">System Status</h3>
-      <p><strong>Database:</strong> <span style="color: #047857; font-weight: bold;"><%= systemStatus.database %></span></p>
-      <p><strong>Active Academic Cycle:</strong> <%= systemStatus.activeCycle %></p>
-      <p><strong>Platform Status:</strong> Operational</p>
-    </section>
-
-    <section style="margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 6px;">
-      <h3 style="margin-top: 0;">Management Operations</h3>
-      <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-        <a href="/admin/organizers" class="btn-primary btn-sm">
-          Organizer Applications Queue
-        </a>
-        <a href="/admin/events" class="btn-primary btn-sm">Event Approval Queue</a>
-      </div>
-    </section>
-
-    <section style="margin-bottom: 1.5rem; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 6px;">
-      <h3 style="margin-top: 0;">Recent Audit Activity</h3>
+    <section class="card">
+      <div class="section-heading"><div><span class="eyebrow">Audit</span><h2>Recent activity</h2></div></div>
       <% if (recentAuditLogs && recentAuditLogs.length > 0) { %>
-        <div class="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>Timestamp</th>
-                <th>Action</th>
-                <th>Actor</th>
-                <th>Target</th>
-              </tr>
-            </thead>
-            <tbody>
-              <% recentAuditLogs.forEach(function(log) { %>
-                <tr>
-                  <td><%= new Date(log.createdAt).toLocaleString() %></td>
-                  <td><code><%= log.action %></code></td>
-                  <td><%= log.actor ? log.actor.email : log.actorUserId %></td>
-                  <td><%= log.targetType ? (log.targetType + (log.targetId ? ' #' + log.targetId : '')) : '—' %></td>
-                </tr>
-              <% }); %>
-            </tbody>
-          </table>
-        </div>
-      <% } else { %>
-        <p style="color: #64748b;">No recent audit activity recorded.</p>
-      <% } %>
+        <div class="table-container"><table><thead><tr><th>Timestamp</th><th>Action</th><th>Actor</th><th>Target</th></tr></thead><tbody>
+          <% recentAuditLogs.forEach(function(log) { %><tr><td><%= new Date(log.createdAt).toLocaleString() %></td><td><code><%= log.action %></code></td><td><%= log.actor ? log.actor.email : log.actorUserId %></td><td><%= log.targetType ? (log.targetType + (log.targetId ? ' #' + log.targetId : '')) : '—' %></td></tr><% }); %>
+        </tbody></table></div>
+      <% } else { %><div class="empty-state empty-state--compact"><h3>No recent activity</h3><p>Management audit activity will appear here.</p></div><% } %>
     </section>
-
-    <p style="font-size: 0.9rem; margin-top: 2rem;">
-      <a href="/">Platform Home</a>
-    </p>
   </main>
-  <footer>
-    <p>&copy; <%= new Date().getFullYear() %> YABATECH Campus Events Platform</p>
-  </footer>
+  <%- include('../partials/footer') %>
 </body>
 </html>

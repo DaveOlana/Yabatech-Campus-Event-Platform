@@ -294,6 +294,8 @@ describe("Milestone 2 — Admin Authentication", () => {
     expect(res.text).toContain('autocomplete="username"');
     expect(res.text).toContain('name="password"');
     expect(res.text).toContain('autocomplete="current-password"');
+    expect(res.text).toContain("Authorized event-management access for YABATECH.");
+    expect(res.text).toContain('href="/login">Back to member sign in</a>');
   });
 
   it("successfully authenticates ADMIN with valid username and password", async () => {
@@ -394,6 +396,10 @@ describe("Milestone 2 — Authorization & Routing", () => {
     }
   });
 
+  it("keeps Management sign-out POST-only", async () => {
+    await request(app).get("/admin/logout").expect(404);
+  });
+
   it("unauthenticated JSON request to /admin returns 401", async () => {
     const res = await request(app).get("/admin").set("Accept", "application/json");
     expect(res.status).toBe(401);
@@ -427,10 +433,10 @@ describe("Milestone 2 — Authorization & Routing", () => {
     expect(res.status).toBe(200);
     expect(res.text).toContain("Management workspace");
     expect(res.text).toContain(ADMIN_USERNAME);
-    expect(res.text).toContain('href="/admin/organizers">Organizer applications</a>');
-    expect(res.text).toContain('href="/admin/events">Event approvals</a>');
-    expect(res.text).toContain('href="/admin/events/history">History</a>');
-    expect(res.text).toContain('href="/admin/account">Account</a>');
+    expect(res.text).toMatch(/href="\/admin\/organizers"[^>]*>Organizer applications<\/a>/);
+    expect(res.text).toMatch(/href="\/admin\/events"[^>]*>Event approvals<\/a>/);
+    expect(res.text).toMatch(/href="\/admin\/events\/history"[^>]*>History<\/a>/);
+    expect(res.text).toMatch(/href="\/admin\/account"[^>]*>Account<\/a>/);
     expect(res.text).toContain('action="/admin/logout" method="POST"');
   });
 

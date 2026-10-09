@@ -9,7 +9,7 @@
 <body class="auth-page">
   <%- include('../partials/admin-login-header') %>
   <main class="auth-panel">
-    <div class="auth-heading"><h1>Management sign in</h1><p>Authenticate to review organizer applications and event proposals.</p></div>
+    <div class="auth-heading"><span class="eyebrow">YCEP Management</span><h1>Management sign in</h1><p>Authorized event-management access for YABATECH.</p></div>
 
     <% if (errorMessage) { %>
       <div class="alert-error">
@@ -44,13 +44,11 @@
         >
       </div>
 
-      <button type="submit" class="btn-primary btn-block">Sign in to Management</button>
+      <button type="submit" class="btn-primary btn-block">Sign in</button>
     </form>
 
-    <div class="auth-links"><p><a href="/">Return to home</a></p></div>
+    <div class="auth-links"><p><a href="/login">Back to member sign in</a></p></div>
   </main>
-  <footer>
-    <p>&copy; <%= new Date().getFullYear() %> YABATECH Campus Events Platform</p>
-  </footer>
+  <%- include('../partials/footer') %>
 </body>
 </html>

@@ -304,6 +304,11 @@ describe("Authentication: Login & Sessions", () => {
     expect(res.text).toContain("F/ND/24/3210051");
     expect(res.text).toContain("Computer Science");
     expect(res.text).toContain("ND1");
+    expect(res.text).toContain("Organizer workspace");
+    expect(res.text).toContain("Management access");
+    expect(res.text).toContain("For authorized YABATECH event-management personnel.");
+    expect(res.text).toContain('href="/admin/login">Management sign in</a>');
+    expect(res.text).not.toContain("badge-active");
     // Password hash must never be rendered
     expect(res.text).not.toContain(hashedPassword);
   });
