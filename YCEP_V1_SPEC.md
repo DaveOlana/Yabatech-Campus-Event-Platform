@@ -54,15 +54,15 @@ Existing identity rules remain authoritative:
 
 - Roles are `MEMBER` and `ADMIN`; organizer is a capability.
 - Members require full name, unique email, unique normalized matric number, department, level, and a bcrypt-hashed password.
-- Admin academic identity fields must be null, and exactly one admin account exists in V1.
-- Members log in with matric number/password; Management uses email/password.
+- Admin academic identity fields must be null, and exactly one admin account exists in V1. A Management username is required for that ADMIN and prohibited for members.
+- Members log in with matric number/password; Management uses its dedicated username/password. Username comparison trims, collapses repeated whitespace, and ignores case.
 - There is no public admin-registration route.
 - A valid new member automatically receives `ACTIVE` verification for the current yearly cycle.
 - Normal member registration does not require Management approval.
 - Accounts and history survive verification expiry.
 - Expired/revoked verification blocks protected organizer actions but does not delete the account.
 
-Matric numbers are trimmed, whitespace around separators is removed, and letters are uppercased. The V1 structural rule remains `^[A-Z]{1,4}/[A-Z]{2,4}/\d{2}/\d{7}$`; it does not prove central YABATECH enrollment. Member passwords require at least 8 characters; admin bootstrap passwords require at least 12 and must reject unchanged placeholders.
+Matric numbers are trimmed, whitespace around separators is removed, and letters are uppercased. The V1 structural rule remains `^[A-Z]{1,4}/[A-Z]{2,4}/\d{2}/\d{7}$`; it does not prove central YABATECH enrollment. Member and Management passwords require at least 8 characters and are bcrypt-hashed.
 
 ## 5. Organizer verification
 
@@ -131,6 +131,8 @@ Milestone 4C establishes the unfiltered discovery baseline. The homepage lists o
 
 Milestone 4D adds anonymous, URL-driven discovery through `q`, `category`, `department`, `level`, and `date`. Text search is a case-insensitive substring match across title, description, venue, organizer public name, and category name. Category, department, and level use persisted reference codes. Different dimensions combine with AND semantics. Department/level filters include both explicit target matches and untargeted general events; targeting remains relevance metadata and never eligibility. Date values are `upcoming`, `today`, `week`, and `month`, using Africa/Lagos calendar boundaries and never including earlier days. All result sets remain chronologically ordered and show at most 24 cards, with an accurate total count when more matches exist.
 
+If the official department catalogue lacks an event's intended audience, an organizer may propose one department name and short code on the draft. The proposal is private review metadata, not an immediate catalogue mutation. Management's event approval atomically creates or reuses the exact non-conflicting department and links it as a relevance target; rejection creates nothing. Conflicting official names/codes block approval for deliberate resolution.
+
 ## 11. Event changes, cancellation, and history
 
 Important event records must not be hard-deleted after publication. Operational changes may be supported with appropriate history. Fundamental changes—title, organizer identity, or core purpose/description—require reapproval before the modified event is treated as approved.
@@ -174,7 +176,11 @@ The pre-pivot migration introduced `ParticipationMode`, registration deadline/li
 
 V1 requires backend authorization, public access only to published data, secure HTTP-only sessions, bcrypt password hashing, environment-based secrets, input and flyer/poster validation, protection against unauthorized state changes, database constraints, auditable Management decisions, historical preservation, and transactional locking for contested approval transitions where necessary.
 
+Management may change its username or password only after confirming the current password. Credential mutations are CSRF-protected and audited without credential values; a password change invalidates earlier Management sessions. Complete password loss is recovered only through the environment-backed technical-owner reset command, never email or OTP recovery.
+
 Duplicate registration conflicts use a generic response that does not disclose whether the matric number or email address already exists.
+
+Authenticated members may maintain their current full name, email address, department, and level. Matric number remains the immutable account identity. Profile changes do not create or renew yearly verification and do not grant, renew, or alter organizer authorization. When a member graduates or otherwise leaves the active yearly cycle, the account and history remain while verification expires and protected organizer actions stay unavailable.
 
 The frozen stack remains Node.js 24, TypeScript, Express, EJS, Vanilla JavaScript/CSS, PostgreSQL, Prisma, Zod, session authentication, bcrypt, Nodemailer behind an `EmailService` abstraction if later required, Vitest, and Supertest.
 

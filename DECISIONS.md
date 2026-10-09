@@ -417,6 +417,30 @@ Migration `20260912140539_event_foundation_drafts` remains immutable history. Cl
 
 **Decision:** All browser mutations use a cryptographically random session-backed synchronizer token. Member login allows 10 failed attempts per 15 minutes per client IP, Management login allows 5, and registration allows 5 per hour; separate in-memory stores are acceptable only for a single-process V1 deployment. Login regenerates the session and logout remains CSRF-protected POST. Cookies are HttpOnly, SameSite=Lax, path `/`, and Secure only in production. Helmet provides a nonce-free, self-hosted script CSP and security headers; HSTS and proxy trust remain disabled until deployment topology is approved. Newly entered poster URLs require HTTPS, while historical data is not rewritten. Duplicate registration conflicts use one generic message.
 
+## D-056 — Member-maintained current profile
+
+**Date:** 2026-10-09
+
+**Status:** Implemented without a schema migration.
+
+**Decision:** Authenticated members may edit their current full name, email address, department, and level. Matric number remains immutable. Updates validate canonical department/level references and unique email ownership transactionally. Profile editing never changes yearly verification or organizer authorization; graduation and cycle departure preserve the account and history while verification expires.
+
+## D-057 — Management-gated department suggestions
+
+**Date:** 2026-10-09
+
+**Status:** Implemented by forward migration `20261009142000_event_department_suggestions`.
+
+**Decision:** An organizer may attach one proposed department name and short code to an editable event draft when the official catalogue does not contain it. The proposal remains non-public and does not create a `Department` while draft or pending. Management sees it during event review; approving the event atomically creates or reuses the exact non-conflicting department, links it as a relevance target, publishes the event, and records the accepted department in the approval audit. Rejecting the event leaves the official catalogue unchanged. Catalogue conflicts block approval rather than guessing or overwriting institutional data.
+
+## D-058 — Dedicated Management username and credential controls
+
+**Date:** 2026-10-09
+
+**Status:** Implemented by forward migration `20261009150000_management_username_auth`. Supersedes D-037 and D-038 only where they specify email-based Management login, a 12-character password minimum, or email-based bootstrap identity matching.
+
+**Decision:** Member authentication remains matric number plus password. The single `ADMIN` authenticates separately with a required Management username plus password; the normalized comparison is trimmed, collapses repeated whitespace, and is case-insensitive. Members cannot have Management usernames. Management passwords require at least 8 characters and remain bcrypt-hashed. Username and password changes require current-password confirmation, are ADMIN-only and CSRF-protected, and write credential-change audits without password metadata. Password changes invalidate prior Management sessions and regenerate the current session. Bootstrap and deliberate reset/update commands consume ignored environment variables, preserve the existing ADMIN row and relationships, and never print plaintext credentials.
+
 # How to change a decision
 
 If a decision must change:

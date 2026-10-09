@@ -117,6 +117,8 @@ model User {
   fullName     String
   email        String   @unique
   matricNumber String?  @unique @map("matric_number")
+  managementUsername           String? @map("management_username")
+  managementUsernameNormalized String? @unique @map("management_username_normalized")
   passwordHash String   @map("password_hash")
   role         UserRole @default(MEMBER)
 
@@ -280,6 +282,12 @@ model Event {
   primaryOrganizerAuthorization   OrganizerAuthorization @relation("OrganizerEvents", fields: [primaryOrganizerAuthorizationId], references: [id], onDelete: Restrict)
 
   organizerPublicName String @map("organizer_public_name")
+
+  /// Optional department proposed by the organizer when the official catalogue
+  /// does not yet contain the intended discovery audience. Management accepts
+  /// it only by approving the event.
+  suggestedDepartmentName String? @map("suggested_department_name")
+  suggestedDepartmentCode String? @map("suggested_department_code")
 
   status EventStatus @default(DRAFT)
 

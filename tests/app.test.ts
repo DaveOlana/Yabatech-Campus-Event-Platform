@@ -19,9 +19,18 @@ describe('YCEP Application Foundation', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers['content-type']).toMatch(/html/);
-    expect(response.text).toContain('Discover what');
+    expect(response.text).toContain('Campus life');
     expect(response.text).toContain('Upcoming events');
     expect(response.text).not.toContain('Running');
+  });
+
+  it('renders the public About page and creator credit', async () => {
+    const response = await request(app).get('/about');
+
+    expect(response.status).toBe(200);
+    expect(response.headers['content-type']).toMatch(/html/);
+    expect(response.text).toContain('A clearer way to find what is happening on campus.');
+    expect(response.text).toContain('cc daveolana');
   });
 
   it('returns 404 for unknown routes', async () => {

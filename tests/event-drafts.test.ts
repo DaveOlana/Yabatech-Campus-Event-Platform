@@ -69,7 +69,7 @@ async function createMember(options: { admin?: boolean; verified?: boolean } = {
   const admin = options.admin ?? false;
   const user = await prisma.user.create({
     data: admin
-      ? { fullName: "Management", email: `admin${serial}@yabatech.edu.ng`, passwordHash: await bcrypt.hash("SecureAdminPassword!", 4), role: UserRole.ADMIN }
+      ? { fullName: "Management", email: `admin${serial}@yabatech.edu.ng`, managementUsername: `Management ${serial}`, managementUsernameNormalized: `management ${serial}`, passwordHash: await bcrypt.hash("SecureAdminPassword!", 4), role: UserRole.ADMIN }
       : { fullName: "Test Organizer", email: `member${serial}@student.yabatech.edu.ng`, matricNumber: `F/ND/26/${serial}`, departmentId, levelId, passwordHash: await bcrypt.hash("password123", 4), role: UserRole.MEMBER },
   });
   if (!admin && options.verified !== false) {
@@ -124,7 +124,7 @@ describe("simplified Layer 1 event drafts", () => {
     await (await login(user.matricNumber!)).get("/organizer/events").expect(403);
     const admin = await createMember({ admin: true });
     const adminAgent = request.agent(app);
-    await adminAgent.post("/admin/login").type("form").send({ email: admin.email, password: "SecureAdminPassword!" }).expect(302);
+    await adminAgent.post("/admin/login").type("form").send({ username: admin.managementUsername, password: "SecureAdminPassword!" }).expect(302);
     await adminAgent.get("/organizer/events").expect(403);
   });
 
@@ -134,6 +134,7 @@ describe("simplified Layer 1 event drafts", () => {
     await agent.get("/organizer/events").expect(200);
     const page = await agent.get("/organizer/events/new").expect(200);
     expect(page.text).toContain("Recommended audience");
+    expect(page.text).toContain("Department not listed?");
     expect(page.text).not.toContain("Registration Limit");
     expect(page.text).not.toContain("Application Questions");
   });
@@ -192,6 +193,16 @@ describe("simplified Layer 1 event drafts", () => {
     const agent = await login(user.matricNumber!);
     expect((await agent.post("/organizer/events").type("form").send(payload({ title: "A" }))).status).toBe(400);
     expect((await agent.post("/organizer/events").type("form").send(payload({ description: "short" }))).status).toBe(400);
+  });
+
+  it("requires a complete, valid department suggestion pair", async () => {
+    const { user } = await setupOrganizer();
+    const agent = await login(user.matricNumber!);
+    const missingCode = await agent.post("/organizer/events").type("form").send(payload({ suggestedDepartmentName: "Marine Engineering" }));
+    expect(missingCode.status).toBe(400);
+    expect(missingCode.text).toContain("Enter both the new department name and short code");
+    await agent.post("/organizer/events").type("form").send(payload({ suggestedDepartmentName: "Marine Engineering", suggestedDepartmentCode: "MRE!" })).expect(400);
+    expect(await prisma.event.count()).toBe(0);
   });
 
   it("rejects impossible dates and invalid time order", async () => {
@@ -275,7 +286,7 @@ describe("simplified Layer 1 event drafts", () => {
     const admin = await createMember({ admin: true });
     const event = await prisma.event.create({ data: { title: "Pending Approval", description: "A complete proposal awaiting a management decision.", categoryId, eventDate: new Date("2026-11-20"), startTime: "10:00", endTime: "12:00", venue: "Hall", primaryOrganizerAuthorizationId: authorization.id, organizerPublicName: authorization.approvedPublicName, status: EventStatus.PENDING_APPROVAL, submittedAt: new Date() } });
     const agent = request.agent(app);
-    await agent.post("/admin/login").type("form").send({ email: admin.email, password: "SecureAdminPassword!" }).expect(302);
+    await agent.post("/admin/login").type("form").send({ username: admin.managementUsername, password: "SecureAdminPassword!" }).expect(302);
     await agent.get("/admin/events").expect(200);
     await agent.post(`/admin/events/${event.id}/approve`).set("Accept", "application/json").expect(200);
     const approved = await prisma.event.findUniqueOrThrow({ where: { id: event.id } });
@@ -285,13 +296,42 @@ describe("simplified Layer 1 event drafts", () => {
     expect(await prisma.auditLog.count({ where: { targetId: event.id, action: "EVENT_APPROVED" } })).toBe(1);
   });
 
+  it("keeps a suggested department private until Management approves the event", async () => {
+    const { user } = await setupOrganizer();
+    const organizer = await login(user.matricNumber!);
+    await organizer.post("/organizer/events").type("form").send(payload({
+      title: "Marine Innovation Day",
+      targetDepartmentIds: [],
+      suggestedDepartmentName: "Marine Engineering",
+      suggestedDepartmentCode: "mre",
+    })).expect(302);
+    const draft = await prisma.event.findFirstOrThrow({ where: { title: "Marine Innovation Day" } });
+    expect(draft.suggestedDepartmentCode).toBe("MRE");
+    expect(await prisma.department.findUnique({ where: { code: "MRE" } })).toBeNull();
+
+    await organizer.post(`/organizer/events/${draft.id}/submit`).expect(302);
+    expect(await prisma.department.findUnique({ where: { code: "MRE" } })).toBeNull();
+
+    const admin = await createMember({ admin: true });
+    const management = request.agent(app);
+    await management.post("/admin/login").type("form").send({ username: admin.managementUsername, password: "SecureAdminPassword!" }).expect(302);
+    const review = await management.get(`/admin/events/${draft.id}`).expect(200);
+    expect(review.text).toContain("Marine Engineering");
+    await management.post(`/admin/events/${draft.id}/approve`).expect(302);
+
+    const approvedDepartment = await prisma.department.findUniqueOrThrow({ where: { code: "MRE" } });
+    expect(approvedDepartment.name).toBe("Marine Engineering");
+    expect(await prisma.eventTargetDepartment.count({ where: { eventId: draft.id, departmentId: approvedDepartment.id } })).toBe(1);
+    expect((await prisma.event.findUniqueOrThrow({ where: { id: draft.id } })).status).toBe(EventStatus.PUBLISHED);
+  });
+
   it("blocks approval after organizer revocation but permits a reasoned rejection", async () => {
     const { authorization } = await setupOrganizer();
     const admin = await createMember({ admin: true });
     const event = await prisma.event.create({ data: { title: "Trust Changed", description: "A pending proposal whose organizer trust later changed.", categoryId, eventDate: new Date("2026-11-20"), startTime: "10:00", endTime: "12:00", venue: "Hall", primaryOrganizerAuthorizationId: authorization.id, organizerPublicName: authorization.approvedPublicName, status: EventStatus.PENDING_APPROVAL, submittedAt: new Date() } });
     await prisma.organizerAuthorization.update({ where: { id: authorization.id }, data: { status: OrganizerAuthorizationStatus.REVOKED, revokedAt: new Date(), revocationReason: "Trust withdrawn" } });
     const agent = request.agent(app);
-    await agent.post("/admin/login").type("form").send({ email: admin.email, password: "SecureAdminPassword!" }).expect(302);
+    await agent.post("/admin/login").type("form").send({ username: admin.managementUsername, password: "SecureAdminPassword!" }).expect(302);
     await agent.post(`/admin/events/${event.id}/approve`).set("Accept", "application/json").expect(409);
     expect((await prisma.event.findUniqueOrThrow({ where: { id: event.id } })).status).toBe(EventStatus.PENDING_APPROVAL);
     await agent.post(`/admin/events/${event.id}/reject`).set("Accept", "application/json").send({ rejectionReason: "The organizer authorization is no longer active." }).expect(200);
@@ -307,7 +347,7 @@ describe("simplified Layer 1 event drafts", () => {
     await request(app).get("/admin/events").set("Accept", "application/json").expect(401);
     const admin = await createMember({ admin: true });
     const agent = request.agent(app);
-    await agent.post("/admin/login").type("form").send({ email: admin.email, password: "SecureAdminPassword!" }).expect(302);
+    await agent.post("/admin/login").type("form").send({ username: admin.managementUsername, password: "SecureAdminPassword!" }).expect(302);
     await agent.post(`/admin/events/${event.id}/reject`).set("Accept", "application/json").send({ rejectionReason: "no" }).expect(400);
     expect((await prisma.event.findUniqueOrThrow({ where: { id: event.id } })).status).toBe(EventStatus.PENDING_APPROVAL);
   });
@@ -379,7 +419,7 @@ describe("simplified Layer 1 event drafts", () => {
     const pending = await prisma.event.create({ data: { title: "Still Pending", description: "A separate event awaiting review.", categoryId, eventDate: new Date("2026-11-21"), startTime: "10:00", endTime: "12:00", venue: "Hall", primaryOrganizerAuthorizationId: authorization.id, organizerPublicName: authorization.approvedPublicName, status: EventStatus.PENDING_APPROVAL, submittedAt: new Date() } });
     await request(app).get("/admin/events/history").expect(302);
     const agent = request.agent(app);
-    await agent.post("/admin/login").type("form").send({ email: admin.email, password: "SecureAdminPassword!" }).expect(302);
+    await agent.post("/admin/login").type("form").send({ username: admin.managementUsername, password: "SecureAdminPassword!" }).expect(302);
     const queue = await agent.get("/admin/events").expect(200);
     expect(queue.text).toContain(pending.title); expect(queue.text).not.toContain(published.title);
     const history = await agent.get("/admin/events/history?status=published").expect(200);

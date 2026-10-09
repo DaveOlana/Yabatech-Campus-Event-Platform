@@ -20,6 +20,8 @@ Students discover it publicly
 
 Authentication remains required for organizers and YABATECH Management. Member identity and yearly verification provide the trusted foundation for organizer approval.
 
+Members sign in with matric number and password. The single Management account signs in with a dedicated username and password configured through ignored `YCEP_ADMIN_USERNAME` and `YCEP_ADMIN_PASSWORD` environment variables. Run `npm run admin:bootstrap` to create it, `npm run admin:bootstrap -- --update-existing` for an explicit in-place local credential update, or `npm run admin:reset-password` for deliberate technical-owner password recovery. Commands never print plaintext credentials.
+
 YCEP V1 does not manage attendee registration, participant lists, attendance, waitlists, or registration notifications. A later Layer 2 may link to external registration services, but only after the publishing/discovery loop is complete.
 
 ## Engineering stack
@@ -89,6 +91,7 @@ Event management and history:
 - `GET /organizer/events?view=history` — current authorization's past published and cancelled events.
 - `POST /organizer/events/:id/cancel` — active exact owner permanently cancels a published event with a public reason.
 - `GET /admin/events/history` — protected Management history, separate from the pending queue.
+- `GET /admin/account` — protected Management username and password controls.
 - `POST /admin/events/:eventId/cancel` — Management withdraws a published event with a public reason.
 
 Published events are immutable. Past status is derived from the event date; YCEP does not automatically mark events `COMPLETED`. Cancelled events leave discovery but retain an explanatory direct public page.

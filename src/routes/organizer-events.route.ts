@@ -305,6 +305,8 @@ organizerEventsRouter.get(
         venue: event.venue,
         targetDepartmentIds: event.targetDepartments.map((td) => td.departmentId),
         targetLevelIds: event.targetLevels.map((tl) => tl.levelId),
+        suggestedDepartmentName: event.suggestedDepartmentName || "",
+        suggestedDepartmentCode: event.suggestedDepartmentCode || "",
       };
 
       res.render("organizer/events/edit", {

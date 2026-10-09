@@ -1,7 +1,8 @@
 <div data-csrf-token="<%= csrfToken %>" hidden></div><script src="/js/csrf-forms.js" defer></script><header class="site-header">
   <div class="site-header__inner">
-    <a class="brand" href="/" aria-label="YCEP home"><img class="brand__logo" src="/assets/brand/ycep-navbar.png" alt="YCEP"></a>
+    <a class="brand" href="/" aria-label="YCEP home"><img class="brand__logo" src="/assets/brand/ycep-navbar.png" alt="YCEP"><span class="brand__name">YABATECH Campus Events Platform</span></a>
     <nav class="site-nav" aria-label="Main navigation">
+      <a href="/">Discover</a><a href="/about">About</a>
       <% if (typeof authorization !== 'undefined' && authorization) { %><a href="/organizer/events">My Events</a><% } %>
       <a href="/organizer/status">Organizer</a>
       <a href="/account">Account</a>

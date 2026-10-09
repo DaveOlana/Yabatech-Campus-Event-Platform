@@ -9,6 +9,7 @@ Each milestone ends with working code, relevant tests, migration status, and an 
 - [x] Repository discovery and frozen engineering architecture.
 - [x] Member identity, secure authentication, and yearly verification.
 - [x] Dedicated YABATECH Management account and audit foundation.
+- [x] Dedicated normalized Management username login, self-service credential changes, and CLI password reset.
 - [x] Organizer application, approval/rejection, authorization, revocation, expiry, and live authorization guard.
 
 # Milestone 4A — Event Draft Foundation

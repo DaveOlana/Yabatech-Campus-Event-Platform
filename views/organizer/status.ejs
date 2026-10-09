@@ -14,7 +14,7 @@
     <p class="muted">Your current authorization and application history.</p>
 
     <section aria-labelledby="current-organizer-status">
-      <h2 id="current-organizer-status">Current cycle <span class="muted">&middot; <%= currentCycle ? currentCycle.name : 'None configured' %></span></h2>
+      <h2 id="current-organizer-status" class="cycle-heading"><span>Current cycle</span><span class="cycle-heading__value"><%= currentCycle ? currentCycle.name : 'None configured' %></span></h2>
 
       <% if (effectiveStatus === 'ACTIVE') { %>
         <div class="organizer-state organizer-state--active">

@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import bcrypt from "bcrypt";
-import { prisma } from "../db.js";
+import { Prisma } from "@prisma/client";
+import { pool, prisma } from "../db.js";
 import { requireAdmin, isJsonRequest } from "../middleware/auth.middleware.js";
 import {
   createAuditLog,
@@ -20,11 +21,11 @@ import {
   adminRevokeAuthorizationSchema,
 } from "../validators/organizer.validator.js";
 import { adminLoginLimiter } from "../middleware/rate-limit.middleware.js";
-import { adminLoginSchema } from "../validators/auth.validator.js";
+import { adminLoginSchema, adminPasswordChangeSchema, adminUsernameChangeSchema, normalizeManagementUsername } from "../validators/auth.validator.js";
 
 export const adminRouter = Router();
 
-const GENERIC_ADMIN_AUTH_ERROR = "Invalid email or password.";
+const GENERIC_ADMIN_AUTH_ERROR = "Invalid username or password.";
 
 /**
  * GET /admin/login
@@ -45,7 +46,7 @@ adminRouter.get("/admin/login", async (req: Request, res: Response) => {
   res.render("admin/login", {
     title: "Admin Sign In — YABATECH Management",
     errorMessage: null,
-    values: { email: "" },
+    values: { username: "" },
   });
 });
 
@@ -54,17 +55,16 @@ adminRouter.get("/admin/login", async (req: Request, res: Response) => {
  * Authenticates the dedicated YABATECH Management ADMIN account.
  *
  * Rules:
- * - Authenticates using email + password.
- * - Normalized/lowercased email lookup.
+ * - Authenticates using normalized Management username + password.
  * - Rejects any account whose role is NOT ADMIN (MEMBER cannot authenticate here).
- * - Generic error message for unknown email, non-admin role, or bad password.
+ * - Generic error message for unknown username, non-admin role, or bad password.
  * - Session regenerated upon success to prevent fixation.
  * - If audit log creation fails, the session is destroyed to avoid leaving
  *   the user with a privileged authenticated session.
  */
 adminRouter.post("/admin/login", adminLoginLimiter, async (req: Request, res: Response, next: NextFunction) => {
   const parsed = adminLoginSchema.safeParse(req.body);
-  const { email, password } = parsed.success ? parsed.data : { email: "", password: "" };
+  const { username, password } = parsed.success ? parsed.data : { username: "", password: "" };
   const jsonExpected = isJsonRequest(req);
 
   if (!parsed.success) {
@@ -75,16 +75,16 @@ adminRouter.post("/admin/login", adminLoginLimiter, async (req: Request, res: Re
     res.status(401).render("admin/login", {
       title: "Admin Sign In — YABATECH Management",
       errorMessage: GENERIC_ADMIN_AUTH_ERROR,
-      values: { email: email || "" },
+      values: { username: username || "" },
     });
     return;
   }
 
   try {
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedUsername = normalizeManagementUsername(username);
 
     const user = await prisma.user.findUnique({
-      where: { email: normalizedEmail },
+      where: { managementUsernameNormalized: normalizedUsername },
     });
 
     // Rejection rule: user must exist and have role === 'ADMIN'
@@ -96,7 +96,7 @@ adminRouter.post("/admin/login", adminLoginLimiter, async (req: Request, res: Re
       res.status(401).render("admin/login", {
         title: "Admin Sign In — YABATECH Management",
         errorMessage: GENERIC_ADMIN_AUTH_ERROR,
-        values: { email },
+        values: { username },
       });
       return;
     }
@@ -110,7 +110,7 @@ adminRouter.post("/admin/login", adminLoginLimiter, async (req: Request, res: Re
       res.status(401).render("admin/login", {
         title: "Admin Sign In — YABATECH Management",
         errorMessage: GENERIC_ADMIN_AUTH_ERROR,
-        values: { email },
+        values: { username },
       });
       return;
     }
@@ -148,7 +148,7 @@ adminRouter.post("/admin/login", adminLoginLimiter, async (req: Request, res: Re
             user: {
               id: user.id,
               fullName: user.fullName,
-              email: user.email,
+              managementUsername: user.managementUsername,
               role: user.role,
             },
           });
@@ -198,6 +198,68 @@ adminRouter.post("/admin/logout", requireAdmin, async (req: Request, res: Respon
 
     res.redirect("/admin/login");
   });
+});
+
+function renderAdminAccount(res: Response, user: NonNullable<Request["user"]>, options: { status?: number; usernameError?: string | null; passwordError?: string | null; updated?: string } = {}) {
+  return res.status(options.status ?? 200).render("admin/account", {
+    title: "Management Account — YCEP",
+    user,
+    usernameError: options.usernameError ?? null,
+    passwordError: options.passwordError ?? null,
+    updated: options.updated ?? null,
+  });
+}
+
+adminRouter.get("/admin/account", requireAdmin, async (req: Request, res: Response) => {
+  renderAdminAccount(res, req.user!, { updated: typeof req.query.updated === "string" ? req.query.updated : undefined });
+});
+
+adminRouter.post("/admin/account/username", requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  const parsed = adminUsernameChangeSchema.safeParse(req.body);
+  if (!parsed.success) return renderAdminAccount(res, req.user!, { status: 400, usernameError: parsed.error.errors[0]?.message ?? "Invalid username change request." });
+  try {
+    const admin = await prisma.user.findUnique({ where: { id: req.user!.id } });
+    if (!admin || !(await bcrypt.compare(parsed.data.currentPassword, admin.passwordHash))) {
+      return renderAdminAccount(res, req.user!, { status: 400, usernameError: "Current password is incorrect." });
+    }
+    const normalized = normalizeManagementUsername(parsed.data.newUsername);
+    const updated = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.update({ where: { id: admin.id }, data: { managementUsername: parsed.data.newUsername, managementUsernameNormalized: normalized } });
+      await createAuditLog({ actorUserId: admin.id, action: AUDIT_ACTIONS.ADMIN_USERNAME_CHANGED, targetType: "User", targetId: admin.id }, tx);
+      return user;
+    });
+    req.user = { ...req.user!, managementUsername: updated.managementUsername, managementUsernameNormalized: updated.managementUsernameNormalized };
+    res.redirect("/admin/account?updated=username");
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return renderAdminAccount(res, req.user!, { status: 409, usernameError: "That Management username is already in use." });
+    }
+    next(error);
+  }
+});
+
+adminRouter.post("/admin/account/password", requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  const parsed = adminPasswordChangeSchema.safeParse(req.body);
+  if (!parsed.success) return renderAdminAccount(res, req.user!, { status: 400, passwordError: parsed.error.errors[0]?.message ?? "Invalid password change request." });
+  try {
+    const admin = await prisma.user.findUnique({ where: { id: req.user!.id } });
+    if (!admin || !(await bcrypt.compare(parsed.data.currentPassword, admin.passwordHash))) {
+      return renderAdminAccount(res, req.user!, { status: 400, passwordError: "Current password is incorrect." });
+    }
+    const passwordHash = await bcrypt.hash(parsed.data.newPassword, 10);
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({ where: { id: admin.id }, data: { passwordHash } });
+      await createAuditLog({ actorUserId: admin.id, action: AUDIT_ACTIONS.ADMIN_PASSWORD_CHANGED, targetType: "User", targetId: admin.id }, tx);
+    });
+    await pool.query(`DELETE FROM "session" WHERE sess->>'userId' = $1`, [admin.id]);
+    req.session.regenerate((error) => {
+      if (error) return next(error);
+      req.session.userId = admin.id;
+      req.session.save((saveError) => saveError ? next(saveError) : res.redirect("/admin/account?updated=password"));
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 /**

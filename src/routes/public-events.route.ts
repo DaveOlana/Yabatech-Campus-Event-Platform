@@ -5,6 +5,10 @@ import { parsePublicEventQuery } from "../validators/public-event-query.validato
 
 export const publicEventsRouter = Router();
 
+publicEventsRouter.get("/about", (_req, res) => {
+  res.render("about", { title: "About YCEP" });
+});
+
 publicEventsRouter.get("/", async (req, res, next) => {
   try {
     const parsed = parsePublicEventQuery(req.query as Record<string, unknown>);

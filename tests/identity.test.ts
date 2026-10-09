@@ -321,6 +321,8 @@ describe("User constraints", () => {
       data: {
         fullName: "YABATECH Management",
         email: "management@yabatech.edu.ng",
+        managementUsername: "Campus Management Console",
+        managementUsernameNormalized: "campus management console",
         matricNumber: null,
         passwordHash: "$2b$10$placeholder",
         role: UserRole.ADMIN,
@@ -340,6 +342,8 @@ describe("User constraints", () => {
       data: {
         fullName: "YABATECH Management",
         email: "admin-noverify@yabatech.edu.ng",
+        managementUsername: "Campus Management Console",
+        managementUsernameNormalized: "campus management console",
         matricNumber: null,
         passwordHash: "$2b$10$placeholder",
         role: UserRole.ADMIN,

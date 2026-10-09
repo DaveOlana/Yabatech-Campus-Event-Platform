@@ -122,6 +122,8 @@ async function createUser(overrides: Partial<any> = {}) {
     data: {
       fullName: overrides.fullName || (isAdmin ? "YABATECH Management" : "Test Student"),
       email: overrides.email || (isAdmin ? "admin@yabatech.edu.ng" : "student@yabatech.edu.ng"),
+      managementUsername: isAdmin ? (overrides.managementUsername || "Campus Management Console") : null,
+      managementUsernameNormalized: isAdmin ? (overrides.managementUsernameNormalized || "campus management console") : null,
       matricNumber: isAdmin ? null : (overrides.matricNumber !== undefined ? overrides.matricNumber : "F/ND/24/3210051"),
       passwordHash: overrides.passwordHash || hashedPassword,
       role: overrides.role || UserRole.MEMBER,
@@ -305,6 +307,58 @@ describe("Authentication: Login & Sessions", () => {
     expect(res.text).not.toContain(hashedPassword);
   });
 
+  it("lets a member update editable profile details without changing identity or verification", async () => {
+    const user = await createUser({ matricNumber: "F/ND/24/3210051" });
+    const verification = await createVerification(user.id, currentCycleId, VerificationStatus.ACTIVE);
+    const department = await prisma.department.create({ data: { name: "Mass Communication", code: "MAC" } });
+    const level = await prisma.level.create({ data: { code: LevelCode.ND2, label: "National Diploma 2" } });
+    const agent = request.agent(app);
+    await agent.post("/login").send({ matricNumber: user.matricNumber, password: RAW_PASSWORD });
+
+    const editPage = await agent.get("/account/edit");
+    expect(editPage.status).toBe(200);
+    expect(editPage.text).toContain("Edit your details");
+    expect(editPage.text).toContain('disabled');
+
+    const response = await agent.post("/account/edit").set("Accept", "application/json").send({
+      fullName: "Jane Updated", email: "jane.updated@yabatech.edu.ng",
+      departmentId: department.id, levelId: level.id,
+      matricNumber: "ATTEMPTED/CHANGE",
+    });
+    expect(response.status).toBe(200);
+
+    const updated = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    expect(updated.fullName).toBe("Jane Updated");
+    expect(updated.email).toBe("jane.updated@yabatech.edu.ng");
+    expect(updated.departmentId).toBe(department.id);
+    expect(updated.levelId).toBe(level.id);
+    expect(updated.matricNumber).toBe("F/ND/24/3210051");
+    expect(await prisma.memberVerification.findUnique({ where: { id: verification.id } })).toMatchObject({ status: VerificationStatus.ACTIVE });
+  });
+
+  it("rejects invalid profile references and duplicate email without partial updates", async () => {
+    const user = await createUser({ matricNumber: "F/ND/24/3210051" });
+    await createUser({ matricNumber: "F/ND/24/9999999", email: "taken@yabatech.edu.ng" });
+    const agent = request.agent(app);
+    await agent.post("/login").send({ matricNumber: user.matricNumber, password: RAW_PASSWORD });
+
+    const invalidReference = await agent.post("/account/edit").set("Accept", "application/json").send({
+      fullName: "Changed Name", email: "changed@yabatech.edu.ng",
+      departmentId: "00000000-0000-0000-0000-000000000000", levelId: testLevelId,
+    });
+    expect(invalidReference.status).toBe(400);
+
+    const duplicateEmail = await agent.post("/account/edit").set("Accept", "application/json").send({
+      fullName: "Changed Name", email: "taken@yabatech.edu.ng",
+      departmentId: testDeptId, levelId: testLevelId,
+    });
+    expect(duplicateEmail.status).toBe(409);
+
+    const unchanged = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    expect(unchanged.fullName).toBe("Test Student");
+    expect(unchanged.email).toBe("student@yabatech.edu.ng");
+  });
+
   it("logout invalidates the session and prevents subsequent access", async () => {
     await createUser({ matricNumber: "F/ND/24/3210051" });
 
@@ -436,7 +490,7 @@ describe("Verification Guards & Yearly Expiry Behaviour", () => {
     const agent = request.agent(app);
     await agent
       .post("/admin/login")
-      .send({ email: "admin@yabatech.edu.ng", password: RAW_PASSWORD });
+      .send({ username: "Campus Management Console", password: RAW_PASSWORD });
 
     // Should pass requireActiveVerification without issue
     const res = await agent

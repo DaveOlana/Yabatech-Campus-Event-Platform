@@ -4,6 +4,53 @@ Use this file as the handoff record between Claude, Gemini, Codex, and human dev
 
 Newest entries should be added at the top.
 
+## 2026-10-09 — Management username authentication and credential controls
+
+### Status
+
+Complete. Management authentication now uses a dedicated normalized username rather than an institutional-email assumption. The preserved single ADMIN can manage its username and password from a protected security page, while technical-owner recovery remains an explicit environment-backed CLI action.
+
+### Implementation
+
+- Added migration `20261009150000_management_username_auth` with display and unique normalized Management username columns plus a database CHECK requiring them only for ADMIN.
+- Preserved the existing ADMIN row and all foreign-key relationships; local credentials are supplied only through ignored environment configuration and bcrypt-hashed storage.
+- Updated Management login UI/logic, generic credential failures, navigation, dashboard identity, bootstrap/update behavior, and the minimum 8-character password policy.
+- Added ADMIN-only, CSRF-protected username/password forms at `/admin/account`; both require the current password and write redacted audit events. Password changes invalidate previous ADMIN sessions and regenerate the current session.
+- Added `npm run admin:reset-password`; no email recovery, OTP, security questions, or plaintext credential logging was introduced.
+- Verification: 186/186 tests passed across 10 files; TypeScript build, Prisma validation, migration status, `git diff --check`, and the complete local login/events/account/logout smoke flow passed.
+
+## 2026-10-09 — Profile maintenance and department catalogue suggestions
+
+### Status
+
+Complete. Members can maintain current profile details without changing immutable identity or trust records, and organizers can propose a missing department through an event draft for explicit Management approval.
+
+### Scope
+
+- Added CSRF-protected profile editing for full name, email, department, and level; matric number, yearly verification, and organizer authorization remain unchanged.
+- Added optional, paired department name/code fields to event drafts through forward migration `20261009142000_event_department_suggestions`.
+- A suggestion remains private and cannot alter the official catalogue before approval. Event approval creates/reuses the exact non-conflicting department and links the event to it in the same locked transaction; rejection creates nothing.
+- Management review visibly identifies the proposed department, and approval audit metadata records what was accepted.
+- Removed the redundant Management card badge and member-login cross-link from the Management sign-in panel.
+- Corrected the organizer-status cycle and application-history card padding so headings and tables align consistently within their glass surfaces.
+- Verification: 180/180 tests passed across 10 files; TypeScript build, Prisma validation, and `git diff --check` passed. The previously documented pg adapter deprecation warning remains non-failing.
+
+## 2026-10-09 — V1 visual redesign and About page
+
+### Status
+
+Complete. The existing V1 interface received a presentation-only redesign with centered public storytelling, layered non-white ambient backgrounds, glass surfaces, pill controls, Apple-system typography, and subtle reduced-motion-safe animation. A public `/about` page now explains YCEP's purpose and trusted publishing loop.
+
+### Scope and verification
+
+- Updated the shared design system, public and authenticated navigation, public hero, cards, filters, forms, authentication surfaces, and responsive behavior without changing permissions or event lifecycle rules.
+- Added the public About route/view, shared navigation links, footer link, and requested `cc daveolana` credit.
+- Added a route regression test. No Prisma schema, migration, database data, dependency, authentication, authorization, or deployment change was made.
+- Corrected the organizer current-cycle hierarchy and added CSRF-protected member profile editing for full name, email, department, and level. Matric identity remains immutable, and profile changes do not alter yearly verification or organizer authorization.
+- Simplified the Management sign-in card by removing the redundant status badge and member-login cross-link.
+- Added transactional reference/uniqueness validation plus integration coverage for valid updates, immutable identity, preserved verification, invalid references, and duplicate email.
+- Verification at the time of the visual/profile pass: 178/178 tests passed across 10 files, TypeScript build passed, and `git diff --check` passed. The combined final total is recorded in the newer entry above.
+
 ## 2026-10-09 — Milestone 5A: Security Hardening and V1 Acceptance
 
 ### Status

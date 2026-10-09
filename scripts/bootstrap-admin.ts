@@ -1,92 +1,71 @@
+import { randomUUID } from "crypto";
 import { fileURLToPath } from "url";
 import path from "path";
 import { z } from "zod";
 import bcrypt from "bcrypt";
 import { prisma } from "../src/db.js";
 import { User } from "@prisma/client";
-
-export const FORBIDDEN_PLACEHOLDER_PASSWORDS = [
-  "change-me-to-a-secure-admin-password",
-  "changeme",
-  "password",
-  "adminpassword",
-  "ycepadminpassword",
-];
+import { managementPasswordSchema, managementUsernameSchema, normalizeManagementUsername } from "../src/validators/auth.validator.js";
 
 const adminBootstrapSchema = z.object({
-  name: z.string().min(1, "Admin full name is required"),
-  email: z.string().email("Invalid email address"),
-  password: z
-    .string()
-    .min(12, "Admin password must be at least 12 characters long")
-    .refine(
-      (pwd) => !FORBIDDEN_PLACEHOLDER_PASSWORDS.includes(pwd.toLowerCase()),
-      "Default or placeholder password cannot be used. Please provide a secure admin password."
-    ),
+  name: z.string().trim().min(1, "Management display name is required").max(120),
+  username: managementUsernameSchema,
+  password: managementPasswordSchema,
 });
 
 export interface BootstrapAdminOptions {
   name?: string;
-  email?: string;
+  username?: string;
   password?: string;
+  updateExistingCredentials?: boolean;
 }
 
 export type BootstrapAdminResult =
-  | { created: true; user: User }
-  | { created: false; reason: "ADMIN_ALREADY_EXISTS"; user: User };
+  | { created: true; updated?: false; user: User }
+  | { created: false; updated: true; user: User }
+  | { created: false; updated?: false; reason: "ADMIN_ALREADY_EXISTS"; user: User };
 
 /**
- * Bootstraps the dedicated YABATECH Management ADMIN account.
- *
- * Rules:
- * - Minimum 12-character password required.
- * - Placeholder passwords explicitly rejected.
- * - Idempotent: If an ADMIN already exists with the same email, exits safely.
- * - Conflict detection: If an ADMIN already exists with a different email, fails with a clear error.
- * - Never creates a second ADMIN or silently resets the password.
+ * Creates the single Management account, or explicitly updates that same row
+ * when --update-existing is supplied. Credentials always come from arguments
+ * or ignored environment configuration and are never printed.
  */
-export async function bootstrapAdmin(
-  options?: BootstrapAdminOptions
-): Promise<BootstrapAdminResult> {
-  const rawName = options?.name ?? process.env.YCEP_ADMIN_NAME;
-  const rawEmail = options?.email ?? process.env.YCEP_ADMIN_EMAIL;
-  const rawPassword = options?.password ?? process.env.YCEP_ADMIN_PASSWORD;
-
+export async function bootstrapAdmin(options: BootstrapAdminOptions = {}): Promise<BootstrapAdminResult> {
   const validated = adminBootstrapSchema.parse({
-    name: rawName,
-    email: rawEmail,
-    password: rawPassword,
+    name: options.name ?? process.env.YCEP_ADMIN_NAME ?? "YABATECH Management",
+    username: options.username ?? process.env.YCEP_ADMIN_USERNAME,
+    password: options.password ?? process.env.YCEP_ADMIN_PASSWORD,
   });
-
-  const normalizedEmail = validated.email.trim().toLowerCase();
-
-  // Check if an ADMIN already exists
-  const existingAdmin = await prisma.user.findFirst({
-    where: { role: "ADMIN" },
-  });
+  const normalizedUsername = normalizeManagementUsername(validated.username);
+  const existingAdmin = await prisma.user.findFirst({ where: { role: "ADMIN" } });
 
   if (existingAdmin) {
-    if (existingAdmin.email.toLowerCase() === normalizedEmail) {
-      return {
-        created: false,
-        reason: "ADMIN_ALREADY_EXISTS",
-        user: existingAdmin,
-      };
+    if (options.updateExistingCredentials) {
+      const passwordHash = await bcrypt.hash(validated.password, 10);
+      const user = await prisma.user.update({
+        where: { id: existingAdmin.id },
+        data: {
+          fullName: validated.name,
+          managementUsername: validated.username,
+          managementUsernameNormalized: normalizedUsername,
+          passwordHash,
+        },
+      });
+      return { created: false, updated: true, user };
     }
-
-    throw new Error(
-      `An ADMIN account is already configured with a different identity (${existingAdmin.email}). Conflict detected.`
-    );
+    if (existingAdmin.managementUsernameNormalized === normalizedUsername) {
+      return { created: false, reason: "ADMIN_ALREADY_EXISTS", user: existingAdmin };
+    }
+    throw new Error("An ADMIN account already exists with a different Management username. Use the explicit --update-existing option to change it.");
   }
 
-  // Hash password with bcrypt
   const passwordHash = await bcrypt.hash(validated.password, 10);
-
-  // Create single ADMIN user with null academic identity
-  const newAdmin = await prisma.user.create({
+  const user = await prisma.user.create({
     data: {
-      fullName: validated.name.trim(),
-      email: normalizedEmail,
+      fullName: validated.name,
+      email: `management-${randomUUID()}@ycep.invalid`,
+      managementUsername: validated.username,
+      managementUsernameNormalized: normalizedUsername,
       passwordHash,
       role: "ADMIN",
       matricNumber: null,
@@ -94,36 +73,30 @@ export async function bootstrapAdmin(
       levelId: null,
     },
   });
-
-  return {
-    created: true,
-    user: newAdmin,
-  };
+  return { created: true, user };
 }
 
-// Guard to ensure CLI execution only occurs when executed directly, not when imported in tests
+export async function resetAdminPassword(password = process.env.YCEP_ADMIN_PASSWORD): Promise<User> {
+  const validatedPassword = managementPasswordSchema.parse(password);
+  const admin = await prisma.user.findFirst({ where: { role: "ADMIN" } });
+  if (!admin) throw new Error("No ADMIN account exists. Run admin:bootstrap first.");
+  return prisma.user.update({ where: { id: admin.id }, data: { passwordHash: await bcrypt.hash(validatedPassword, 10) } });
+}
+
 const isDirectlyExecuted = (): boolean => {
   if (!process.argv[1]) return false;
   try {
-    const currentScriptPath = fileURLToPath(import.meta.url);
-    return path.resolve(process.argv[1]) === path.resolve(currentScriptPath);
+    return path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
   } catch {
     return false;
   }
 };
 
 if (isDirectlyExecuted()) {
-  bootstrapAdmin()
-    .then((result) => {
-      if (result.created) {
-        console.log(`Successfully bootstrapped ADMIN account: ${result.user.email}`);
-      } else {
-        console.log(`Admin account already exists: ${result.user.email}`);
-      }
-      process.exit(0);
-    })
-    .catch((err: Error) => {
-      console.error(`Bootstrap failed: ${err.message}`);
-      process.exit(1);
-    });
+  const resetPasswordOnly = process.argv.includes("--reset-password");
+  const updateExistingCredentials = process.argv.includes("--update-existing");
+  const action = resetPasswordOnly
+    ? resetAdminPassword().then(() => "Management password reset successfully.")
+    : bootstrapAdmin({ updateExistingCredentials }).then((result) => result.created ? "Management account created successfully." : result.updated ? "Management credentials updated successfully." : "Management account already exists.");
+  action.then((message) => { console.log(message); process.exit(0); }).catch((error: Error) => { console.error(`Management credential command failed: ${error.message}`); process.exit(1); });
 }

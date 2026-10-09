@@ -140,6 +140,8 @@ export async function createEventDraft(currentAuth: OrganizerAuthorization, inpu
       venue: input.venue,
       primaryOrganizerAuthorizationId: currentAuth.id,
       organizerPublicName: currentAuth.approvedPublicName,
+      suggestedDepartmentName: input.suggestedDepartmentName || null,
+      suggestedDepartmentCode: input.suggestedDepartmentCode || null,
       status: EventStatus.DRAFT,
       targetDepartments: { create: input.targetDepartmentIds.map((departmentId) => ({ departmentId })) },
       targetLevels: { create: input.targetLevelIds.map((levelId) => ({ levelId })) },
@@ -206,6 +208,8 @@ export async function updateEventDraft(eventId: string, currentAuthId: string, i
         startTime: input.startTime,
         endTime: input.endTime,
         venue: input.venue,
+        suggestedDepartmentName: input.suggestedDepartmentName || null,
+        suggestedDepartmentCode: input.suggestedDepartmentCode || null,
         targetDepartments: { create: input.targetDepartmentIds.map((departmentId) => ({ departmentId })) },
         targetLevels: { create: input.targetLevelIds.map((levelId) => ({ levelId })) },
       },
@@ -292,6 +296,26 @@ export async function approveEvent(adminUserId: string, eventId: string) {
     const trust = await getOrganizerTrustState(tx, locked.primary_organizer_authorization_id);
     if (!trust.valid || !trust.authorization) throw new EventTrustConflictError(`${trust.reason} This event cannot be approved.`);
 
+    let approvedSuggestedDepartment: { id: string; name: string; code: string } | null = null;
+    if (current.suggestedDepartmentName && current.suggestedDepartmentCode) {
+      const existingByName = await tx.department.findUnique({ where: { name: current.suggestedDepartmentName } });
+      const existingByCode = await tx.department.findUnique({ where: { code: current.suggestedDepartmentCode } });
+      if (existingByName && existingByCode && existingByName.id !== existingByCode.id) {
+        throw new EventInvalidStateError("The suggested department name and code conflict with different official departments.");
+      }
+      if ((existingByName && existingByName.code !== current.suggestedDepartmentCode) || (existingByCode && existingByCode.name !== current.suggestedDepartmentName)) {
+        throw new EventInvalidStateError("The suggested department conflicts with the official department catalogue.");
+      }
+      approvedSuggestedDepartment = existingByName ?? existingByCode ?? await tx.department.create({
+        data: { name: current.suggestedDepartmentName, code: current.suggestedDepartmentCode },
+      });
+      await tx.eventTargetDepartment.upsert({
+        where: { eventId_departmentId: { eventId, departmentId: approvedSuggestedDepartment.id } },
+        create: { eventId, departmentId: approvedSuggestedDepartment.id },
+        update: {},
+      });
+    }
+
     const now = new Date();
     const event = await tx.event.update({
       where: { id: eventId },
@@ -303,7 +327,7 @@ export async function approveEvent(adminUserId: string, eventId: string) {
       action: AUDIT_ACTIONS.EVENT_APPROVED,
       targetType: "Event",
       targetId: eventId,
-      metadata: { fromStatus: EventStatus.PENDING_APPROVAL, toStatus: EventStatus.PUBLISHED, organizerAuthorizationId: trust.authorization.id, cycleId: trust.authorization.cycleId, submittedAt: event.submittedAt?.toISOString(), reviewedAt: now.toISOString() },
+      metadata: { fromStatus: EventStatus.PENDING_APPROVAL, toStatus: EventStatus.PUBLISHED, organizerAuthorizationId: trust.authorization.id, cycleId: trust.authorization.cycleId, submittedAt: event.submittedAt?.toISOString(), reviewedAt: now.toISOString(), approvedSuggestedDepartment },
     }, tx);
     return event;
   });

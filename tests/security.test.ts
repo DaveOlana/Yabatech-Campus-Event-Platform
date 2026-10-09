@@ -31,8 +31,8 @@ describe("Milestone 5A security boundary", () => {
     for (let i = 0; i < 10; i++) await member.post("/login").set("X-CSRF-Token", memberCsrf).send({ matricNumber: "unknown", password: "wrong" }).expect(401);
     await member.post("/login").set("X-CSRF-Token", memberCsrf).send({ matricNumber: "unknown", password: "wrong" }).expect(429);
     const admin = rawRequest.agent(app); const adminCsrf = token((await admin.get("/admin/login")).text);
-    for (let i = 0; i < 5; i++) await admin.post("/admin/login").set("X-CSRF-Token", adminCsrf).send({ email: "unknown@example.test", password: "wrong" }).expect(401);
-    await admin.post("/admin/login").set("X-CSRF-Token", adminCsrf).send({ email: "unknown@example.test", password: "wrong" }).expect(429);
+    for (let i = 0; i < 5; i++) await admin.post("/admin/login").set("X-CSRF-Token", adminCsrf).send({ username: "unknown management", password: "wrong" }).expect(401);
+    await admin.post("/admin/login").set("X-CSRF-Token", adminCsrf).send({ username: "unknown management", password: "wrong" }).expect(429);
   });
 
   it("limits registration attempts without limiting public discovery", async () => {

@@ -41,6 +41,7 @@ Never rewrite applied migrations. Schema cleanup requires a new forward migratio
 - Derive organizer ownership, organizer public identity, cycle, and event status server-side.
 - Sensitive owner actions are not automatically granted to future co-organizers.
 - Management functions belong only to the dedicated `ADMIN` account.
+- Members authenticate with matric number; the single `ADMIN` authenticates with a dedicated normalized Management username. Management usernames never belong to member accounts or substitute for matric numbers.
 - Never hardcode secrets or credentials.
 - Never store plaintext passwords.
 - Use secure HTTP-only session cookies and bcrypt.
@@ -88,6 +89,7 @@ When uncertain, choose the least destructive implementation, preserve V1 behavio
 ## Security invariants
 
 - Every browser mutation must use the session-backed CSRF synchronizer token; tests obtain real tokens rather than disabling protection.
+- A member may edit current full name, email, department, and level, but matric number is immutable. Profile edits must not renew yearly verification or change organizer authorization.
 - Public errors must not expose stacks, database details, paths, secrets, cookies, session IDs, authorization headers, CSRF tokens, or request bodies.
 - Production secrets fail closed. Proxy trust remains disabled until an exact deployment hop or subnet is approved; never use broad `trust proxy = true`.
 - Dependency upgrades must be bounded, lockfile-reviewed, and fully verified. Do not use forced audit upgrades casually.

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><%= title %></title><link rel="stylesheet" href="/css/style.css"></head>
+<body>
+  <%- include('partials/member-header') %>
+  <main class="page-shell page-shell--reading profile-edit-page">
+    <div class="page-header"><div><span class="eyebrow">My account</span><h1>Edit your details</h1><p>Keep your current contact and academic information accurate.</p></div></div>
+    <form action="/account/edit" method="POST" class="form-section" novalidate>
+      <%- include('partials/csrf-field') %>
+      <% if(errorMessage){ %><div class="alert-error" role="alert"><%= errorMessage %></div><% } %>
+      <div class="form-group"><label for="matricNumber">Matric number</label><input id="matricNumber" value="<%= user.matricNumber %>" disabled><p class="helper-text">Your matric number is your permanent YCEP identity and cannot be changed here.</p></div>
+      <div class="form-group"><label for="fullName">Full name</label><input id="fullName" name="fullName" value="<%= values.fullName || '' %>" autocomplete="name" class="<%= errors.fullName ? 'input-error' : '' %>" required><% if(errors.fullName){ %><p class="field-error"><%= errors.fullName[0] %></p><% } %></div>
+      <div class="form-group"><label for="email">Email address</label><input type="email" id="email" name="email" value="<%= values.email || '' %>" autocomplete="email" class="<%= errors.email ? 'input-error' : '' %>" required><% if(errors.email){ %><p class="field-error"><%= errors.email[0] %></p><% } %></div>
+      <div class="form-grid form-grid--2">
+        <div class="form-group"><label for="departmentId">Department</label><select id="departmentId" name="departmentId" class="<%= errors.departmentId ? 'input-error' : '' %>" required><option value="">Select department</option><% departments.forEach(function(department){ %><option value="<%= department.id %>" <%= values.departmentId === department.id ? 'selected' : '' %>><%= department.name %> (<%= department.code %>)</option><% }) %></select><% if(errors.departmentId){ %><p class="field-error"><%= errors.departmentId[0] %></p><% } %></div>
+        <div class="form-group"><label for="levelId">Current level</label><select id="levelId" name="levelId" class="<%= errors.levelId ? 'input-error' : '' %>" required><option value="">Select level</option><% levels.forEach(function(level){ %><option value="<%= level.id %>" <%= values.levelId === level.id ? 'selected' : '' %>><%= level.code %> — <%= level.label %></option><% }) %></select><% if(errors.levelId){ %><p class="field-error"><%= errors.levelId[0] %></p><% } %></div>
+      </div>
+      <div class="profile-edit-note"><strong>Yearly verification stays separate.</strong><p>Updating these details does not renew an expired verification or grant organizer privileges.</p></div>
+      <div class="form-actions"><a class="btn-ghost" href="/account">Cancel</a><button type="submit" class="btn-primary">Save changes</button></div>
+    </form>
+  </main>
+  <%- include('partials/footer') %>
+</body>
+</html>

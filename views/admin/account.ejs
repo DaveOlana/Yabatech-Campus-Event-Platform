@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <%- include('../partials/admin-header') %>
+  <main class="container admin-account-page">
+    <div class="page-header"><div><span class="eyebrow">Management security</span><h1>Account</h1><p>Change the dedicated Management sign-in credentials.</p></div></div>
+    <% if(updated === 'username'){ %><div class="alert-success">Management username updated.</div><% } %>
+    <% if(updated === 'password'){ %><div class="alert-success">Password updated and previous Management sessions signed out.</div><% } %>
+    <section class="card">
+      <h2>Management username</h2>
+      <p class="muted">Spaces are allowed. Matching ignores capitalization and repeated whitespace.</p>
+      <% if(usernameError){ %><div class="alert-error"><%= usernameError %></div><% } %>
+      <form action="/admin/account/username" method="POST">
+        <%- include('../partials/csrf-field') %>
+        <div class="form-group"><label for="newUsername">New username</label><input id="newUsername" name="newUsername" value="<%= user.managementUsername || '' %>" minlength="3" maxlength="80" required autocomplete="username"></div>
+        <div class="form-group"><label for="usernameCurrentPassword">Current password</label><input id="usernameCurrentPassword" name="currentPassword" type="password" required autocomplete="current-password"></div>
+        <button type="submit">Update username</button>
+      </form>
+    </section>
+    <section class="card">
+      <h2>Change password</h2>
+      <p class="muted">Use at least 8 characters. Changing it signs out other Management sessions.</p>
+      <% if(passwordError){ %><div class="alert-error"><%= passwordError %></div><% } %>
+      <form action="/admin/account/password" method="POST">
+        <%- include('../partials/csrf-field') %>
+        <div class="form-group"><label for="passwordCurrentPassword">Current password</label><input id="passwordCurrentPassword" name="currentPassword" type="password" required autocomplete="current-password"></div>
+        <div class="form-grid form-grid--2"><div class="form-group"><label for="newPassword">New password</label><input id="newPassword" name="newPassword" type="password" minlength="8" required autocomplete="new-password"></div><div class="form-group"><label for="confirmPassword">Confirm new password</label><input id="confirmPassword" name="confirmPassword" type="password" minlength="8" required autocomplete="new-password"></div></div>
+        <button type="submit">Update password</button>
+      </form>
+    </section>
+  </main>
+  <%- include('../partials/footer') %>
+</body>
+</html>

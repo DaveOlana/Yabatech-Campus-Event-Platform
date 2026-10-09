@@ -9,7 +9,7 @@
 <body class="auth-page">
   <%- include('../partials/admin-login-header') %>
   <main class="auth-panel">
-    <div class="auth-heading"><span class="badge badge-pending">Management</span><h1>Management sign in</h1><p>Authenticate to review organizer applications and event proposals.</p></div>
+    <div class="auth-heading"><h1>Management sign in</h1><p>Authenticate to review organizer applications and event proposals.</p></div>
 
     <% if (errorMessage) { %>
       <div class="alert-error">
@@ -20,15 +20,15 @@
     <form action="/admin/login" method="POST" novalidate>
       <%- include('../partials/csrf-field') %>
       <div class="form-group">
-        <label for="email">Institutional Admin Email</label>
+        <label for="username">Management username</label>
         <input
-          type="email"
-          id="email"
-          name="email"
-          value="<%= values.email || '' %>"
+          type="text"
+          id="username"
+          name="username"
+          value="<%= values.username || '' %>"
           autocomplete="username"
           spellcheck="false"
-          placeholder="admin@yabatech.edu.ng"
+          placeholder="Management username"
           required
         >
       </div>
@@ -44,10 +44,10 @@
         >
       </div>
 
-      <button type="submit" class="btn-primary btn-block">Sign in as administrator</button>
+      <button type="submit" class="btn-primary btn-block">Sign in to Management</button>
     </form>
 
-    <div class="auth-links"><p>Student or campus member? <a href="/login">Member sign in</a></p><p><a href="/">Return to home</a></p></div>
+    <div class="auth-links"><p><a href="/">Return to home</a></p></div>
   </main>
   <footer>
     <p>&copy; <%= new Date().getFullYear() %> YABATECH Campus Events Platform</p>

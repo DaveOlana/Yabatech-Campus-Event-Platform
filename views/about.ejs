@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="public-discovery about-page">
+  <%- include('partials/public-header') %>
+  <main class="about-shell">
+    <section class="about-hero">
+      <h1>A clearer way to find what is happening on campus.</h1>
+      <p>YCEP brings trusted YABATECH events into one calm, public space—so students can spend less time searching and more time showing up.</p>
+    </section>
+
+    <section class="about-principles" aria-labelledby="why-ycep">
+      <div class="about-section-heading"><span class="eyebrow">Why it exists</span><h2 id="why-ycep">Built for a campus that moves fast.</h2></div>
+      <div class="about-card-grid">
+        <article class="about-card"><span class="about-card__number">01</span><h3>One place to look</h3><p>Approved events no longer have to disappear between flyers, group chats and word of mouth.</p></article>
+        <article class="about-card"><span class="about-card__number">02</span><h3>Trust before reach</h3><p>Organizers are authorized and every event is reviewed by YABATECH Management before it becomes public.</p></article>
+        <article class="about-card"><span class="about-card__number">03</span><h3>Open by default</h3><p>Anyone can discover published events. An account is only needed for trusted organizer workflows.</p></article>
+      </div>
+    </section>
+
+    <section class="about-flow" aria-labelledby="how-it-works">
+      <div class="about-flow__copy"><span class="eyebrow">The YCEP loop</span><h2 id="how-it-works">Simple on the surface.<br>Careful underneath.</h2><p>YCEP keeps publishing straightforward while preserving the checks that make campus information dependable.</p><a class="btn-primary" href="/">Discover events</a></div>
+      <ol class="about-flow__steps">
+        <li><span>1</span><div><strong>An organizer is approved</strong><p>A verified member receives organizer privileges from Management.</p></div></li>
+        <li><span>2</span><div><strong>An event is proposed</strong><p>The organizer prepares the details and submits the event for review.</p></div></li>
+        <li><span>3</span><div><strong>Management reviews it</strong><p>Only approved events become visible on the public campus calendar.</p></div></li>
+        <li><span>4</span><div><strong>Everyone can discover it</strong><p>Students browse, search and filter without needing an account.</p></div></li>
+      </ol>
+    </section>
+
+    <section class="about-closing">
+      <span class="eyebrow">Made for YABATECH</span>
+      <h2>Good events deserve to be found.</h2>
+      <p>YCEP is a focused first version of a better campus information layer: useful, accountable and intentionally simple.</p>
+    </section>
+    <p class="about-credit">cc daveolana</p>
+  </main>
+  <%- include('partials/footer') %>
+</body>
+</html>

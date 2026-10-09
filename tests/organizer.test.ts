@@ -151,11 +151,13 @@ beforeEach(async () => {
 });
 
 // Helpers
-async function seedAdmin(email = "admin@ycep.local") {
+async function seedAdmin(username = "Campus Management Console") {
   return prisma.user.create({
     data: {
       fullName: "YABATECH Management",
-      email: email.toLowerCase(),
+      email: "admin@ycep.local",
+      managementUsername: username,
+      managementUsernameNormalized: username.trim().replace(/\s+/g, " ").toLowerCase(),
       passwordHash: hashedAdminPassword,
       role: UserRole.ADMIN,
     },
@@ -193,10 +195,10 @@ async function loginAsMember(matricNumber = "F/ND/24/3210001"): Promise<string[]
   return res.headers["set-cookie"] as string[];
 }
 
-async function loginAsAdmin(email = "admin@ycep.local"): Promise<string[]> {
+async function loginAsAdmin(username = "Campus Management Console"): Promise<string[]> {
   const res = await request(app)
     .post("/admin/login")
-    .send({ email, password: ADMIN_PASSWORD });
+    .send({ username, password: ADMIN_PASSWORD });
   return res.headers["set-cookie"] as string[];
 }
 
@@ -207,10 +209,10 @@ async function loginAsMemberOnApp(appInstance: any, matricNumber = "F/ND/24/3210
   return res.headers["set-cookie"] as string[];
 }
 
-async function loginAsAdminOnApp(appInstance: any, email = "admin@ycep.local"): Promise<string[]> {
+async function loginAsAdminOnApp(appInstance: any, username = "Campus Management Console"): Promise<string[]> {
   const res = await request(appInstance)
     .post("/admin/login")
-    .send({ email, password: ADMIN_PASSWORD });
+    .send({ username, password: ADMIN_PASSWORD });
   return res.headers["set-cookie"] as string[];
 }
 
@@ -592,7 +594,7 @@ describe("Milestone 3 — Application Submission & Eligibility", () => {
 describe("Milestone 3 — Admin Review & Decision Transactions", () => {
   it("admin can approve a PENDING application and create an ACTIVE authorization", async () => {
     const admin = await seedAdmin();
-    const adminCookie = await loginAsAdmin(admin.email);
+    const adminCookie = await loginAsAdmin(admin.managementUsername!);
 
     const member = await seedMember();
     await seedActiveVerification(member.id, currentCycleId);
@@ -650,7 +652,7 @@ describe("Milestone 3 — Admin Review & Decision Transactions", () => {
 
   it("approval copies requestedPublicName into approvedPublicName, not organization name", async () => {
     const admin = await seedAdmin();
-    const adminCookie = await loginAsAdmin(admin.email);
+    const adminCookie = await loginAsAdmin(admin.managementUsername!);
 
     const member = await seedMember("F/ND/24/3210009", "dave.distinct@yabatech.edu.ng");
     await seedActiveVerification(member.id, currentCycleId);
@@ -684,7 +686,7 @@ describe("Milestone 3 — Admin Review & Decision Transactions", () => {
 
   it("admin can reject a PENDING application with feedback notes without creating authorization", async () => {
     const admin = await seedAdmin();
-    const adminCookie = await loginAsAdmin(admin.email);
+    const adminCookie = await loginAsAdmin(admin.managementUsername!);
 
     const member = await seedMember();
     await seedActiveVerification(member.id, currentCycleId);
@@ -736,7 +738,7 @@ describe("Milestone 3 — Admin Review & Decision Transactions", () => {
 
   it("admin rejection requires feedback notes of at least 5 characters", async () => {
     const admin = await seedAdmin();
-    const adminCookie = await loginAsAdmin(admin.email);
+    const adminCookie = await loginAsAdmin(admin.managementUsername!);
 
     const member = await seedMember("F/ND/24/3210010", "reject.notes@yabatech.edu.ng");
     await seedActiveVerification(member.id, currentCycleId);
@@ -775,7 +777,7 @@ describe("Milestone 3 — Admin Review & Decision Transactions", () => {
 
   it("approving the same application twice fails safely", async () => {
     const admin = await seedAdmin();
-    const adminCookie = await loginAsAdmin(admin.email);
+    const adminCookie = await loginAsAdmin(admin.managementUsername!);
 
     const member = await seedMember();
     await seedActiveVerification(member.id, currentCycleId);
@@ -809,7 +811,7 @@ describe("Milestone 3 — Admin Review & Decision Transactions", () => {
 
   it("rejecting an already approved application fails", async () => {
     const admin = await seedAdmin();
-    const adminCookie = await loginAsAdmin(admin.email);
+    const adminCookie = await loginAsAdmin(admin.managementUsername!);
 
     const member = await seedMember();
     await seedActiveVerification(member.id, currentCycleId);
@@ -836,7 +838,7 @@ describe("Milestone 3 — Admin Review & Decision Transactions", () => {
 
   it("stale/old-cycle PENDING application cannot be reviewed or approved", async () => {
     const admin = await seedAdmin();
-    const adminCookie = await loginAsAdmin(admin.email);
+    const adminCookie = await loginAsAdmin(admin.managementUsername!);
 
     const member = await seedMember();
     await seedActiveVerification(member.id, previousCycleId);
@@ -862,7 +864,7 @@ describe("Milestone 3 — Admin Review & Decision Transactions", () => {
 
   it("member whose verification becomes inactive after applying cannot be approved", async () => {
     const admin = await seedAdmin();
-    const adminCookie = await loginAsAdmin(admin.email);
+    const adminCookie = await loginAsAdmin(admin.managementUsername!);
 
     const member = await seedMember();
     const verification = await seedActiveVerification(member.id, currentCycleId);
@@ -900,7 +902,7 @@ describe("Milestone 3 — Admin Review & Decision Transactions", () => {
 
   it("concurrent approve and reject attempts cannot both succeed", async () => {
     const admin = await seedAdmin();
-    const adminCookie = await loginAsAdmin(admin.email);
+    const adminCookie = await loginAsAdmin(admin.managementUsername!);
 
     const member = await seedMember();
     await seedActiveVerification(member.id, currentCycleId);
@@ -945,7 +947,7 @@ describe("Milestone 3 — Admin Review & Decision Transactions", () => {
 describe("Milestone 3 — Revocation Subsystem", () => {
   it("admin can revoke an ACTIVE authorization with reason, preserving original application as APPROVED", async () => {
     const admin = await seedAdmin();
-    const adminCookie = await loginAsAdmin(admin.email);
+    const adminCookie = await loginAsAdmin(admin.managementUsername!);
 
     const member = await seedMember();
     await seedActiveVerification(member.id, currentCycleId);
@@ -1007,7 +1009,7 @@ describe("Milestone 3 — Revocation Subsystem", () => {
 
   it("revocation requires a reason of at least 5 characters", async () => {
     const admin = await seedAdmin();
-    const adminCookie = await loginAsAdmin(admin.email);
+    const adminCookie = await loginAsAdmin(admin.managementUsername!);
 
     const member = await seedMember();
     const appRecord = await prisma.organizerApplication.create({
@@ -1222,7 +1224,7 @@ describe("Milestone 3 — requireOrganizer Middleware & Authorization Guard", ()
 
   it("requireOrganizer rejects ADMIN account (ADMIN is not an organizer)", async () => {
     const admin = await seedAdmin();
-    const cookie = await loginAsAdminOnApp(testGuardApp, admin.email);
+    const cookie = await loginAsAdminOnApp(testGuardApp, admin.managementUsername!);
 
     const res = await request(testGuardApp)
       .get("/test-guard/organizer-only")
@@ -1235,7 +1237,7 @@ describe("Milestone 3 — requireOrganizer Middleware & Authorization Guard", ()
 
   it("simulated audit failure inside approval transaction rolls back organizer mutation", async () => {
     const admin = await seedAdmin();
-    const adminCookie = await loginAsAdmin(admin.email);
+    const adminCookie = await loginAsAdmin(admin.managementUsername!);
 
     const member = await seedMember();
     await seedActiveVerification(member.id, currentCycleId);

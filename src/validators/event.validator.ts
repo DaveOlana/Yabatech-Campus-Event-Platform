@@ -42,10 +42,23 @@ export const eventDraftSchema = z
     venue: z.string().trim().min(1, "Event venue is required").min(2, "Event venue must be at least 2 characters").max(200, "Event venue cannot exceed 200 characters"),
     targetDepartmentIds: idSelectionSchema("Invalid target department ID"),
     targetLevelIds: idSelectionSchema("Invalid target level ID"),
+    suggestedDepartmentName: z.string().trim().max(120, "Suggested department name cannot exceed 120 characters").optional().default(""),
+    suggestedDepartmentCode: z.string().trim().toUpperCase().max(12, "Suggested department code cannot exceed 12 characters").regex(/^[A-Z0-9-]*$/, "Suggested department code may contain only letters, numbers, and hyphens").optional().default(""),
   })
   .superRefine((data, ctx) => {
     if (data.startTime && data.endTime && data.endTime <= data.startTime) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "End time must be after start time", path: ["endTime"] });
+    }
+    const hasSuggestedName = data.suggestedDepartmentName.length > 0;
+    const hasSuggestedCode = data.suggestedDepartmentCode.length > 0;
+    if (hasSuggestedName !== hasSuggestedCode) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Enter both the new department name and short code", path: [hasSuggestedName ? "suggestedDepartmentCode" : "suggestedDepartmentName"] });
+    }
+    if (hasSuggestedName && data.suggestedDepartmentName.length < 2) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Suggested department name must be at least 2 characters", path: ["suggestedDepartmentName"] });
+    }
+    if (hasSuggestedCode && data.suggestedDepartmentCode.length < 2) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Suggested department code must be at least 2 characters", path: ["suggestedDepartmentCode"] });
     }
   });
 
