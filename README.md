@@ -75,3 +75,12 @@ Public discovery supports shareable GET parameters:
 - Parameters may be combined; different filter dimensions use AND semantics.
 
 Results remain chronological and show at most 24 cards. When more matches exist, the page reports the full matching total. Search/filter state requires no account and works without JavaScript.
+
+Event management and history:
+
+- `GET /organizer/events?view=history` — current authorization's past published and cancelled events.
+- `POST /organizer/events/:id/cancel` — active exact owner permanently cancels a published event with a public reason.
+- `GET /admin/events/history` — protected Management history, separate from the pending queue.
+- `POST /admin/events/:eventId/cancel` — Management withdraws a published event with a public reason.
+
+Published events are immutable. Past status is derived from the event date; YCEP does not automatically mark events `COMPLETED`. Cancelled events leave discovery but retain an explanatory direct public page.

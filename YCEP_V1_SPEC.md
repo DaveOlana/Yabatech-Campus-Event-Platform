@@ -137,6 +137,8 @@ Important event records must not be hard-deleted after publication. Operational 
 
 Cancellation records a reason and preserves the event. Completed/cancelled events may remain publicly historical where appropriate. There is no V1 participant-preservation or participant-notification requirement because YCEP does not own attendee registration.
 
+Milestone 4E makes published events immutable. Corrections or replacements require a fresh draft and approval; no revision system is included. Today, upcoming, and past are derived using the Africa/Lagos event date, and `COMPLETED` has no approved V1 transition. The only post-publication transition is irreversible `PUBLISHED → CANCELLED`. The active authorization-bound owner or Management may cancel with a public 10–500 character reason. Cancellation is transactionally locked and audited. Cancelled events leave all public lists/search results but remain available at their direct public URL with a cancellation notice and reason. Later organizer trust loss does not silently unpublish an approved event; Management may withdraw it when necessary.
+
 ## 12. External registration — deferred Layer 2
 
 External registration links are not part of immediate Layer 1 work. The intended later model is:

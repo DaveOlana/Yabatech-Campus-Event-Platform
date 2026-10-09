@@ -7,6 +7,7 @@ import { PrismaClient, LevelCode, UserRole, VerificationStatus, OrganizerAuthori
 import dotenv from "dotenv";
 import { createApp } from "../src/app.js";
 import { ensureSessionTable } from "../src/session.js";
+import { cancelPublishedEventAsManagement, cancelPublishedEventAsOrganizer } from "../src/services/event.service.js";
 
 dotenv.config();
 const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
@@ -330,5 +331,77 @@ describe("simplified Layer 1 event drafts", () => {
     const home = await request(app).get("/").expect(200);
     expect(home.text).not.toContain("Hidden Draft");
     await request(app).get(`/events/${event.id}`).expect(404);
+  });
+
+  it("organizes lifecycle history with derived past state without mutating status", async () => {
+    const { user, authorization } = await setupOrganizer();
+    const past = await prisma.event.create({ data: { title: "Past Published Event", description: "A historical published campus event.", categoryId, eventDate: new Date("2026-09-20"), startTime: "10:00", endTime: "12:00", venue: "Hall", primaryOrganizerAuthorizationId: authorization.id, organizerPublicName: authorization.approvedPublicName, status: EventStatus.PUBLISHED } });
+    await prisma.event.create({ data: { title: "Current Draft Event", description: "A current editable draft event.", categoryId, eventDate: new Date("2026-11-20"), startTime: "10:00", endTime: "12:00", venue: "Hall", primaryOrganizerAuthorizationId: authorization.id, organizerPublicName: authorization.approvedPublicName } });
+    const agent = await login(user.matricNumber!);
+    const history = await agent.get("/organizer/events?view=history").expect(200);
+    expect(history.text).toContain("Past Published Event"); expect(history.text).toContain("Past event"); expect(history.text).not.toContain("Current Draft Event");
+    const drafts = await agent.get("/organizer/events?view=drafts").expect(200);
+    expect(drafts.text).toContain("Current Draft Event"); expect(drafts.text).not.toContain("Past Published Event");
+    expect((await prisma.event.findUniqueOrThrow({ where: { id: past.id } })).status).toBe(EventStatus.PUBLISHED);
+  });
+
+  it("lets the active owner cancel a published event atomically and preserves public history", async () => {
+    const { user, authorization } = await setupOrganizer();
+    const event = await prisma.event.create({ data: { title: "Organizer Cancellation", description: "A published event that can no longer proceed.", categoryId, eventDate: new Date("2026-11-20"), startTime: "10:00", endTime: "12:00", venue: "Hall", primaryOrganizerAuthorizationId: authorization.id, organizerPublicName: authorization.approvedPublicName, status: EventStatus.PUBLISHED } });
+    const agent = await login(user.matricNumber!);
+    await agent.post(`/organizer/events/${event.id}/cancel`).type("form").send({ cancellationReason: "The campus venue is unexpectedly unavailable." }).expect(302);
+    const cancelled = await prisma.event.findUniqueOrThrow({ where: { id: event.id } });
+    expect(cancelled.status).toBe(EventStatus.CANCELLED); expect(cancelled.cancelledAt).not.toBeNull(); expect(cancelled.cancelledByUserId).toBe(user.id);
+    expect(cancelled.cancellationReason).toContain("venue");
+    expect(await prisma.auditLog.count({ where: { targetId: event.id, action: "EVENT_CANCELLED" } })).toBe(1);
+    expect((await request(app).get("/").expect(200)).text).not.toContain("Organizer Cancellation");
+    const publicDetail = await request(app).get(`/events/${event.id}`).expect(200);
+    expect(publicDetail.text).toContain("This event has been cancelled."); expect(publicDetail.text).toContain("campus venue");
+    await agent.post(`/organizer/events/${event.id}/cancel`).set("Accept", "application/json").send({ cancellationReason: "Trying to cancel this event a second time." }).expect(409);
+  });
+
+  it("rejects invalid, unauthorized, and trust-lapsed organizer cancellation", async () => {
+    const owner = await setupOrganizer("Owner");
+    const event = await prisma.event.create({ data: { title: "Protected Cancellation", description: "A published event protected by ownership checks.", categoryId, eventDate: new Date("2026-11-20"), startTime: "10:00", endTime: "12:00", venue: "Hall", primaryOrganizerAuthorizationId: owner.authorization.id, organizerPublicName: owner.authorization.approvedPublicName, status: EventStatus.PUBLISHED } });
+    const ownerAgent = await login(owner.user.matricNumber!);
+    await ownerAgent.post(`/organizer/events/${event.id}/cancel`).set("Accept", "application/json").send({ cancellationReason: "short" }).expect(400);
+    const other = await setupOrganizer("Other");
+    await (await login(other.user.matricNumber!)).post(`/organizer/events/${event.id}/cancel`).set("Accept", "application/json").send({ cancellationReason: "Another organizer cannot cancel this event." }).expect(404);
+    await prisma.organizerAuthorization.update({ where: { id: owner.authorization.id }, data: { status: OrganizerAuthorizationStatus.REVOKED, revokedAt: new Date(), revocationReason: "Authority withdrawn" } });
+    await ownerAgent.post(`/organizer/events/${event.id}/cancel`).set("Accept", "application/json").send({ cancellationReason: "The owner should now be blocked from cancelling." }).expect(403);
+    expect((await prisma.event.findUniqueOrThrow({ where: { id: event.id } })).status).toBe(EventStatus.PUBLISHED);
+  });
+
+  it("keeps the Management queue focused and supports protected withdrawal history", async () => {
+    const { authorization } = await setupOrganizer();
+    const admin = await createMember({ admin: true });
+    const published = await prisma.event.create({ data: { title: "Management Withdrawal", description: "A published event requiring emergency withdrawal.", categoryId, eventDate: new Date("2026-11-20"), startTime: "10:00", endTime: "12:00", venue: "Hall", primaryOrganizerAuthorizationId: authorization.id, organizerPublicName: authorization.approvedPublicName, status: EventStatus.PUBLISHED, reviewedAt: new Date(), reviewerUserId: admin.id } });
+    const pending = await prisma.event.create({ data: { title: "Still Pending", description: "A separate event awaiting review.", categoryId, eventDate: new Date("2026-11-21"), startTime: "10:00", endTime: "12:00", venue: "Hall", primaryOrganizerAuthorizationId: authorization.id, organizerPublicName: authorization.approvedPublicName, status: EventStatus.PENDING_APPROVAL, submittedAt: new Date() } });
+    await request(app).get("/admin/events/history").expect(302);
+    const agent = request.agent(app);
+    await agent.post("/admin/login").type("form").send({ email: admin.email, password: "SecureAdminPassword!" }).expect(302);
+    const queue = await agent.get("/admin/events").expect(200);
+    expect(queue.text).toContain(pending.title); expect(queue.text).not.toContain(published.title);
+    const history = await agent.get("/admin/events/history?status=published").expect(200);
+    expect(history.text).toContain(published.title); expect(history.text).not.toContain(pending.title);
+    await prisma.organizerAuthorization.update({ where: { id: authorization.id }, data: { status: OrganizerAuthorizationStatus.REVOKED, revokedAt: new Date(), revocationReason: "Trust withdrawn" } });
+    await agent.post(`/admin/events/${published.id}/cancel`).type("form").send({ cancellationReason: "Management has withdrawn institutional approval." }).expect(302);
+    const cancelled = await prisma.event.findUniqueOrThrow({ where: { id: published.id } });
+    expect(cancelled.status).toBe(EventStatus.CANCELLED); expect(cancelled.cancelledByUserId).toBe(admin.id);
+    expect((await agent.get("/admin/events/history?status=cancelled").expect(200)).text).toContain(published.title);
+  });
+
+  it("serializes concurrent organizer and Management cancellation attempts", async () => {
+    const { authorization } = await setupOrganizer();
+    const admin = await createMember({ admin: true });
+    const event = await prisma.event.create({ data: { title: "Cancellation Race", description: "Only one cancellation decision may commit.", categoryId, eventDate: new Date("2026-11-20"), startTime: "10:00", endTime: "12:00", venue: "Hall", primaryOrganizerAuthorizationId: authorization.id, organizerPublicName: authorization.approvedPublicName, status: EventStatus.PUBLISHED } });
+    const results = await Promise.allSettled([
+      cancelPublishedEventAsOrganizer(event.id, authorization.id, "The organizer cancelled because plans changed."),
+      cancelPublishedEventAsManagement(admin.id, event.id, "Management withdrew approval for safety reasons."),
+    ]);
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+    expect((await prisma.event.findUniqueOrThrow({ where: { id: event.id } })).status).toBe(EventStatus.CANCELLED);
+    expect(await prisma.auditLog.count({ where: { targetId: event.id, action: "EVENT_CANCELLED" } })).toBe(1);
   });
 });

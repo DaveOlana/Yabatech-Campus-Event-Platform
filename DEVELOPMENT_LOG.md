@@ -4,6 +4,38 @@ Use this file as the handoff record between Claude, Gemini, Codex, and human dev
 
 Newest entries should be added at the top.
 
+## 2026-10-09 — Milestone 4E: Event Management and History
+
+### Status
+
+Complete. Published events are immutable, date history is derived, organizers and Management have focused history views, and published events can be irreversibly cancelled with preserved public explanation and private audit history.
+
+### Migration and data safety
+
+- Preflight found zero `CANCELLED` rows in both `ycep_dev` and `ycep_test`; no backfill or fabricated metadata was needed.
+- Added and applied forward migration `20261009081200_event_cancellation_history` to both databases.
+- Added `cancelledAt`, `cancellationReason`, and `cancelledByUserId`, a restricted actor relation/index, and a PostgreSQL consistency constraint.
+- No database reset or historical migration rewrite occurred.
+
+### Implementation
+
+- Added a cancellation validator, `EVENT_CANCELLED`, and row-locked organizer/Management cancellation services with actor revalidation and atomic audit writes.
+- Added organizer All/Drafts/Pending/Published/Rejected/History views and derived Today/Upcoming/Past labels.
+- Kept published/rejected/cancelled events view-only and `COMPLETED` unused.
+- Kept the Management pending queue focused and added `/admin/events/history`.
+- Public discovery remains `PUBLISHED`-only; direct cancelled details display the public cancellation reason without actor/internal data.
+
+### Verification
+
+- Focused lifecycle/public suites: 40/40 passed.
+- Added coverage for ownership, invalid transitions, trust loss, Management withdrawal, queue/history separation, public behavior, audit writes, and concurrent organizer/Management cancellation.
+- Full suite: 169/169 tests passed across 9 files.
+- TypeScript build and `git diff --check` passed.
+
+### Next recommended task
+
+Run a manual visual review of organizer history, Management history, cancellation forms, and the public cancelled-event banner before starting another product milestone.
+
 ## 2026-10-09 — Milestone 4D: Public Search, Filtering, and Relevance
 
 ### Status

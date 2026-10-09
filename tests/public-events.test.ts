@@ -11,7 +11,7 @@ if (!databaseUrl) throw new Error("TEST_DATABASE_URL environment variable is req
 const app = createApp();
 let pool: pg.Pool;
 let prisma: PrismaClient;
-let categoryId: string, secondCategoryId: string, authorizationId: string, departmentId: string, secondDepartmentId: string, levelId: string, secondLevelId: string;
+let categoryId: string, secondCategoryId: string, authorizationId: string, organizerUserId: string, departmentId: string, secondDepartmentId: string, levelId: string, secondLevelId: string;
 
 beforeAll(() => {
   pool = new pg.Pool({ connectionString: databaseUrl });
@@ -37,12 +37,13 @@ beforeEach(async () => {
   const user = await prisma.user.create({ data: { fullName: "Private Owner", email: "owner@example.test", matricNumber: "F/ND/26/9999999", passwordHash: "private-hash", role: UserRole.MEMBER, departmentId: department.id, levelId: level.id } });
   const application = await prisma.organizerApplication.create({ data: { userId: user.id, cycleId: cycle.id, requestedPublicName: "YCT Builders", phoneNumber: "08000000000", reason: "Campus events", status: "APPROVED" } });
   const authorization = await prisma.organizerAuthorization.create({ data: { userId: user.id, cycleId: cycle.id, applicationId: application.id, approvedPublicName: "YCT Builders", status: OrganizerAuthorizationStatus.ACTIVE } });
-  categoryId = category.id; secondCategoryId = secondCategory.id; authorizationId = authorization.id;
+  categoryId = category.id; secondCategoryId = secondCategory.id; authorizationId = authorization.id; organizerUserId = user.id;
   departmentId = department.id; secondDepartmentId = secondDepartment.id; levelId = level.id; secondLevelId = secondLevel.id;
 });
 
 async function createEvent(title: string, status: EventStatus, eventDate: Date, overrides: Record<string, unknown> = {}) {
-  return prisma.event.create({ data: { title, description: `Public description for ${title}`, categoryId, eventDate, startTime: "10:00", endTime: "13:00", venue: "Multipurpose Hall", primaryOrganizerAuthorizationId: authorizationId, organizerPublicName: "YCT Builders", status, ...overrides } });
+  const cancellation = status === EventStatus.CANCELLED ? { cancelledAt: new Date(), cancellationReason: "This event was cancelled for testing.", cancelledByUserId: organizerUserId } : {};
+  return prisma.event.create({ data: { title, description: `Public description for ${title}`, categoryId, eventDate, startTime: "10:00", endTime: "13:00", venue: "Multipurpose Hall", primaryOrganizerAuthorizationId: authorizationId, organizerPublicName: "YCT Builders", status, ...cancellation, ...overrides } });
 }
 
 describe("public event discovery", () => {
@@ -88,7 +89,7 @@ describe("public event discovery", () => {
 
   it("returns the same generic 404 for non-public statuses and unknown ids", async () => {
     const future = getLagosTodayDate(); future.setUTCDate(future.getUTCDate() + 1); const bodies: string[] = [];
-    for (const status of [EventStatus.DRAFT, EventStatus.PENDING_APPROVAL, EventStatus.REJECTED, EventStatus.CANCELLED, EventStatus.COMPLETED]) {
+    for (const status of [EventStatus.DRAFT, EventStatus.PENDING_APPROVAL, EventStatus.REJECTED, EventStatus.COMPLETED]) {
       const event = await createEvent(`Private ${status}`, status, future);
       const response = await request(app).get(`/events/${event.id}`).expect(404); bodies.push(response.text);
       expect(response.text).not.toContain(`Private ${status}`);
@@ -96,6 +97,17 @@ describe("public event discovery", () => {
     const missing = await request(app).get("/events/00000000-0000-0000-0000-000000000000").expect(404);
     expect(new Set([...bodies, missing.text]).size).toBe(1);
     expect(missing.text).toContain("The event you requested is not available.");
+  });
+
+  it("keeps cancelled events out of discovery but explains them at their direct URL", async () => {
+    const future = getLagosTodayDate(); future.setUTCDate(future.getUTCDate() + 1);
+    const event = await createEvent("Cancelled Public Event", EventStatus.CANCELLED, future, { cancellationReason: "The venue is no longer available." });
+    expect((await request(app).get("/").expect(200)).text).not.toContain("Cancelled Public Event");
+    expect((await request(app).get("/?q=Cancelled").expect(200)).text).not.toContain("Cancelled Public Event");
+    const detail = await request(app).get(`/events/${event.id}`).expect(200);
+    expect(detail.text).toContain("This event has been cancelled.");
+    expect(detail.text).toContain("The venue is no longer available.");
+    expect(detail.text).not.toContain(organizerUserId);
   });
 
   it("does not leak internal ownership, review, or account data", async () => {

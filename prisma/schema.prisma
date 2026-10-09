@@ -133,7 +133,8 @@ model User {
   auditLogs                     AuditLog[]
   organizerApplications         OrganizerApplication[]   @relation("ApplicantOrganizerApplications")
   reviewedOrganizerApplications OrganizerApplication[]   @relation("ReviewedOrganizerApplications")
-  reviewedEvents                Event[]                  @relation("ReviewedEvents")
+    reviewedEvents                Event[]                  @relation("ReviewedEvents")
+    cancelledEvents               Event[]                  @relation("CancelledEvents")
   organizerAuthorizations       OrganizerAuthorization[]
 }
 
@@ -288,6 +289,11 @@ model Event {
   reviewer        User?     @relation("ReviewedEvents", fields: [reviewerUserId], references: [id], onDelete: Restrict)
   rejectionReason String?   @map("rejection_reason")
 
+  cancelledAt       DateTime? @map("cancelled_at")
+  cancellationReason String?  @map("cancellation_reason")
+  cancelledByUserId String?   @map("cancelled_by_user_id")
+  cancelledBy       User?     @relation("CancelledEvents", fields: [cancelledByUserId], references: [id], onDelete: Restrict)
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -299,6 +305,7 @@ model Event {
   @@index([status])
   @@index([status, submittedAt])
   @@index([eventDate])
+  @@index([cancelledByUserId])
 }
 
 // ─── EventTargetDepartment ────────────────────────────────────────────────────

@@ -215,6 +215,15 @@ tbody tr:hover { background: #fbfcfa; }
 .event-row__heading h2 a { color: var(--color-navy); }
 .event-row__heading p, .event-row__meta { margin: .25rem 0 0; color: var(--color-text-secondary); font-size: .8rem; }
 .event-row__actions { display: flex; align-items: center; gap: .4rem; }
+.event-view-tabs { display: flex; gap: .35rem; overflow-x: auto; margin: 0 0 1.5rem; padding: .3rem; border-radius: 12px; background: rgba(16,42,70,.045); }
+.event-view-tabs a { min-height: 40px; display: inline-flex; align-items: center; padding: .55rem .85rem; border-radius: 9px; color: var(--color-text-secondary); font-size: .8rem; font-weight: 680; white-space: nowrap; }
+.event-view-tabs a.is-active { background: #fff; color: var(--color-navy); box-shadow: 0 2px 10px rgba(16,42,70,.07); }
+.event-row__badges { display: flex; align-items: center; justify-content: flex-end; gap: .4rem; flex-wrap: wrap; }
+.time-state { color: var(--color-text-secondary); font-size: .7rem; font-weight: 700; }
+.time-state--today { color: var(--color-brand); }
+.workflow-poster { width: 100%; max-height: 440px; object-fit: cover; border-radius: 14px; margin-bottom: 1.5rem; }
+.spaced-form { margin-top: 1.5rem; }
+.cancellation-panel { margin-top: 1.5rem; border-color: rgba(176,65,62,.24); }
 .organizer-status-page > section { margin-top: 2rem !important; padding: 0 !important; border: 0 !important; background: transparent !important; box-shadow: none !important; }
 .organizer-status-page > section:first-of-type > div { padding: 1.4rem !important; border: 1px solid rgba(226,231,234,.75) !important; border-radius: 16px !important; background: rgba(255,255,255,.8) !important; color: var(--color-text) !important; box-shadow: 0 10px 32px rgba(16,42,70,.03); }
 .organizer-status-page > section:first-of-type > div p { color: var(--color-text-secondary) !important; }
@@ -266,6 +275,10 @@ tbody tr:hover { background: #fbfcfa; }
 .public-empty-state__mark { display: flex; width: 48px; height: 48px; align-items: center; justify-content: center; margin: 0 auto 1.25rem; border-radius: 15px; background: var(--color-navy); color: #fff; font-weight: 750; }
 .public-empty-state p { color: var(--color-text-secondary); }
 .public-detail__back { margin-bottom: 1.5rem; }
+.public-cancelled-notice { margin-bottom: 2rem; padding: 1.2rem 1.35rem; border: 1px solid rgba(176,65,62,.22); border-radius: 14px; background: rgba(176,65,62,.07); }
+.public-cancelled-notice span { color: #9c3431; font-size: .72rem; font-weight: 760; letter-spacing: .08em; text-transform: uppercase; }
+.public-cancelled-notice h2 { margin: .3rem 0 .35rem; font-size: 1.3rem; }
+.public-cancelled-notice p { margin: 0; color: var(--color-text-secondary); }
 .public-detail__layout { display: grid; grid-template-columns: minmax(280px,470px) minmax(0,1fr); gap: clamp(2rem,5vw,5rem); align-items: start; }
 .public-detail__visual { position: sticky; top: 1.5rem; aspect-ratio: 4/5; overflow: hidden; border-radius: 20px; background: #eaf0f2; box-shadow: 0 20px 55px rgba(16,42,70,.1); }
 .poster-fallback--detail { padding: 2rem; }

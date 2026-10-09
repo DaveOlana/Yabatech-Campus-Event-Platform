@@ -401,6 +401,14 @@ Migration `20260912140539_event_foundation_drafts` remains immutable history. Cl
 
 **Decision:** Public discovery accepts `q`, `category`, `department`, `level`, and `date` as singular URL parameters. Search is a case-insensitive substring match over title, description, venue, organizer public name, and category name. Reference filters use persisted codes. Department/level filters include explicit matches plus events with no targets in that dimension; targeting remains relevance-only and never eligibility. Different dimensions combine with AND semantics. Date values mean upcoming, today, today-through-Sunday, or today-through-month-end in Africa/Lagos. Results retain date/time/title ordering and the 24-card cap; a shared query condition powers both cards and the accurate total count. Malformed or unknown filters return a safe empty result rather than broadening visibility. Every query remains `PUBLISHED`-only with the explicit public projection.
 
+## D-054 — Post-publication event management and historical integrity
+
+**Date:** 2026-10-09
+
+**Status:** Implemented in Milestone 4E with forward migration `20261009081200_event_cancellation_history`.
+
+**Decision:** Published events are immutable in V1; replacements use a fresh draft and approval. Today/upcoming/past are derived from the Africa/Lagos event date, and `COMPLETED` remains unused. The only approved post-publication transition is irreversible `PUBLISHED → CANCELLED`. The current exact owner or Management may cancel with a public 10–500 character reason. The transition is row-locked, actor-revalidated, and committed atomically with cancellation metadata and one `EVENT_CANCELLED` audit. Public lists/search remain strictly `PUBLISHED`; a direct detail query may return `PUBLISHED` or `CANCELLED`, and a cancelled page shows its reason without actor identity. Later organizer trust loss does not automatically unpublish an approved event. Organizer history remains current-authorization-scoped; Management receives separate queue and history surfaces.
+
 # How to change a decision
 
 If a decision must change:

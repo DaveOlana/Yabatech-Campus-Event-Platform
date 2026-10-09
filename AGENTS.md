@@ -57,6 +57,8 @@ Only an authorized owner can submit a draft. Only Management can approve/reject 
 
 Submission, approval, and rejection must lock the concrete Event row in an interactive PostgreSQL transaction, re-read state after the lock, and commit the lifecycle mutation with its audit record atomically. Approval must also revalidate the owning organizer authorization, current cycle, linked MEMBER role, and ACTIVE same-cycle verification. If that trust gate fails, leave the event pending and do not write an approval audit; Management may still reject it.
 
+Published events are immutable in V1. Past is a date-derived presentation state, not a `COMPLETED` transition. The only approved post-publication transition is irreversible `PUBLISHED → CANCELLED`, initiated by the active exact owner or Management with a 10–500 character public reason. Cancellation must lock/re-read the event, revalidate the actor, persist cancellation metadata, and write `EVENT_CANCELLED` atomically. Public lists remain `PUBLISHED`-only; direct public detail may intentionally read `PUBLISHED` or `CANCELLED`, while every other status shares the generic 404.
+
 ## Architecture
 
 The frozen V1 stack is:

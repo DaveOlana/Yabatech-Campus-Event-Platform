@@ -10,6 +10,7 @@ import {
 import { prisma } from "../db.js";
 import { EventDraftInput } from "../validators/event.validator.js";
 import { AUDIT_ACTIONS, createAuditLog } from "./audit.service.js";
+import { getLagosTodayDate } from "../utils/event-display.js";
 
 export class EventError extends Error {
   constructor(message: string, public readonly statusCode = 400) {
@@ -147,11 +148,22 @@ export async function createEventDraft(currentAuth: OrganizerAuthorization, inpu
   }));
 }
 
-export async function getOrganizerEvents(currentAuthId: string) {
+export type OrganizerEventView = "all" | "drafts" | "pending" | "published" | "rejected" | "history";
+
+export async function getOrganizerEvents(currentAuthId: string, view: OrganizerEventView = "all", now = new Date()) {
+  const today = getLagosTodayDate(now);
+  const viewWhere: Record<OrganizerEventView, Prisma.EventWhereInput> = {
+    all: {},
+    drafts: { status: EventStatus.DRAFT },
+    pending: { status: EventStatus.PENDING_APPROVAL },
+    published: { status: EventStatus.PUBLISHED, eventDate: { gte: today } },
+    rejected: { status: EventStatus.REJECTED },
+    history: { OR: [{ status: EventStatus.CANCELLED }, { status: EventStatus.PUBLISHED, eventDate: { lt: today } }] },
+  };
   return prisma.event.findMany({
-    where: { primaryOrganizerAuthorizationId: currentAuthId },
+    where: { primaryOrganizerAuthorizationId: currentAuthId, ...viewWhere[view] },
     include: { category: true },
-    orderBy: { updatedAt: "desc" },
+    orderBy: [{ eventDate: "desc" }, { startTime: "desc" }, { title: "asc" }],
   });
 }
 
@@ -237,6 +249,24 @@ export async function getPendingEventsForManagement() {
   });
 }
 
+export type ManagementEventHistoryStatus = "all" | "published" | "rejected" | "cancelled" | "past";
+
+export async function getEventHistoryForManagement(status: ManagementEventHistoryStatus = "all", now = new Date()) {
+  const today = getLagosTodayDate(now);
+  const statusWhere: Record<ManagementEventHistoryStatus, Prisma.EventWhereInput> = {
+    all: { status: { in: [EventStatus.PUBLISHED, EventStatus.REJECTED, EventStatus.CANCELLED] } },
+    published: { status: EventStatus.PUBLISHED },
+    rejected: { status: EventStatus.REJECTED },
+    cancelled: { status: EventStatus.CANCELLED },
+    past: { status: EventStatus.PUBLISHED, eventDate: { lt: today } },
+  };
+  return prisma.event.findMany({
+    where: statusWhere[status],
+    include: { category: true },
+    orderBy: [{ reviewedAt: "desc" }, { eventDate: "desc" }, { title: "asc" }],
+  });
+}
+
 export async function getEventForManagementReview(eventId: string) {
   const event = await prisma.event.findUnique({
     where: { id: eventId },
@@ -244,6 +274,7 @@ export async function getEventForManagementReview(eventId: string) {
       ...eventRelations,
       reviewer: { select: { id: true, fullName: true } },
       primaryOrganizerAuthorization: { include: { user: true, cycle: true } },
+      cancelledBy: { select: { id: true, fullName: true, role: true } },
     },
   });
   if (!event) throw new EventNotFoundError();
@@ -301,6 +332,50 @@ export async function rejectEvent(adminUserId: string, eventId: string, rejectio
       targetId: eventId,
       metadata: { fromStatus: EventStatus.PENDING_APPROVAL, toStatus: EventStatus.REJECTED, organizerAuthorizationId: locked.primary_organizer_authorization_id, submittedAt: event.submittedAt?.toISOString(), reviewedAt: now.toISOString(), rejectionReason: reason },
     }, tx);
+    return event;
+  });
+}
+
+function validateCancellationReason(value: string): string {
+  const reason = value.trim();
+  if (reason.length < 10 || reason.length > 500) throw new EventValidationError("Cancellation reason must be between 10 and 500 characters.");
+  return reason;
+}
+
+export async function cancelPublishedEventAsOrganizer(eventId: string, organizerAuthorizationId: string, cancellationReason: string) {
+  const reason = validateCancellationReason(cancellationReason);
+  return prisma.$transaction(async (tx) => {
+    const locked = await lockEvent(tx, eventId);
+    if (locked.primary_organizer_authorization_id !== organizerAuthorizationId) throw new EventNotFoundError();
+    const trust = await getOrganizerTrustState(tx, organizerAuthorizationId);
+    if (!trust.valid || !trust.authorization) throw new EventTrustConflictError(trust.reason ?? undefined);
+    const current = await tx.event.findUnique({ where: { id: eventId } });
+    if (!current || current.status !== EventStatus.PUBLISHED) throw new EventInvalidStateError("Only published events can be cancelled.");
+    const now = new Date();
+    const event = await tx.event.update({
+      where: { id: eventId },
+      data: { status: EventStatus.CANCELLED, cancelledAt: now, cancellationReason: reason, cancelledByUserId: trust.authorization.userId },
+      include: eventRelations,
+    });
+    await createAuditLog({ actorUserId: trust.authorization.userId, action: AUDIT_ACTIONS.EVENT_CANCELLED, targetType: "Event", targetId: eventId, metadata: { fromStatus: EventStatus.PUBLISHED, toStatus: EventStatus.CANCELLED, cancellationReason: reason, cancelledAt: now.toISOString(), initiatedBy: "ORGANIZER", cycleId: trust.authorization.cycleId } }, tx);
+    return event;
+  });
+}
+
+export async function cancelPublishedEventAsManagement(adminUserId: string, eventId: string, cancellationReason: string) {
+  const reason = validateCancellationReason(cancellationReason);
+  return prisma.$transaction(async (tx) => {
+    await lockEvent(tx, eventId);
+    await requireLiveAdmin(tx, adminUserId);
+    const current = await tx.event.findUnique({ where: { id: eventId } });
+    if (!current || current.status !== EventStatus.PUBLISHED) throw new EventInvalidStateError("Only published events can be withdrawn.");
+    const now = new Date();
+    const event = await tx.event.update({
+      where: { id: eventId },
+      data: { status: EventStatus.CANCELLED, cancelledAt: now, cancellationReason: reason, cancelledByUserId: adminUserId },
+      include: eventRelations,
+    });
+    await createAuditLog({ actorUserId: adminUserId, action: AUDIT_ACTIONS.EVENT_CANCELLED, targetType: "Event", targetId: eventId, metadata: { fromStatus: EventStatus.PUBLISHED, toStatus: EventStatus.CANCELLED, cancellationReason: reason, cancelledAt: now.toISOString(), initiatedBy: "MANAGEMENT" } }, tx);
     return event;
   });
 }

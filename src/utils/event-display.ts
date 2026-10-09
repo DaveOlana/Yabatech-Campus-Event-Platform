@@ -21,6 +21,13 @@ export function getPublicDateRange(filter: "upcoming" | "today" | "week" | "mont
   return { gte: today, lte: end };
 }
 
+export function getEventDateState(eventDate: Date, now = new Date()): "today" | "upcoming" | "past" {
+  const today = getLagosTodayDate(now).getTime();
+  const date = new Date(eventDate).getTime();
+  if (date === today) return "today";
+  return date > today ? "upcoming" : "past";
+}
+
 export function formatEventCardDate(date: Date): string {
   return new Intl.DateTimeFormat("en-NG", {
     weekday: "short",

@@ -13,7 +13,11 @@ import {
   EventInvalidStateError,
   EventError,
   submitEventForReview,
+  cancelPublishedEventAsOrganizer,
+  type OrganizerEventView,
 } from "../services/event.service.js";
+import { cancelEventSchema } from "../validators/event-cancellation.validator.js";
+import { getEventDateState } from "../utils/event-display.js";
 
 export const organizerEventsRouter = Router();
 
@@ -31,7 +35,10 @@ organizerEventsRouter.get(
     const jsonExpected = isJsonRequest(req);
 
     try {
-      const events = await getOrganizerEvents(auth.id);
+      const allowedViews: OrganizerEventView[] = ["all", "drafts", "pending", "published", "rejected", "history"];
+      const requestedView = typeof req.query.view === "string" ? req.query.view : "all";
+      const view: OrganizerEventView = allowedViews.includes(requestedView as OrganizerEventView) ? requestedView as OrganizerEventView : "all";
+      const events = await getOrganizerEvents(auth.id, view);
 
       if (jsonExpected) {
         res.status(200).json({
@@ -46,8 +53,33 @@ organizerEventsRouter.get(
         user: req.user,
         authorization: auth,
         events,
+        view,
+        getEventDateState,
       });
     } catch (error) {
+      next(error);
+    }
+  }
+);
+
+organizerEventsRouter.post(
+  "/organizer/events/:id/cancel",
+  async (req: Request, res: Response, next: NextFunction) => {
+    const parsed = cancelEventSchema.safeParse(req.body);
+    if (!parsed.success) {
+      const error = new EventValidationError(parsed.error.errors[0]?.message ?? "A valid cancellation reason is required.");
+      if (isJsonRequest(req)) return res.status(400).json({ success: false, message: error.message });
+      return res.status(400).render("error", { title: "Cannot Cancel Event — YCEP", message: error.message });
+    }
+    try {
+      const event = await cancelPublishedEventAsOrganizer(req.params.id, req.organizerAuthorization!.id, parsed.data.cancellationReason);
+      if (isJsonRequest(req)) return res.json({ success: true, message: "Event cancelled.", event });
+      res.redirect(`/organizer/events/${event.id}`);
+    } catch (error) {
+      if (error instanceof EventError) {
+        if (isJsonRequest(req)) return res.status(error.statusCode).json({ success: false, message: error.message });
+        return res.status(error.statusCode).render("error", { title: "Cannot Cancel Event — YCEP", message: error.message });
+      }
       next(error);
     }
   }

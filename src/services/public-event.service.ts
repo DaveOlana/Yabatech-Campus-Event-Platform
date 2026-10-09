@@ -7,6 +7,8 @@ export interface PublicEvent {
   id: string; title: string; description: string; posterUrl: string | null;
   category: { name: string; code: string }; eventDate: Date; startTime: string;
   endTime: string; venue: string; organizerPublicName: string;
+  status: EventStatus;
+  cancelledAt: Date | null; cancellationReason: string | null;
   targetDepartments: Array<{ name: string; code: string }>;
   targetLevels: Array<{ code: LevelCode; label: string }>;
 }
@@ -26,6 +28,7 @@ const publicEventSelect = {
   id: true, title: true, description: true, posterUrl: true,
   category: { select: { name: true, code: true } }, eventDate: true,
   startTime: true, endTime: true, venue: true, organizerPublicName: true,
+  status: true, cancelledAt: true, cancellationReason: true,
   targetDepartments: { select: { department: { select: { name: true, code: true } } } },
   targetLevels: { select: { level: { select: { code: true, label: true } } } },
 } as const;
@@ -34,6 +37,8 @@ function toPublicEvent(event: {
   id: string; title: string; description: string; posterUrl: string | null;
   category: { name: string; code: string }; eventDate: Date; startTime: string;
   endTime: string; venue: string; organizerPublicName: string;
+  status: EventStatus;
+  cancelledAt: Date | null; cancellationReason: string | null;
   targetDepartments: Array<{ department: { name: string; code: string } }>;
   targetLevels: Array<{ level: { code: LevelCode; label: string } }>;
 }): PublicEvent {
@@ -82,6 +87,6 @@ export async function getPublicUpcomingEvents(filters: PublicEventFilters = { da
 }
 
 export async function getPublicEventById(eventId: string): Promise<PublicEvent | null> {
-  const event = await prisma.event.findFirst({ where: { id: eventId, status: EventStatus.PUBLISHED }, select: publicEventSelect });
+  const event = await prisma.event.findFirst({ where: { id: eventId, status: { in: [EventStatus.PUBLISHED, EventStatus.CANCELLED] } }, select: publicEventSelect });
   return event ? toPublicEvent(event) : null;
 }

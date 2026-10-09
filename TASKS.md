@@ -60,14 +60,14 @@ Registration-era fields/relations introduced here are legacy structures pending 
 - [x] URL-driven state, accurate counts, and a retained 24-card cap.
 - [x] Test empty results, combined filters, validation, and private-data exclusion.
 
-# Milestone 7 — Event Management and Historical Integrity
+# Milestone 4E — Event Management and Historical Integrity — COMPLETE
 
-- [ ] Define permitted published-event edits.
-- [ ] Trigger reapproval for fundamental changes.
-- [ ] Preserve approval/publication history.
-- [ ] Primary-organizer/Management cancellation with reason.
-- [ ] Preserve cancelled and completed events.
-- [ ] Review co-organizer need; do not add without approved permissions.
+- [x] Keep published events immutable in V1.
+- [x] Derive Today, Upcoming, and Past without lifecycle mutation.
+- [x] Preserve approval/publication/rejection history.
+- [x] Owner and Management cancellation with a public reason.
+- [x] Preserve cancelled events and keep `COMPLETED` unused.
+- [x] Separate the pending queue from Management event history.
 
 # Milestone 9 — Layer 1 UI and Content Polish
 

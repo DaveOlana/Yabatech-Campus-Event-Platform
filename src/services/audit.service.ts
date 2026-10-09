@@ -14,6 +14,7 @@ export const AUDIT_ACTIONS = {
   EVENT_SUBMITTED: "EVENT_SUBMITTED",
   EVENT_APPROVED: "EVENT_APPROVED",
   EVENT_REJECTED: "EVENT_REJECTED",
+  EVENT_CANCELLED: "EVENT_CANCELLED",
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS] | string;
