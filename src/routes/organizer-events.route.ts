@@ -3,13 +3,16 @@ import { requireOrganizer, isJsonRequest } from "../middleware/auth.middleware.j
 import { eventDraftSchema } from "../validators/event.validator.js";
 import {
   createEventDraft,
-  getOrganizerEventDrafts,
+  getOrganizerEvents,
+  getOrganizerEventById,
   getOrganizerEventDraftById,
   updateEventDraft,
   getEventFormData,
   EventNotFoundError,
   EventValidationError,
   EventInvalidStateError,
+  EventError,
+  submitEventForReview,
 } from "../services/event.service.js";
 
 export const organizerEventsRouter = Router();
@@ -28,21 +31,21 @@ organizerEventsRouter.get(
     const jsonExpected = isJsonRequest(req);
 
     try {
-      const drafts = await getOrganizerEventDrafts(auth.id);
+      const events = await getOrganizerEvents(auth.id);
 
       if (jsonExpected) {
         res.status(200).json({
           success: true,
-          drafts,
+          events,
         });
         return;
       }
 
       res.render("organizer/events/index", {
-        title: "My Event Drafts — YCEP",
+        title: "My Events — YCEP",
         user: req.user,
         authorization: auth,
-        drafts,
+        events,
       });
     } catch (error) {
       next(error);
@@ -180,7 +183,7 @@ organizerEventsRouter.get(
     const jsonExpected = isJsonRequest(req);
 
     try {
-      const event = await getOrganizerEventDraftById(eventId, auth.id);
+      const event = await getOrganizerEventById(eventId, auth.id);
 
       if (jsonExpected) {
         res.status(200).json({
@@ -191,7 +194,7 @@ organizerEventsRouter.get(
       }
 
       res.render("organizer/events/detail", {
-        title: `${event.title} (Draft) — YCEP`,
+        title: `${event.title} — YCEP`,
         user: req.user,
         authorization: auth,
         event,
@@ -206,6 +209,32 @@ organizerEventsRouter.get(
           title: "Event Not Found — YCEP",
           message: "The requested event draft was not found or does not belong to your active organizer authorization.",
         });
+        return;
+      }
+      next(error);
+    }
+  }
+);
+
+organizerEventsRouter.post(
+  "/organizer/events/:id/submit",
+  async (req: Request, res: Response, next: NextFunction) => {
+    const auth = req.organizerAuthorization!;
+    const jsonExpected = isJsonRequest(req);
+    try {
+      const event = await submitEventForReview(req.params.id, auth.id);
+      if (jsonExpected) {
+        res.status(200).json({ success: true, message: "Event submitted for management approval.", event });
+        return;
+      }
+      res.redirect(`/organizer/events/${event.id}`);
+    } catch (error) {
+      if (error instanceof EventError) {
+        if (jsonExpected) {
+          res.status(error.statusCode).json({ success: false, message: error.message });
+          return;
+        }
+        res.status(error.statusCode).render("error", { title: "Cannot Submit Event — YCEP", message: error.message });
         return;
       }
       next(error);
@@ -363,10 +392,10 @@ organizerEventsRouter.post(
 
       if (error instanceof EventInvalidStateError) {
         if (jsonExpected) {
-          res.status(400).json({ success: false, message: error.message });
+          res.status(error.statusCode).json({ success: false, message: error.message });
           return;
         }
-        res.status(400).render("error", {
+        res.status(error.statusCode).render("error", {
           title: "Cannot Edit Event — YCEP",
           message: error.message,
         });

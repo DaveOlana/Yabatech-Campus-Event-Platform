@@ -53,6 +53,8 @@ The lifecycle is `DRAFT`, `PENDING_APPROVAL`, `PUBLISHED`, `REJECTED`, `CANCELLE
 
 Only an authorized owner can submit a draft. Only Management can approve/reject and thereby publish. Fundamental changes such as title, organizer identity, or core purpose require reapproval. Operational changes must preserve event history.
 
+Submission, approval, and rejection must lock the concrete Event row in an interactive PostgreSQL transaction, re-read state after the lock, and commit the lifecycle mutation with its audit record atomically. Approval must also revalidate the owning organizer authorization, current cycle, linked MEMBER role, and ACTIVE same-cycle verification. If that trust gate fails, leave the event pending and do not write an approval audit; Management may still reject it.
+
 ## Architecture
 
 The frozen V1 stack is:

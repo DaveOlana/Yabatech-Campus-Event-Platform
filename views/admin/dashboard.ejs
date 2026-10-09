@@ -7,13 +7,15 @@
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
+  <%- include('../partials/admin-header') %>
   <header>
     <h1>YABATECH Campus Events Platform</h1>
   </header>
-  <main class="main-wide">
+  <main class="main-wide management-dashboard">
     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
       <div>
-        <h2 style="margin: 0;">YABATECH Management Console</h2>
+        <span class="eyebrow">Management workspace</span>
+        <h1 style="margin: 0;">Dashboard</h1>
         <p style="margin: 0.25rem 0 0 0; color: #475569;">Platform oversight and privileged operations</p>
       </div>
       <form action="/admin/logout" method="POST" style="margin: 0;">
@@ -41,6 +43,7 @@
         <a href="/admin/organizers" class="btn-primary btn-sm">
           Organizer Applications Queue
         </a>
+        <a href="/admin/events" class="btn-primary btn-sm">Event Approval Queue</a>
       </div>
     </section>
 

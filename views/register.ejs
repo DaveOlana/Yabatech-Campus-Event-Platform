@@ -6,13 +6,13 @@
   <title><%= title %></title>
   <link rel="stylesheet" href="/css/style.css">
 </head>
-<body>
+<body class="auth-page auth-page--register">
+  <%- include('partials/public-header') %>
   <header>
     <h1>YABATECH Campus Events Platform</h1>
   </header>
-  <main>
-    <h2>Member Registration</h2>
-    <p>Register as a student member of YCEP. Active verification for the current academic cycle is granted automatically.</p>
+  <main class="auth-panel auth-panel--wide">
+    <div class="auth-heading"><h1>Create your account</h1><p>Join YCEP with your YABATECH student identity. Current-cycle verification is granted automatically.</p></div>
 
     <% if (errorMessage) { %>
       <div class="alert-error">

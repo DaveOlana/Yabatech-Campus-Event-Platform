@@ -133,6 +133,7 @@ model User {
   auditLogs                     AuditLog[]
   organizerApplications         OrganizerApplication[]   @relation("ApplicantOrganizerApplications")
   reviewedOrganizerApplications OrganizerApplication[]   @relation("ReviewedOrganizerApplications")
+  reviewedEvents                Event[]                  @relation("ReviewedEvents")
   organizerAuthorizations       OrganizerAuthorization[]
 }
 
@@ -281,6 +282,12 @@ model Event {
 
   status EventStatus @default(DRAFT)
 
+  submittedAt     DateTime? @map("submitted_at")
+  reviewedAt      DateTime? @map("reviewed_at")
+  reviewerUserId  String?   @map("reviewer_user_id")
+  reviewer        User?     @relation("ReviewedEvents", fields: [reviewerUserId], references: [id], onDelete: Restrict)
+  rejectionReason String?   @map("rejection_reason")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -290,6 +297,7 @@ model Event {
   @@index([primaryOrganizerAuthorizationId])
   @@index([categoryId])
   @@index([status])
+  @@index([status, submittedAt])
   @@index([eventDate])
 }
 

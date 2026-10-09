@@ -7,12 +7,14 @@
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
+  <%- include('../partials/member-header') %>
   <header>
     <h1>YABATECH Campus Events Platform</h1>
   </header>
-  <main class="main-wide">
-    <h2>Organizer Status & Applications</h2>
-    <p>Overview of your organizer capability status and application history.</p>
+  <main class="main-wide organizer-status-page">
+    <span class="eyebrow">Organizer workspace</span>
+    <h1>Organizer status</h1>
+    <p class="muted">Your current authorization and application history.</p>
 
     <section style="margin: 1.5rem 0; padding: 1.25rem; border: 1px solid #e2e8f0; border-radius: 6px; background-color: #f8fafc;">
       <h3 style="margin-top: 0;">Current Cycle Status (<%= currentCycle ? currentCycle.name : 'None' %>)</h3>

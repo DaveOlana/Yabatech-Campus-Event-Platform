@@ -273,7 +273,7 @@ describe("Milestone 2 — Admin Authentication", () => {
   it("renders the admin login page", async () => {
     const res = await request(app).get("/admin/login");
     expect(res.status).toBe(200);
-    expect(res.text).toContain("YABATECH Management Sign In");
+    expect(res.text).toContain("Management sign in");
     expect(res.text).toContain('name="email"');
     expect(res.text).toContain('autocomplete="username"');
     expect(res.text).toContain('name="password"');
@@ -383,7 +383,7 @@ describe("Milestone 2 — Authorization & Routing", () => {
 
     const res = await agent.get("/admin");
     expect(res.status).toBe(200);
-    expect(res.text).toContain("YABATECH Management Console");
+    expect(res.text).toContain("Management workspace");
     expect(res.text).toContain("admin@ycep.local");
   });
 

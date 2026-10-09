@@ -132,7 +132,7 @@ describe("simplified Layer 1 event drafts", () => {
     const agent = await login(user.matricNumber!);
     await agent.get("/organizer/events").expect(200);
     const page = await agent.get("/organizer/events/new").expect(200);
-    expect(page.text).toContain("Recommended Audience");
+    expect(page.text).toContain("Recommended audience");
     expect(page.text).not.toContain("Registration Limit");
     expect(page.text).not.toContain("Application Questions");
   });
@@ -248,13 +248,67 @@ describe("simplified Layer 1 event drafts", () => {
     await secondAgent.post(`/organizer/events/${event.id}`).type("form").send(payload({ title: "Hijacked" })).expect(404);
   });
 
-  it("does not expose or edit a non-draft through draft routes", async () => {
+  it("lets its owner view but not edit a non-draft", async () => {
     const { user, authorization } = await setupOrganizer();
     const event = await prisma.event.create({ data: { title: "Published Event", description: "A published event cannot use draft routes.", categoryId, posterUrl: null, eventDate: new Date("2026-11-20"), startTime: "10:00", endTime: "14:00", venue: "Multipurpose Hall", primaryOrganizerAuthorizationId: authorization.id, organizerPublicName: authorization.approvedPublicName, status: EventStatus.PUBLISHED } });
     const agent = await login(user.matricNumber!);
-    await agent.get(`/organizer/events/${event.id}`).expect(404);
+    await agent.get(`/organizer/events/${event.id}`).expect(200);
     await agent.get(`/organizer/events/${event.id}/edit`).expect(404);
-    await agent.post(`/organizer/events/${event.id}`).type("form").send(payload({ title: "Changed" })).expect(400);
+    await agent.post(`/organizer/events/${event.id}`).type("form").send(payload({ title: "Changed" })).expect(409);
+  });
+
+  it("submits an owned draft once and records the transition audit", async () => {
+    const { user, authorization } = await setupOrganizer();
+    const event = await prisma.event.create({ data: { title: "Review Me", description: "A complete proposal ready for management review.", categoryId, eventDate: new Date("2026-11-20"), startTime: "10:00", endTime: "12:00", venue: "Hall", primaryOrganizerAuthorizationId: authorization.id, organizerPublicName: authorization.approvedPublicName } });
+    const agent = await login(user.matricNumber!);
+    await agent.post(`/organizer/events/${event.id}/submit`).set("Accept", "application/json").expect(200);
+    const submitted = await prisma.event.findUniqueOrThrow({ where: { id: event.id } });
+    expect(submitted.status).toBe(EventStatus.PENDING_APPROVAL);
+    expect(submitted.submittedAt).not.toBeNull();
+    expect(await prisma.auditLog.count({ where: { targetId: event.id, action: "EVENT_SUBMITTED" } })).toBe(1);
+    await agent.post(`/organizer/events/${event.id}/submit`).set("Accept", "application/json").expect(409);
+  });
+
+  it("allows management to approve a pending event and audits the reviewer", async () => {
+    const { authorization } = await setupOrganizer();
+    const admin = await createMember({ admin: true });
+    const event = await prisma.event.create({ data: { title: "Pending Approval", description: "A complete proposal awaiting a management decision.", categoryId, eventDate: new Date("2026-11-20"), startTime: "10:00", endTime: "12:00", venue: "Hall", primaryOrganizerAuthorizationId: authorization.id, organizerPublicName: authorization.approvedPublicName, status: EventStatus.PENDING_APPROVAL, submittedAt: new Date() } });
+    const agent = request.agent(app);
+    await agent.post("/admin/login").type("form").send({ email: admin.email, password: "SecureAdminPassword!" }).expect(302);
+    await agent.get("/admin/events").expect(200);
+    await agent.post(`/admin/events/${event.id}/approve`).set("Accept", "application/json").expect(200);
+    const approved = await prisma.event.findUniqueOrThrow({ where: { id: event.id } });
+    expect(approved.status).toBe(EventStatus.PUBLISHED);
+    expect(approved.reviewerUserId).toBe(admin.id);
+    expect(approved.reviewedAt).not.toBeNull();
+    expect(await prisma.auditLog.count({ where: { targetId: event.id, action: "EVENT_APPROVED" } })).toBe(1);
+  });
+
+  it("blocks approval after organizer revocation but permits a reasoned rejection", async () => {
+    const { authorization } = await setupOrganizer();
+    const admin = await createMember({ admin: true });
+    const event = await prisma.event.create({ data: { title: "Trust Changed", description: "A pending proposal whose organizer trust later changed.", categoryId, eventDate: new Date("2026-11-20"), startTime: "10:00", endTime: "12:00", venue: "Hall", primaryOrganizerAuthorizationId: authorization.id, organizerPublicName: authorization.approvedPublicName, status: EventStatus.PENDING_APPROVAL, submittedAt: new Date() } });
+    await prisma.organizerAuthorization.update({ where: { id: authorization.id }, data: { status: OrganizerAuthorizationStatus.REVOKED, revokedAt: new Date(), revocationReason: "Trust withdrawn" } });
+    const agent = request.agent(app);
+    await agent.post("/admin/login").type("form").send({ email: admin.email, password: "SecureAdminPassword!" }).expect(302);
+    await agent.post(`/admin/events/${event.id}/approve`).set("Accept", "application/json").expect(409);
+    expect((await prisma.event.findUniqueOrThrow({ where: { id: event.id } })).status).toBe(EventStatus.PENDING_APPROVAL);
+    await agent.post(`/admin/events/${event.id}/reject`).set("Accept", "application/json").send({ rejectionReason: "The organizer authorization is no longer active." }).expect(200);
+    const rejected = await prisma.event.findUniqueOrThrow({ where: { id: event.id } });
+    expect(rejected.status).toBe(EventStatus.REJECTED);
+    expect(rejected.rejectionReason).toContain("no longer active");
+    expect(await prisma.auditLog.count({ where: { targetId: event.id, action: "EVENT_REJECTED" } })).toBe(1);
+  });
+
+  it("protects management review routes and validates rejection feedback", async () => {
+    const { authorization } = await setupOrganizer();
+    const event = await prisma.event.create({ data: { title: "Protected Review", description: "A proposal used to verify protected management decisions.", categoryId, eventDate: new Date("2026-11-20"), startTime: "10:00", endTime: "12:00", venue: "Hall", primaryOrganizerAuthorizationId: authorization.id, organizerPublicName: authorization.approvedPublicName, status: EventStatus.PENDING_APPROVAL, submittedAt: new Date() } });
+    await request(app).get("/admin/events").set("Accept", "application/json").expect(401);
+    const admin = await createMember({ admin: true });
+    const agent = request.agent(app);
+    await agent.post("/admin/login").type("form").send({ email: admin.email, password: "SecureAdminPassword!" }).expect(302);
+    await agent.post(`/admin/events/${event.id}/reject`).set("Accept", "application/json").send({ rejectionReason: "no" }).expect(400);
+    expect((await prisma.event.findUniqueOrThrow({ where: { id: event.id } })).status).toBe(EventStatus.PENDING_APPROVAL);
   });
 
   it("isolates drafts across organizer authorization cycles", async () => {

@@ -377,6 +377,14 @@ Preserve `EventTargetDepartment` and `EventTargetLevel` solely for public discov
 
 Migration `20260912140539_event_foundation_drafts` remains immutable history. Cleanup is forward-only through migration `20261009010424_simplify_layer1_events`.
 
+## D-051 — Event submission and management approval lifecycle
+
+**Date:** 2026-10-09
+
+**Status:** Implemented by forward migration `20261009014919_event_submission_management_review`.
+
+**Decision:** Milestone 4B implements only `DRAFT → PENDING_APPROVAL → PUBLISHED | REJECTED`. Submission and management decisions use PostgreSQL row locking and atomic audit writes. Approval revalidates the owning organizer's current authorization and member verification; rejection remains available if that trust later becomes invalid. Rejected events are terminal and view-only in this milestone. Public discovery, cancellation, completion, and external registration links remain deferred.
+
 # How to change a decision
 
 If a decision must change:

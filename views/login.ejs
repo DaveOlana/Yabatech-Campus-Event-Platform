@@ -6,13 +6,13 @@
   <title><%= title %></title>
   <link rel="stylesheet" href="/css/style.css">
 </head>
-<body>
+<body class="auth-page">
+  <%- include('partials/public-header') %>
   <header>
     <h1>YABATECH Campus Events Platform</h1>
   </header>
-  <main>
-    <h2>Sign In</h2>
-    <p>Sign in with your matric number and password.</p>
+  <main class="auth-panel">
+    <div class="auth-heading"><h1>Welcome back</h1><p>Sign in with your matric number to continue to YCEP.</p></div>
 
     <% if (errorMessage) { %>
       <div class="alert-error">

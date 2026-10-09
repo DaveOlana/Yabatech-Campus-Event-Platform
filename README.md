@@ -58,4 +58,4 @@ V1 is complete when this works without manual database edits:
 
 ## Current implementation note
 
-The registration-era Milestone 4A structures were removed through forward migration `20261009010424_simplify_layer1_events`. The original Milestone 4A migration remains immutable history. Event drafts now contain only Layer 1 publishing/discovery information and recommended-audience targets.
+Milestone 4B is implemented. Authorized organizers can submit owned drafts for Management review; Management can approve them to `PUBLISHED` or reject them with feedback. Lifecycle decisions use PostgreSQL row locks, live organizer-trust revalidation, and atomic audit records. Public discovery remains the next unstarted milestone.

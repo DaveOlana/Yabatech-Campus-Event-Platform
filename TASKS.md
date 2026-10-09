@@ -30,23 +30,19 @@ Registration-era fields/relations introduced here are legacy structures pending 
 - [x] Rewrite event-draft coverage around the D-049 contract.
 - [x] Retain `EventTargetDepartment` and `EventTargetLevel` for discovery relevance.
 
-# Milestone 4B — Not Started
+# Milestone 4B — Event Submission and Management Approval — COMPLETE
 
-Reserved for the next separately approved increment. Do not mark complete as part of the legacy cleanup.
+- [x] Owner submits `DRAFT` to `PENDING_APPROVAL`.
+- [x] Reject duplicate, stale, and unauthorized submissions.
+- [x] Management pending-event queue and review view.
+- [x] Approve pending event to `PUBLISHED` only while organizer trust remains effective.
+- [x] Reject pending event with required feedback.
+- [x] Keep rejected events terminal and view-only for this milestone.
+- [x] Audit important submission/review transitions atomically.
+- [x] Transactionally lock contested decisions.
+- [x] Test permissions, valid flow, invalid transitions, and trust changes.
 
-# Milestone 5 — Event Submission and Management Approval
-
-- [ ] Owner submits `DRAFT` to `PENDING_APPROVAL`.
-- [ ] Reject duplicate, stale, and unauthorized submissions.
-- [ ] Management pending-event queue and review view.
-- [ ] Approve pending event to `PUBLISHED`.
-- [ ] Reject pending event with required reason.
-- [ ] Define rejected-event revision/resubmission.
-- [ ] Audit important submission/review transitions.
-- [ ] Transactionally lock contested decisions.
-- [ ] Test permissions, valid flow, invalid transitions, and concurrency.
-
-# Milestone 6 — Publication and Public Discovery
+# Milestone 5 — Publication and Public Discovery — Not Started
 
 - [ ] Publish approved events only.
 - [ ] Public flyer/poster-centered event feed.
@@ -56,7 +52,7 @@ Reserved for the next separately approved increment. Do not mark complete as par
 - [ ] Display cancelled/completed history where appropriate.
 - [ ] Verify visitors require no account.
 
-# Milestone 7 — Search, Filtering, and Relevance
+# Milestone 6 — Search, Filtering, and Relevance
 
 - [ ] Keyword/title search.
 - [ ] Category and date filtering.
@@ -64,7 +60,7 @@ Reserved for the next separately approved increment. Do not mark complete as par
 - [ ] Keep every published event discoverable regardless of target audience.
 - [ ] Test empty results, combined filters, and private-data exclusion.
 
-# Milestone 8 — Event Management and Historical Integrity
+# Milestone 7 — Event Management and Historical Integrity
 
 - [ ] Define permitted published-event edits.
 - [ ] Trigger reapproval for fundamental changes.

@@ -82,7 +82,7 @@ V1 states are `DRAFT`, `PENDING_APPROVAL`, `PUBLISHED`, `REJECTED`, `CANCELLED`,
 - An authorized organizer creates a `DRAFT`.
 - Its owner submits it to `PENDING_APPROVAL`.
 - Management approves it to `PUBLISHED` or rejects it with a reason to `REJECTED`.
-- Rejected events remain historical and may be revised/resubmitted only through an explicit transition.
+- Rejected events remain historical. In Milestone 4B they are terminal and view-only; any later revise/resubmit transition requires explicit approval and design.
 - Only published events are publicly discoverable.
 - Cancelled and completed events remain historical rather than being hard-deleted.
 
@@ -118,6 +118,7 @@ Targeting never makes a published event private and does not control registratio
 - Draft, pending, and rejected events must not appear publicly.
 - Only `PUBLISHED` means approved and public.
 - Approval preserves ownership and submission history.
+- Approval must revalidate that the owning organizer authorization, member role, current cycle, and member verification are still valid. If trust has lapsed, the event remains pending and Management may reject it with feedback.
 - Concurrent/repeated review attempts must resolve safely without contradictory outcomes.
 
 ## 10. Public discovery

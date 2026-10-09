@@ -1098,6 +1098,81 @@ None.
 
 ---
 
+## 2026-10-09 — Logo integration and advanced UI refinement
+
+### Completed
+
+- Preserved the approved source at `design resources/YCEP Campus Events Emblem.png` and created a pixel-preserving navbar crop at `public/assets/brand/ycep-navbar.png`.
+- Integrated the production mark into public, member/organizer, and Management shells with restrained responsive sizing.
+- Refined the neutral navy/blue/teal palette, atmospheric page canvas, navigation treatment, typography, surfaces, focus states, and reduced-motion behavior.
+- Converted My Events from a dense table into responsive management rows with date, metadata, lifecycle state, and actions.
+- Rebuilt Create/Edit Event as a structured publishing workflow with reusable responsive field groups.
+- Improved authentication, error/forbidden, organizer status, account, Management dashboard, event queue, and review presentation without changing their behavior.
+
+### Verification
+
+- No schema or migration was created for this pass.
+- Presentation-affected suites: 67 passed across 3 files.
+- Full suite: 148 passed across 8 files.
+- TypeScript production build and `git diff --check` passed.
+- Home, member authentication, registration, Management authentication, and production logo asset returned HTTP 200 from the running development server.
+
+---
+
+## 2026-10-09 — UI foundation and application shell
+
+### Completed
+
+- Established reusable design tokens for color, typography, spacing, widths, radii, focus states, and restrained surfaces.
+- Added shared public, member/organizer, and Management navigation shells with a replaceable text brand treatment.
+- Standardized buttons, fields, checkboxes, notices, empty states, status pills, metadata grids, and responsive tables.
+- Reworked the account, organizer event workspace/detail, and Management event review surfaces around the new system.
+- Applied the shared shell and component styling across all current EJS views without changing routes, form contracts, authorization, lifecycle rules, schema, or migrations.
+
+### Verification
+
+- Full suite: 148 passed across 8 files.
+- TypeScript production build passed.
+- Public home, member login/registration, and Management login returned HTTP 200 from the running development server.
+
+### Deferred
+
+- Final YCEP logo and public event-discovery presentation remain separate future work.
+
+---
+
+## 2026-10-09 — Milestone 4B: Event submission and management approval
+
+### Completed
+
+- Added nullable event submission/review timestamps, reviewer relation, rejection feedback, and pending-queue index through forward migration `20261009014919_event_submission_management_review`.
+- Added organizer submission and read-only lifecycle views for draft, pending, published, and rejected events; editing remains draft-only.
+- Added protected management event queue, detail, approval, and rejection routes and views.
+- Enforced `DRAFT → PENDING_APPROVAL → PUBLISHED | REJECTED` with interactive transactions, event row locks, post-lock state reads, live authorization checks, and atomic audit records.
+- Approval now fails safely if organizer authorization, current cycle, member role, or verification has become invalid. Rejection does not depend on continued organizer trust.
+- Added `EVENT_SUBMITTED`, `EVENT_APPROVED`, and `EVENT_REJECTED` audit actions.
+
+### Files/modules changed
+
+- Prisma schema and migration; event/audit services; organizer and admin event routes; review validator; organizer/admin EJS views; application router; event lifecycle tests.
+
+### Verification
+
+- Prisma validation and client generation passed.
+- Focused event suite: 19 passed.
+- Full suite: 148 passed across 8 files.
+- TypeScript production build passed.
+
+### Unresolved issues
+
+- None for Milestone 4B. The existing `pg` deprecation warning during tests remains unrelated to this milestone.
+
+### Recommended next task
+
+- Implement the next explicitly approved simplified-V1 milestone; do not add public discovery or external registration behavior as part of 4B.
+
+---
+
 ## 2026-09-10 — Milestone 0: Architecture discovery completed & decisions frozen
 
 ### Status

@@ -8,6 +8,7 @@ import { authRouter } from './routes/auth.route.js';
 import { adminRouter } from './routes/admin.route.js';
 import { organizerRouter } from './routes/organizer.route.js';
 import { organizerEventsRouter } from './routes/organizer-events.route.js';
+import { adminEventsRouter } from './routes/admin-events.route.js';
 import { createSessionMiddleware } from './session.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -36,6 +37,7 @@ export function createApp(): Express {
   app.use(registrationRouter);
   app.use(authRouter);
   app.use(adminRouter);
+  app.use(adminEventsRouter);
   app.use(organizerRouter);
   app.use(organizerEventsRouter);
 

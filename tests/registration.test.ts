@@ -484,7 +484,7 @@ describe("GET /register", () => {
     const res = await request(app).get("/register");
 
     expect(res.status).toBe(200);
-    expect(res.text).toContain("Member Registration");
+    expect(res.text).toContain("Create your account");
     expect(res.text).toContain("Computer Science");
     expect(res.text).toContain("ND1");
     expect(res.text).toContain("name=\"matricNumber\"");
