@@ -84,7 +84,7 @@ V1 states are `DRAFT`, `PENDING_APPROVAL`, `PUBLISHED`, `REJECTED`, `CANCELLED`,
 - An authorized organizer creates a `DRAFT`.
 - Its owner submits it to `PENDING_APPROVAL`.
 - Management approves it to `PUBLISHED` or rejects it with a reason to `REJECTED`.
-- Rejected events remain historical. In Milestone 4B they are terminal and view-only; any later revise/resubmit transition requires explicit approval and design.
+- A rejected event remains private and preserves Management feedback. Its exact active owner may revise it into a new `DRAFT`, then submit it for a fresh Management review. The earlier rejection remains in immutable audit history.
 - Only published events are publicly discoverable.
 - Cancelled and completed events remain historical rather than being hard-deleted.
 
@@ -117,6 +117,7 @@ Targeting never makes a published event private and does not control registratio
 - Only the event owner may submit its draft.
 - Only Management may approve or reject an event.
 - Rejection requires an understandable reason.
+- Rejected-event revision requires the same active authorization-bound owner; saving the revision returns it to `DRAFT`, and it does not become pending or public until explicitly resubmitted.
 - Important decisions and transitions must be audited.
 - Draft, pending, and rejected events must not appear publicly.
 - Only `PUBLISHED` means approved and public.
@@ -217,6 +218,7 @@ Sensitive owner actions must not automatically be granted to future co-organizer
 6. **Discovery:** A visitor sees only published events, can search/filter, and can open approved public details.
 7. **Target relevance:** Targets influence filtering/relevance but never public visibility or registration.
 8. **Yearly expiry:** Account/history remain while protected organizer actions are denied.
+9. **Rejected revision:** The active owner sees Management feedback, revises the same event into a private draft, and resubmits it through the full approval gate while the earlier rejection remains audited.
 
 ## 18. Product boundary
 

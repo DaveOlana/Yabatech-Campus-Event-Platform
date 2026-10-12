@@ -5,7 +5,8 @@
   <%- include('../../partials/member-header') %>
   <main class="main-wide">
     <p><a href="/organizer/events/<%= event.id %>">&larr; Draft details</a></p>
-    <div class="page-header"><div><span class="eyebrow">Draft editor</span><h1>Edit event</h1><p>Refine the proposal before sending it to Management.</p></div></div>
+    <div class="page-header"><div><span class="eyebrow"><%= event.status==='REJECTED'?'Revision requested':'Draft editor' %></span><h1><%= event.status==='REJECTED'?'Revise event':'Edit event' %></h1><p><%= event.status==='REJECTED'?'Address Management feedback, then save the event as a new private draft.':'Refine the proposal before sending it to Management.' %></p></div></div>
+    <% if(event.status==='REJECTED' && event.rejectionReason){ %><div class="alert-error"><h2>Management feedback</h2><p><%= event.rejectionReason %></p></div><% } %>
     <% if(errorMessage){ %><div class="alert-error"><%= errorMessage %></div><% } %>
     <aside class="draft-recovery" data-draft-recovery hidden><div><strong>Unsaved changes restored</strong><p data-draft-recovery-message>Your event details were restored automatically from this browser tab.</p></div><div class="actions"><button type="button" class="btn-ghost btn-sm" data-draft-discard>Discard recovered changes</button></div></aside>
     <form class="publishing-form" method="POST" action="/organizer/events/<%= event.id %>" enctype="multipart/form-data" novalidate data-event-draft-form data-event-draft-key="<%= event.id %>">

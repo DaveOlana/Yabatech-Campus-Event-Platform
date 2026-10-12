@@ -4,6 +4,20 @@ Use this file as the handoff record between Claude, Gemini, Codex, and human dev
 
 Newest entries should be added at the top.
 
+## 2026-10-12 - Rejected event revision and resubmission
+
+### Status
+
+Implemented. No schema migration was required and no deployment or GitHub push was performed.
+
+### Scope and verification
+
+- Added the owner-only `REJECTED → DRAFT → PENDING_APPROVAL` correction path while keeping rejected and revised events private until fresh Management approval.
+- Management feedback is visible on the rejected detail and revision form and remains available on the corrected draft until resubmission.
+- Revision locks and re-reads the Event, resets stale submission/reviewer timestamps, and records `EVENT_REVISION_STARTED` with the prior rejection context in immutable audit history.
+- Published, pending, cancelled, cross-owner, old-cycle, and trust-lapsed protections remain unchanged.
+- Added end-to-end coverage for feedback visibility, revision, audit preservation, resubmission, and continued public isolation.
+
 ## 2026-10-10 - Production-persistent poster storage
 
 ### Status

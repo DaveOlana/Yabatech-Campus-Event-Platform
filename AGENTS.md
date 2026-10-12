@@ -54,7 +54,7 @@ Never rewrite applied migrations. Schema cleanup requires a new forward migratio
 
 ## Event lifecycle
 
-The lifecycle is `DRAFT`, `PENDING_APPROVAL`, `PUBLISHED`, `REJECTED`, `CANCELLED`, and `COMPLETED`. Validate transitions explicitly.
+The lifecycle is `DRAFT`, `PENDING_APPROVAL`, `PUBLISHED`, `REJECTED`, `CANCELLED`, and `COMPLETED`. Validate transitions explicitly. The active exact owner may revise `REJECTED → DRAFT` while preserving the rejection in audit history, then explicitly resubmit through `DRAFT → PENDING_APPROVAL` for a fresh Management decision.
 
 Only an authorized owner can submit a draft. Only Management can approve/reject and thereby publish. Fundamental changes such as title, organizer identity, or core purpose require reapproval. Operational changes must preserve event history.
 

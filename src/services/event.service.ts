@@ -56,6 +56,10 @@ const eventRelations = {
 
 type TransactionClient = Prisma.TransactionClient;
 
+function isEditableEventStatus(status: EventStatus): boolean {
+  return status === EventStatus.DRAFT || status === EventStatus.REJECTED;
+}
+
 export async function getEventFormData() {
   const [categories, departments, levels] = await Promise.all([
     prisma.eventCategory.findMany({ orderBy: { name: "asc" } }),
@@ -210,7 +214,7 @@ export async function getOrganizerEventById(eventId: string, currentAuthId: stri
 
 export async function getOrganizerEventDraftById(eventId: string, currentAuthId: string) {
   const event = await getOrganizerEventById(eventId, currentAuthId);
-  if (event.status !== EventStatus.DRAFT) throw new EventNotFoundError("Event draft not found");
+  if (!isEditableEventStatus(event.status)) throw new EventNotFoundError("Editable event not found");
   return event;
 }
 
@@ -223,8 +227,8 @@ export async function updateEventDraft(
 ): Promise<Event> {
   await validateReferences(input);
   const before = await prisma.event.findFirst({ where: { id: eventId, primaryOrganizerAuthorizationId: currentAuthId } });
-  if (!before) throw new EventNotFoundError("Event draft not found");
-  if (before.status !== EventStatus.DRAFT) throw new EventInvalidStateError("Only draft events can be edited");
+  if (!before) throw new EventNotFoundError("Editable event not found");
+  if (!isEditableEventStatus(before.status)) throw new EventInvalidStateError("Only draft or rejected events can be edited");
   const uploadedPoster = await preparePoster(poster, uploadedReference);
   const nextPoster = uploadedPoster ?? (input.removePoster ? null : { url: before.posterUrl, pathname: before.posterBlobPath });
   try {
@@ -232,12 +236,13 @@ export async function updateEventDraft(
     const locked = await lockEvent(tx, eventId);
     if (locked.primary_organizer_authorization_id !== currentAuthId) throw new EventNotFoundError();
     const current = await tx.event.findUnique({ where: { id: eventId } });
-    if (!current || current.status !== EventStatus.DRAFT) throw new EventInvalidStateError("Only draft events can be edited");
+    if (!current || !isEditableEventStatus(current.status)) throw new EventInvalidStateError("Only draft or rejected events can be edited");
+    const revisingRejectedEvent = current.status === EventStatus.REJECTED;
     await Promise.all([
       tx.eventTargetDepartment.deleteMany({ where: { eventId } }),
       tx.eventTargetLevel.deleteMany({ where: { eventId } }),
     ]);
-    return tx.event.update({
+    const updatedEvent = await tx.event.update({
       where: { id: eventId },
       data: {
         title: input.title,
@@ -252,11 +257,33 @@ export async function updateEventDraft(
         venue: input.venue,
         suggestedDepartmentName: input.suggestedDepartmentName || null,
         suggestedDepartmentCode: input.suggestedDepartmentCode || null,
+        status: revisingRejectedEvent ? EventStatus.DRAFT : undefined,
+        submittedAt: revisingRejectedEvent ? null : undefined,
+        reviewedAt: revisingRejectedEvent ? null : undefined,
+        reviewerUserId: revisingRejectedEvent ? null : undefined,
         targetDepartments: { create: input.targetDepartmentIds.map((departmentId) => ({ departmentId })) },
         targetLevels: { create: input.targetLevelIds.map((levelId) => ({ levelId })) },
       },
       include: eventRelations,
     });
+    if (revisingRejectedEvent) {
+      const authorization = await tx.organizerAuthorization.findUnique({ where: { id: currentAuthId } });
+      if (!authorization) throw new EventNotFoundError();
+      await createAuditLog({
+        actorUserId: authorization.userId,
+        action: AUDIT_ACTIONS.EVENT_REVISION_STARTED,
+        targetType: "Event",
+        targetId: eventId,
+        metadata: {
+          fromStatus: EventStatus.REJECTED,
+          toStatus: EventStatus.DRAFT,
+          previousRejectionReason: current.rejectionReason,
+          previousReviewedAt: current.reviewedAt?.toISOString(),
+          previousReviewerUserId: current.reviewerUserId,
+        },
+      }, tx);
+    }
+    return updatedEvent;
     });
     if (before.posterBlobPath && before.posterBlobPath !== nextPoster?.pathname) {
       await deleteManagedPoster(before.posterBlobPath).catch((cleanupError) => {

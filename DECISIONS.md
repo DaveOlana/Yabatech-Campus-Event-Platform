@@ -489,6 +489,14 @@ Create and edit forms keep non-file event fields in tab-scoped browser session s
 
 Managed poster assets remain for 30 days after a published event date, cancellation, or rejection. Draft and pending assets become eligible only when their event date is more than 30 days past. Unreferenced assets under the dedicated `ycep/posters/` namespace receive a 24-hour grace period. One idempotent cleanup service powers `npm run posters:prune` and the daily bearer-authenticated Vercel Cron route. Cleanup clears the database reference before best-effort deletion so historical events retain fallback artwork and no event record is deleted.
 
+## D-064 — Rejected event revision and resubmission
+
+**Date:** 2026-10-12
+
+**Status:** Implemented without a schema migration. Supersedes D-051 only where rejected events were terminal and view-only.
+
+**Decision:** A `REJECTED` event remains private and displays Management feedback to its exact active authorization-bound owner. Editing and saving that event performs the explicit `REJECTED → DRAFT` transition, clears the prior submission/reviewer timestamps, preserves the feedback for the correction workflow, and writes an `EVENT_REVISION_STARTED` audit record containing the previous decision context. The organizer must then explicitly resubmit through `DRAFT → PENDING_APPROVAL`; no revision becomes public without a fresh Management approval. Published and cancelled events remain immutable.
+
 # How to change a decision
 
 If a decision must change:

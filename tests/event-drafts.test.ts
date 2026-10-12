@@ -500,6 +500,60 @@ describe("simplified Layer 1 event drafts", () => {
     await agent.post(`/organizer/events/${event.id}`).type("form").send(payload({ title: "Changed" })).expect(409);
   });
 
+  it("lets the owner revise a rejected event and resubmit it for a fresh review", async () => {
+    const { user, authorization } = await setupOrganizer();
+    const previousSubmittedAt = new Date("2026-10-10T08:00:00Z");
+    const previousReviewedAt = new Date("2026-10-10T09:00:00Z");
+    const event = await prisma.event.create({ data: {
+      title: "Rejected Proposal",
+      description: "An event proposal that needs clearer public information.",
+      categoryId,
+      eventDate: new Date("2026-11-20"),
+      startTime: "10:00",
+      endTime: "12:00",
+      venue: "Old Hall",
+      primaryOrganizerAuthorizationId: authorization.id,
+      organizerPublicName: authorization.approvedPublicName,
+      status: EventStatus.REJECTED,
+      submittedAt: previousSubmittedAt,
+      reviewedAt: previousReviewedAt,
+      rejectionReason: "Clarify the venue and intended event outcome.",
+    } });
+    const agent = await login(user.matricNumber!);
+
+    const detail = await agent.get(`/organizer/events/${event.id}`).expect(200);
+    expect(detail.text).toContain("Revise event");
+    expect(detail.text).toContain("Clarify the venue and intended event outcome.");
+    const editor = await agent.get(`/organizer/events/${event.id}/edit`).expect(200);
+    expect(editor.text).toContain("Revision requested");
+    expect(editor.text).toContain("Clarify the venue and intended event outcome.");
+
+    await agent.post(`/organizer/events/${event.id}`).type("form").send(payload({
+      title: "Revised Proposal",
+      venue: "Multipurpose Hall",
+    })).expect(302);
+    const revised = await prisma.event.findUniqueOrThrow({ where: { id: event.id } });
+    expect(revised).toMatchObject({
+      status: EventStatus.DRAFT,
+      title: "Revised Proposal",
+      venue: "Multipurpose Hall",
+      submittedAt: null,
+      reviewedAt: null,
+      reviewerUserId: null,
+      rejectionReason: "Clarify the venue and intended event outcome.",
+    });
+    expect(await prisma.auditLog.count({ where: { targetId: event.id, action: "EVENT_REVISION_STARTED" } })).toBe(1);
+    expect((await agent.get(`/organizer/events/${event.id}`).expect(200)).text).toContain("Previous Management feedback");
+
+    await agent.post(`/organizer/events/${event.id}/submit`).expect(302);
+    const resubmitted = await prisma.event.findUniqueOrThrow({ where: { id: event.id } });
+    expect(resubmitted.status).toBe(EventStatus.PENDING_APPROVAL);
+    expect(resubmitted.submittedAt).not.toBeNull();
+    expect(resubmitted.rejectionReason).toBeNull();
+    expect(await prisma.auditLog.count({ where: { targetId: event.id, action: "EVENT_SUBMITTED" } })).toBe(1);
+    await request(app).get(`/events/${event.id}`).expect(404);
+  });
+
   it("submits an owned draft once and records the transition audit", async () => {
     const { user, authorization } = await setupOrganizer();
     const event = await prisma.event.create({ data: { title: "Review Me", description: "A complete proposal ready for management review.", categoryId, eventDate: new Date("2026-11-20"), startTime: "10:00", endTime: "12:00", venue: "Hall", primaryOrganizerAuthorizationId: authorization.id, organizerPublicName: authorization.approvedPublicName } });
