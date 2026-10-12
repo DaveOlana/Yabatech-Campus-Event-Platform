@@ -23,11 +23,29 @@ function validToken(expected: unknown, supplied: unknown): boolean {
 
 export function verifyCsrfToken(req: Request, res: Response, next: NextFunction): void {
   if (SAFE_METHODS.has(req.method)) return next();
-  const supplied = req.get("X-CSRF-Token") || req.body?._csrf;
+  const directPosterEndpoint = req.path === "/organizer/posters/upload";
+  if (directPosterEndpoint && req.body?.type === "blob.upload-completed") return next();
+  let directPosterToken: unknown;
+  if (directPosterEndpoint && req.body?.type === "blob.generate-presigned-url") {
+    try {
+      directPosterToken = JSON.parse(req.body?.payload?.clientPayload || "{}").csrfToken;
+    } catch {
+      directPosterToken = undefined;
+    }
+  }
+  const supplied = req.get("X-CSRF-Token") || req.body?._csrf || directPosterToken;
   if (validToken(req.session.csrfToken, supplied)) return next();
   if (isJsonRequest(req)) {
     res.status(403).json({ success: false, message: "Request could not be verified." });
     return;
   }
-  res.status(403).render("error", { title: "Request could not be verified — YCEP", message: "Request could not be verified. Refresh the page and try again." });
+  const createEventRequest = req.path === "/organizer/events";
+  const updateEventRequest = /^\/organizer\/events\/[0-9a-f-]{36}$/i.test(req.path);
+  const returnUrl = createEventRequest ? "/organizer/events/new" : updateEventRequest ? `${req.path}/edit` : undefined;
+  res.status(403).render("error", {
+    title: "Request could not be verified — YCEP",
+    message: "Request could not be verified. Return to the form and try again.",
+    returnUrl,
+    returnLabel: returnUrl ? "Return to event form" : undefined,
+  });
 }

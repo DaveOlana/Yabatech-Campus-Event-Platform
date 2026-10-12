@@ -12,7 +12,7 @@ YCEP V1 is a trusted YABATECH campus event publishing and discovery platform. It
 Verified organizer → draft → submit → Management review → publish → public discovery
 ```
 
-Do not add internal attendee registration, attendee applications, participant lists, registration limits/deadlines, registration history, attendance, waitlists, registration notifications, or external registration links. External links are deferred Layer 2 work.
+Do not add internal attendee registration, attendee applications, participant lists, registration limits/deadlines, registration history, attendance, waitlists, or registration notifications. Layer 2 permits an optional Management-reviewed HTTPS registration link that sends visitors to an organizer-controlled external service; YCEP must never collect or synchronize the resulting registration data.
 
 ## Preserve domain distinctions
 
@@ -23,6 +23,8 @@ Do not add internal attendee registration, attendee applications, participant li
 - Ordinary visitors do not need accounts to discover published events.
 - Draft, pending, rejected, account, and Management data are not public.
 - Public event reads must constrain status to `PUBLISHED` in the database query and use an explicit safe-field projection. The homepage uses the Africa/Lagos calendar boundary, excludes past events, orders by date/time/title, and returns at most 24. Past published events may remain directly accessible. Unknown and non-published detail URLs must share the same generic 404.
+- Event posters are optional organizer uploads stored through the approved poster-storage abstraction. The browser never supplies a persisted poster URL directly. Validate file size, MIME type, and file signature; never rely on the filename or client MIME declaration alone. A missing poster uses YCEP fallback artwork.
+- External registration links are optional, HTTPS-only, never fetched by the server, and become public only with a `PUBLISHED` event. The public CTA and poster link are disabled for cancelled or time-derived past events. Management inspects links and poster previews manually during normal event review.
 - Public department/level filters are relevance-only. Each must include explicit target matches and events with no targets in that dimension. They must never become eligibility rules or restrict the underlying public visibility of a published event.
 
 ## Inspect before editing
@@ -96,3 +98,5 @@ When uncertain, choose the least destructive implementation, preserve V1 behavio
 - Production secrets fail closed. Proxy trust remains disabled until an exact deployment hop or subnet is approved; never use broad `trust proxy = true`.
 - Dependency upgrades must be bounded, lockfile-reviewed, and fully verified. Do not use forced audit upgrades casually.
 - The scrutiny-deployment rate limiter remains per Fluid instance and is not globally authoritative. Production Neon credentials belong only to Vercel Production, never untrusted Preview deployments.
+- Production posters use direct, organizer-authorized Vercel Blob uploads under `ycep/posters/`; never proxy them through the Vercel function or fall back to its ephemeral filesystem. Store raw bytes in neither PostgreSQL nor sessions.
+- Delete provider assets only when `posterBlobPath` identifies a YCEP-managed pathname. Preserve the 30-day lifecycle retention, 24-hour orphan grace, and authenticated daily cleanup route; never delete arbitrary URLs or other Blob prefixes.

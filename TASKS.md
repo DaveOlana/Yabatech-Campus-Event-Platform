@@ -16,7 +16,7 @@ Each milestone ends with working code, relevant tests, migration status, and an 
 # Milestone 4A — Event Draft Foundation
 
 - [x] Authorization-bound event ownership.
-- [x] Categories, title, description, poster URL, schedule, and venue.
+- [x] Categories, title, description, optional managed poster upload, schedule, and venue.
 - [x] Draft creation, listing, detail, and editing.
 - [x] Target departments and levels.
 - [x] Server-derived organizer public identity.
@@ -91,20 +91,22 @@ Registration-era fields/relations introduced here are legacy structures pending 
 # Milestone 11 — Deployment Readiness
 
 - [ ] Production configuration, secrets, and PostgreSQL migration strategy.
-- [ ] Static/media storage, logging, and backups.
+- [x] Production Vercel Blob poster storage, ownership metadata, and lifecycle/orphan cleanup.
+- [ ] Broader production logging and backup operations.
 - [ ] Domain and HTTPS.
 - [ ] Admin credential handover.
 - [ ] Production smoke test of the complete Layer 1 lifecycle.
 
-# Layer 2 — External Registration Links (Deferred)
+# Layer 2 — External Registration Links and Poster Uploads — COMPLETE
 
-Do not begin until Layer 1 is complete and this feature has an approved design.
+Approved by D-061 after Layer 1 completion.
 
-- [ ] Design an optional external registration URL.
-- [ ] Define URL validation and safe external-link behavior.
-- [ ] Design the public “Register” / “Learn More” action.
-- [ ] Consider guidance for Luma, Google Forms, Microsoft Forms, Eventbrite, and similar services.
-- [ ] Make clear YCEP does not track/synchronize registration status.
+- [x] Add an optional HTTPS external registration URL through forward migration 12.
+- [x] Validate safe external-link behavior without server fetching or previews.
+- [x] Add time-aware public `Register now` actions and poster-link behavior.
+- [x] Replace organizer-entered poster URLs with optional signature-checked Vercel Blob uploads.
+- [x] Show poster/link previews to organizers and Management for manual review.
+- [x] Keep YCEP independent from attendee data and external registration status.
 
 # Removed from active V1 roadmap
 

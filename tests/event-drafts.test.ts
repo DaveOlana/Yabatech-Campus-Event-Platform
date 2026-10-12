@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
 import request from "./helpers/http.js";
+import supertest from "supertest";
 import bcrypt from "bcrypt";
 import pg from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -8,6 +9,22 @@ import dotenv from "dotenv";
 import { createApp } from "../src/app.js";
 import { ensureSessionTable } from "../src/session.js";
 import { cancelPublishedEventAsManagement, cancelPublishedEventAsOrganizer } from "../src/services/event.service.js";
+import { deleteManagedPoster, verifyUploadedBlobPoster } from "../src/services/poster-storage.service.js";
+import { expiredEventPosterWhere, prunePosters } from "../src/services/poster-cleanup.service.js";
+import { del, head, issueSignedToken, list } from "@vercel/blob";
+
+vi.mock("@vercel/blob", () => ({
+  put: vi.fn(async (pathname: string) => ({ url: `https://ycep-test.public.blob.vercel-storage.com/${pathname}`, pathname })),
+  del: vi.fn(async () => undefined),
+  head: vi.fn(),
+  list: vi.fn(async () => ({ blobs: [], hasMore: false })),
+  issueSignedToken: vi.fn(async () => "signed-test-token"),
+}));
+vi.mock("@vercel/blob/client", () => ({
+  handleUploadPresigned: vi.fn(async ({ body, getSignedToken }: any) => body.type === "blob.generate-presigned-url"
+    ? getSignedToken("ycep/posters/00000000-0000-4000-8000-000000000001.png", body.payload?.clientPayload, false)
+    : { type: "blob.upload-completed" }),
+}));
 
 dotenv.config();
 const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL;
@@ -99,7 +116,7 @@ const payload = (overrides: Record<string, unknown> = {}) => ({
   title: "Campus Technology Summit",
   description: "A practical campus technology event for YABATECH students.",
   categoryId,
-  posterUrl: "https://example.com/poster.jpg",
+  registrationUrl: "",
   eventDate: "2026-11-20",
   startTime: "10:00",
   endTime: "14:00",
@@ -138,14 +155,47 @@ describe("simplified Layer 1 event drafts", () => {
     expect(page.text).toContain('name="targetDepartmentIds"');
     expect(page.text).toContain('multiple size="8"');
     expect(page.text).toContain("Search target departments");
+    expect(page.text).toContain('name="poster"');
+    expect(page.text).toContain('name="registrationUrl"');
+    expect(page.text).toContain('name="_csrf"');
+    expect(page.text).toContain('data-event-draft-form');
+    expect(page.text).toContain('data-event-draft-key="new"');
+    expect(page.text).toContain('/js/event-form-recovery.js');
+    expect(page.text).toContain('Unsaved changes restored');
+    expect(page.text).toContain('data-checklist-actions="targetLevelIds"');
+    expect(page.text).toContain('data-select-all');
+    expect(page.text).toContain('data-clear-all');
+    expect(page.text).toContain('1080 × 1350 px');
+    expect(page.text).toContain('shown in full without cropping');
+    expect(page.text).toContain('name="posterUrl"');
+    expect(page.text).toContain('name="posterBlobPath"');
+    expect(page.text).toContain('/js/poster-direct-upload.js');
+    expect(page.headers["content-security-policy"]).toContain("img-src 'self' https: data: blob:");
+    expect(page.headers["content-security-policy"]).toContain("connect-src 'self' https://vercel.com");
+    expect(page.text).not.toContain(process.env.BLOB_WEBHOOK_PUBLIC_KEY || "never-a-rendered-provider-key");
     expect(page.text).not.toContain("Registration Limit");
     expect(page.text).not.toContain("Application Questions");
+  });
+
+  it("accepts the rendered CSRF field in a multipart browser submission", async () => {
+    const { user } = await setupOrganizer();
+    const browserAgent = supertest.agent(app);
+    const loginPage = await browserAgent.get("/login").expect(200);
+    const loginToken = loginPage.text.match(/name="_csrf" value="([A-Za-z0-9_-]{43})"/)?.[1];
+    expect(loginToken).toBeTruthy();
+    await browserAgent.post("/login").type("form").send({ matricNumber: user.matricNumber, password: "password123", _csrf: loginToken }).expect(302);
+    const page = await browserAgent.get("/organizer/events/new").expect(200);
+    const token = page.text.match(/name="_csrf" value="([A-Za-z0-9_-]{43})"/)?.[1];
+    expect(token).toBeTruthy();
+    await browserAgent.post("/organizer/events").field({ ...payload({ title: "Multipart Browser Draft" }), _csrf: token! }).expect(302);
+    expect(await prisma.event.count({ where: { title: "Multipart Browser Draft" } })).toBe(1);
   });
 
   it("creates a DRAFT bound to the authorization with server-derived identity", async () => {
     const { user, authorization } = await setupOrganizer("YCT Tech Club");
     const agent = await login(user.matricNumber!);
-    await agent.post("/organizer/events").type("form").send(payload()).expect(302);
+    const creation = await agent.post("/organizer/events").type("form").send(payload()).expect(302);
+    expect(creation.headers.location).toMatch(/^\/organizer\/events\/[0-9a-f-]{36}\?saved=1$/);
     const event = await prisma.event.findFirstOrThrow({ where: { title: "Campus Technology Summit" }, include: { targetDepartments: true, targetLevels: true } });
     expect(event.primaryOrganizerAuthorizationId).toBe(authorization.id);
     expect(event.organizerPublicName).toBe("YCT Tech Club");
@@ -219,13 +269,189 @@ describe("simplified Layer 1 event drafts", () => {
     expect(timeResponse.text).toContain("End time must be after start time");
   });
 
-  it("accepts HTTPS posters and rejects insecure or unsafe schemes", async () => {
+  it("accepts optional HTTPS registration links and rejects unsafe schemes", async () => {
     const { user } = await setupOrganizer();
     const agent = await login(user.matricNumber!);
-    await agent.post("/organizer/events").type("form").send(payload({ posterUrl: "http://example.com/a.jpg" })).expect(400);
-    const response = await agent.post("/organizer/events").type("form").send(payload({ title: "Unsafe Poster", posterUrl: "javascript:alert(1)" }));
+    await agent.post("/organizer/events").type("form").send(payload({ registrationUrl: "https://forms.example/register" })).expect(302);
+    await agent.post("/organizer/events").type("form").send(payload({ title: "Insecure Registration", registrationUrl: "http://example.com/register" })).expect(400);
+    const response = await agent.post("/organizer/events").type("form").send(payload({ title: "Unsafe Registration", registrationUrl: "javascript:alert(1)" }));
     expect(response.status).toBe(400);
-    expect(response.text).toContain("Poster URL must use https");
+    expect(response.text).toContain("Registration link must use https");
+  });
+
+  it("accepts valid JPEG, PNG, and WebP posters and rejects unsafe files", async () => {
+    const { user } = await setupOrganizer();
+    const agent = await login(user.matricNumber!);
+    const files = [
+      { title: "JPEG Poster", data: Buffer.from([0xff, 0xd8, 0xff, 0x00]), filename: "poster.jpg", contentType: "image/jpeg" },
+      { title: "PNG Poster", data: Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0x00]), filename: "poster.png", contentType: "image/png" },
+      { title: "WebP Poster", data: Buffer.from("RIFF0000WEBP", "ascii"), filename: "poster.webp", contentType: "image/webp" },
+    ];
+    for (const file of files) {
+      await agent.post("/organizer/events").field(payload({ title: file.title })).attach("poster", file.data, { filename: file.filename, contentType: file.contentType }).expect(302);
+      const stored = await prisma.event.findFirstOrThrow({ where: { title: file.title } });
+      expect(stored.posterUrl).toMatch(/^\/uploads\/event-posters\/[0-9a-f-]+\.(?:jpg|png|webp)$/);
+      expect(stored.posterBlobPath).toMatch(/^local:event-posters\/[0-9a-f-]+\.(?:jpg|png|webp)$/);
+    }
+    await agent.post("/organizer/events").field(payload({ title: "SVG Poster" })).attach("poster", Buffer.from("<svg></svg>"), { filename: "poster.svg", contentType: "image/svg+xml" }).expect(400);
+    await agent.post("/organizer/events").field(payload({ title: "Invalid MIME" })).attach("poster", files[1].data, { filename: "poster.bin", contentType: "application/octet-stream" }).expect(400);
+    await agent.post("/organizer/events").field(payload({ title: "Oversized Poster" })).attach("poster", Buffer.alloc(4 * 1024 * 1024 + 1, 0xff), { filename: "large.jpg", contentType: "image/jpeg" }).expect(400);
+  });
+
+  it("accepts a large Select all audience without misreporting it as multiple poster uploads", async () => {
+    const { user } = await setupOrganizer();
+    const agent = await login(user.matricNumber!);
+    const requestWithAudience = agent.post("/organizer/events").field(payload({ title: "All Departments Event" }));
+    for (let index = 0; index < 75; index += 1) requestWithAudience.field("targetDepartmentIds", departmentId);
+    const response = await requestWithAudience.expect(302);
+    expect(response.headers.location).toMatch(/^\/organizer\/events\/[0-9a-f-]{36}\?saved=1$/);
+    const stored = await prisma.event.findFirstOrThrow({ where: { title: "All Departments Event" }, include: { targetDepartments: true } });
+    expect(stored.targetDepartments).toHaveLength(1);
+  });
+
+  it("stores and serves posters locally when cloud storage is absent outside production", async () => {
+    const { user } = await setupOrganizer();
+    const agent = await login(user.matricNumber!);
+    let localPosterPath: string | null = null;
+    try {
+      const png = Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0x00]);
+      await agent.post("/organizer/events").field(payload({ title: "Local Poster Event" })).attach("poster", png, { filename: "poster.png", contentType: "image/png" }).expect(302);
+      const stored = await prisma.event.findFirstOrThrow({ where: { title: "Local Poster Event" } });
+      localPosterPath = stored.posterBlobPath;
+      expect(stored.posterUrl).toMatch(/^\/uploads\/event-posters\/[0-9a-f-]+\.png$/);
+      await agent.get(stored.posterUrl!).expect(200).expect("Content-Type", /image\/png/);
+    } finally {
+      await deleteManagedPoster(localPosterPath);
+    }
+  });
+
+  it("authorizes direct uploads only for a live organizer and keeps provider credentials out of HTML", async () => {
+    const secret = "provider-secret-that-must-not-render";
+    const previous = process.env.BLOB_WEBHOOK_PUBLIC_KEY;
+    process.env.BLOB_WEBHOOK_PUBLIC_KEY = secret;
+    try {
+      await request(app).post("/organizer/posters/upload").send({ type: "blob.generate-presigned-url", payload: {} }).expect(401);
+      const member = await createMember();
+      await (await login(member.matricNumber!)).post("/organizer/posters/upload").send({ type: "blob.generate-presigned-url", payload: {} }).expect(403);
+      const { user } = await setupOrganizer();
+      const organizer = await login(user.matricNumber!);
+      await organizer.post("/organizer/posters/upload").send({ type: "blob.generate-presigned-url", payload: {} }).expect(200);
+      expect(issueSignedToken).toHaveBeenCalledWith(expect.objectContaining({
+        pathname: expect.stringMatching(/^ycep\/posters\//),
+        allowedContentTypes: ["image/jpeg", "image/png", "image/webp"],
+        maximumSizeInBytes: 4 * 1024 * 1024,
+      }));
+      expect((await organizer.get("/organizer/events/new")).text).not.toContain(secret);
+    } finally {
+      if (previous === undefined) delete process.env.BLOB_WEBHOOK_PUBLIC_KEY; else process.env.BLOB_WEBHOOK_PUBLIC_KEY = previous;
+    }
+  });
+
+  it("never falls back to local poster storage in production", async () => {
+    const previous = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      const { storePoster } = await import("../src/services/poster-storage.service.js");
+      await expect(storePoster({ buffer: Buffer.from([0xff, 0xd8, 0xff]), mimetype: "image/jpeg", originalname: "x.jpg", size: 3 }))
+        .rejects.toThrow(/directly to managed storage/);
+    } finally {
+      process.env.NODE_ENV = previous;
+    }
+  });
+
+  it("verifies direct Blob metadata and signature before attaching a poster", async () => {
+    const pathname = "ycep/posters/00000000-0000-4000-8000-000000000020.png";
+    const url = `https://test.public.blob.vercel-storage.com/${pathname}`;
+    vi.mocked(head).mockResolvedValueOnce({ pathname, url, downloadUrl: url, contentType: "image/png", contentDisposition: "inline", size: 9, uploadedAt: new Date() });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0x00]), { status: 206 })));
+    try {
+      await expect(verifyUploadedBlobPoster({ pathname, url })).resolves.toEqual({ pathname, url });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("replaces and removes only managed draft posters while preserving published immutability", async () => {
+    const { user, authorization } = await setupOrganizer();
+    const agent = await login(user.matricNumber!);
+    const png = Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0x00]);
+    const jpg = Buffer.from([0xff,0xd8,0xff,0x00]);
+    await agent.post("/organizer/events").field(payload({ title: "Replace Poster" })).attach("poster", png, { filename: "old.png", contentType: "image/png" }).expect(302);
+    const event = await prisma.event.findFirstOrThrow({ where: { title: "Replace Poster" } });
+    const oldUrl = event.posterUrl!;
+    await agent.post(`/organizer/events/${event.id}`).field(payload({ title: "Replaced Poster" })).attach("poster", jpg, { filename: "new.jpg", contentType: "image/jpeg" }).expect(302);
+    const replaced = await prisma.event.findUniqueOrThrow({ where: { id: event.id } });
+    expect(replaced.posterUrl).toMatch(/\.jpg$/);
+    await agent.get(oldUrl).expect(404);
+    await agent.post(`/organizer/events/${event.id}`).type("form").send(payload({ title: "Poster Removed", removePoster: "on" })).expect(302);
+    expect(await prisma.event.findUniqueOrThrow({ where: { id: event.id } })).toMatchObject({ posterUrl: null, posterBlobPath: null });
+
+    const external = await prisma.event.create({ data: { title: "External Historical Poster", description: "A historical external poster URL.", categoryId, posterUrl: "https://images.example/external.jpg", eventDate: new Date("2026-11-20"), startTime: "10:00", endTime: "12:00", venue: "Hall", primaryOrganizerAuthorizationId: authorization.id, organizerPublicName: authorization.approvedPublicName } });
+    await agent.post(`/organizer/events/${external.id}`).type("form").send(payload({ title: "External Cleared", removePoster: "on" })).expect(302);
+    expect(del).not.toHaveBeenCalledWith("https://images.example/external.jpg");
+
+    await prisma.event.update({ where: { id: event.id }, data: { status: EventStatus.PUBLISHED } });
+    await agent.post(`/organizer/events/${event.id}`).type("form").send(payload({ removePoster: "on" })).expect(409);
+  });
+
+  it("prunes expired event posters and old unreferenced Blobs without deleting Events or live references", async () => {
+    const { authorization } = await setupOrganizer();
+    const oldPath = "ycep/posters/00000000-0000-4000-8000-000000000010.png";
+    const livePath = "ycep/posters/00000000-0000-4000-8000-000000000011.png";
+    const orphanPath = "ycep/posters/00000000-0000-4000-8000-000000000012.png";
+    const now = new Date("2026-10-10T12:00:00Z");
+    const base = { description: "Poster retention policy integration fixture.", categoryId, startTime: "10:00", endTime: "12:00", venue: "Hall", primaryOrganizerAuthorizationId: authorization.id, organizerPublicName: authorization.approvedPublicName };
+    const expired = await prisma.event.create({ data: { ...base, title: "Expired Published Poster", status: EventStatus.PUBLISHED, eventDate: new Date("2026-09-01"), posterUrl: `https://test.public.blob.vercel-storage.com/${oldPath}`, posterBlobPath: oldPath } });
+    const retained = await prisma.event.create({ data: { ...base, title: "Retained Published Poster", status: EventStatus.PUBLISHED, eventDate: new Date("2026-09-20"), posterUrl: `https://test.public.blob.vercel-storage.com/${livePath}`, posterBlobPath: livePath } });
+    vi.mocked(list).mockResolvedValueOnce({ blobs: [
+      { url: `https://test.public.blob.vercel-storage.com/${oldPath}`, downloadUrl: "", pathname: oldPath, size: 9, uploadedAt: new Date("2026-08-01") },
+      { url: `https://test.public.blob.vercel-storage.com/${livePath}`, downloadUrl: "", pathname: livePath, size: 9, uploadedAt: new Date("2026-08-01") },
+      { url: `https://test.public.blob.vercel-storage.com/${orphanPath}`, downloadUrl: "", pathname: orphanPath, size: 9, uploadedAt: new Date("2026-10-08") },
+    ], hasMore: false, cursor: undefined });
+    const previous = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      const cleanup = await prunePosters(now);
+      expect(cleanup.processed).toBe(2);
+    } finally {
+      process.env.NODE_ENV = previous;
+    }
+    expect(await prisma.event.findUnique({ where: { id: expired.id } })).toMatchObject({ posterUrl: null, posterBlobPath: null });
+    expect(await prisma.event.findUnique({ where: { id: retained.id } })).toMatchObject({ posterBlobPath: livePath });
+    expect((await request(app).get(`/events/${expired.id}`).expect(200)).text).toContain("poster-fallback--detail");
+    expect(del).toHaveBeenCalledWith(oldPath);
+    expect(del).toHaveBeenCalledWith(orphanPath);
+    expect(del).not.toHaveBeenCalledWith(livePath);
+  });
+
+  it("uses lifecycle-specific 30-day retention for cancelled, rejected, draft, and pending posters", async () => {
+    const { user, authorization } = await setupOrganizer();
+    const now = new Date("2026-10-10T12:00:00Z");
+    const old = new Date("2026-09-01T12:00:00Z");
+    const recent = new Date("2026-09-20T12:00:00Z");
+    const base = { description: "Lifecycle-specific poster retention fixture.", categoryId, startTime: "10:00", endTime: "12:00", venue: "Hall", primaryOrganizerAuthorizationId: authorization.id, organizerPublicName: authorization.approvedPublicName, posterUrl: "https://test.public.blob.vercel-storage.com/ycep/posters/fixture.png" };
+    const fixtures = [
+      { title: "Old Cancelled", status: EventStatus.CANCELLED, eventDate: recent, cancelledAt: old, cancellationReason: "Cancelled for a valid operational reason.", cancelledByUserId: user.id },
+      { title: "Recent Cancelled", status: EventStatus.CANCELLED, eventDate: old, cancelledAt: recent, cancellationReason: "Cancelled for a valid operational reason.", cancelledByUserId: user.id },
+      { title: "Old Rejected", status: EventStatus.REJECTED, eventDate: recent, reviewedAt: old, rejectionReason: "A sufficiently clear rejection reason." },
+      { title: "Recent Rejected", status: EventStatus.REJECTED, eventDate: old, reviewedAt: recent, rejectionReason: "A sufficiently clear rejection reason." },
+      { title: "Old Draft", status: EventStatus.DRAFT, eventDate: old },
+      { title: "Future Draft", status: EventStatus.DRAFT, eventDate: new Date("2026-11-01") },
+      { title: "Old Pending", status: EventStatus.PENDING_APPROVAL, eventDate: old, submittedAt: old },
+      { title: "Future Pending", status: EventStatus.PENDING_APPROVAL, eventDate: new Date("2026-11-01"), submittedAt: old },
+    ];
+    for (let index = 0; index < fixtures.length; index += 1) {
+      await prisma.event.create({ data: { ...base, ...fixtures[index], posterBlobPath: `ycep/posters/00000000-0000-4000-8000-${String(index).padStart(12, "0")}.png` } });
+    }
+    const eligible = (await prisma.event.findMany({ where: expiredEventPosterWhere(now), select: { title: true } })).map((event) => event.title).sort();
+    expect(eligible).toEqual(["Old Cancelled", "Old Draft", "Old Pending", "Old Rejected"]);
+  });
+
+  it("offers a direct return to the event form after a CSRF failure", async () => {
+    const response = await request(app).post("/organizer/events").set("X-CSRF-Token", "invalid").type("form").send(payload());
+    expect(response.status).toBe(403);
+    expect(response.text).toContain('href="/organizer/events/new"');
+    expect(response.text).toContain("Return to event form");
   });
 
   it("rejects missing categories and nonexistent target references transactionally", async () => {
@@ -243,8 +469,10 @@ describe("simplified Layer 1 event drafts", () => {
     await agent.post("/organizer/events").type("form").send(payload()).expect(302);
     const event = await prisma.event.findFirstOrThrow({ where: { primaryOrganizerAuthorizationId: authorization.id } });
     await agent.get(`/organizer/events/${event.id}`).expect(200);
-    await agent.get(`/organizer/events/${event.id}/edit`).expect(200);
-    await agent.post(`/organizer/events/${event.id}`).type("form").send(payload({ title: "Updated Campus Summit", status: "PUBLISHED", organizerPublicName: "Spoof" })).expect(302);
+    const editPage = await agent.get(`/organizer/events/${event.id}/edit`).expect(200);
+    expect(editPage.text).toContain(`data-event-draft-key="${event.id}"`);
+    const update = await agent.post(`/organizer/events/${event.id}`).type("form").send(payload({ title: "Updated Campus Summit", status: "PUBLISHED", organizerPublicName: "Spoof" })).expect(302);
+    expect(update.headers.location).toBe(`/organizer/events/${event.id}?saved=1`);
     const updated = await prisma.event.findUniqueOrThrow({ where: { id: event.id } });
     expect(updated.title).toBe("Updated Campus Summit");
     expect(updated.status).toBe(EventStatus.DRAFT);
@@ -287,15 +515,19 @@ describe("simplified Layer 1 event drafts", () => {
   it("allows management to approve a pending event and audits the reviewer", async () => {
     const { authorization } = await setupOrganizer();
     const admin = await createMember({ admin: true });
-    const event = await prisma.event.create({ data: { title: "Pending Approval", description: "A complete proposal awaiting a management decision.", categoryId, eventDate: new Date("2026-11-20"), startTime: "10:00", endTime: "12:00", venue: "Hall", primaryOrganizerAuthorizationId: authorization.id, organizerPublicName: authorization.approvedPublicName, status: EventStatus.PENDING_APPROVAL, submittedAt: new Date() } });
+    const event = await prisma.event.create({ data: { title: "Pending Approval", description: "A complete proposal awaiting a management decision.", categoryId, registrationUrl: "https://forms.example/pending", eventDate: new Date("2026-11-20"), startTime: "10:00", endTime: "12:00", venue: "Hall", primaryOrganizerAuthorizationId: authorization.id, organizerPublicName: authorization.approvedPublicName, status: EventStatus.PENDING_APPROVAL, submittedAt: new Date() } });
     const agent = request.agent(app);
     await agent.post("/admin/login").type("form").send({ username: admin.managementUsername, password: "SecureAdminPassword!" }).expect(302);
     await agent.get("/admin/events").expect(200);
+    const review = await agent.get(`/admin/events/${event.id}`).expect(200);
+    expect(review.text).toContain("https://forms.example/pending");
+    expect(review.text).toContain("Inspect this external destination manually");
     await agent.post(`/admin/events/${event.id}/approve`).set("Accept", "application/json").expect(200);
     const approved = await prisma.event.findUniqueOrThrow({ where: { id: event.id } });
     expect(approved.status).toBe(EventStatus.PUBLISHED);
     expect(approved.reviewerUserId).toBe(admin.id);
     expect(approved.reviewedAt).not.toBeNull();
+    expect(approved.registrationUrl).toBe("https://forms.example/pending");
     expect(await prisma.auditLog.count({ where: { targetId: event.id, action: "EVENT_APPROVED" } })).toBe(1);
   });
 

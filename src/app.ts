@@ -14,6 +14,10 @@ import { createSessionMiddleware } from './session.js';
 import { ensureCsrfToken, verifyCsrfToken } from './middleware/csrf.middleware.js';
 import { notFoundHandler, applicationErrorHandler } from './middleware/error.middleware.js';
 import { validateRuntimeEnvironment } from './config.js';
+import { parseEventPosterUpload } from './middleware/event-poster-upload.middleware.js';
+import { posterUploadRouter } from './routes/poster-upload.route.js';
+import { productionUsesDirectPosterUpload } from './services/poster-storage.service.js';
+import { maintenanceRouter } from './routes/maintenance.route.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,8 +29,8 @@ export function createApp(configure?: (app: Express) => void): Express {
   app.disable('x-powered-by');
   app.use(helmet({
     contentSecurityPolicy: { directives: {
-      defaultSrc: ["'self'"], scriptSrc: ["'self'"], styleSrc: ["'self'"], styleSrcAttr: ["'unsafe-inline'"], imgSrc: ["'self'", "https:", "data:"],
-      fontSrc: ["'self'"], connectSrc: ["'self'"], formAction: ["'self'"], frameAncestors: ["'none'"], baseUri: ["'self'"], objectSrc: ["'none'"], upgradeInsecureRequests: null,
+      defaultSrc: ["'self'"], scriptSrc: ["'self'"], styleSrc: ["'self'"], styleSrcAttr: ["'unsafe-inline'"], imgSrc: ["'self'", "https:", "data:", "blob:"],
+      fontSrc: ["'self'"], connectSrc: ["'self'", "https://vercel.com"], formAction: ["'self'"], frameAncestors: ["'none'"], baseUri: ["'self'"], objectSrc: ["'none'"], upgradeInsecureRequests: null,
     } },
     hsts: false,
     referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
@@ -38,23 +42,29 @@ export function createApp(configure?: (app: Express) => void): Express {
   // Session middleware
   app.use(createSessionMiddleware());
   app.use(ensureCsrfToken);
+  // Multipart event forms must be parsed before the CSRF synchronizer reads
+  // the hidden token. Files remain in memory and are capped at 4 MB.
+  app.use(parseEventPosterUpload);
   app.use(verifyCsrfToken);
 
   // View engine setup
   app.set('view engine', 'ejs');
   app.set('views', path.join(__dirname, '../views'));
+  app.use((_req, res, next) => { res.locals.directPosterUploads = productionUsesDirectPosterUpload(); next(); });
 
   // Static assets
   app.use(express.static(path.join(__dirname, '../public')));
 
   // Routes
   app.use(healthRouter);
+  app.use(maintenanceRouter);
   app.use(publicEventsRouter);
   app.use(registrationRouter);
   app.use(authRouter);
   app.use(adminRouter);
   app.use(adminEventsRouter);
   app.use(organizerRouter);
+  app.use(posterUploadRouter);
   app.use(organizerEventsRouter);
 
   configure?.(app);

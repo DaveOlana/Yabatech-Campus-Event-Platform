@@ -278,6 +278,8 @@ model Event {
   title       String
   description String
   posterUrl   String?  @map("poster_url")
+  posterBlobPath String? @map("poster_blob_path")
+  registrationUrl String? @map("registration_url")
 
   categoryId String        @map("category_id")
   category   EventCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
@@ -322,6 +324,7 @@ model Event {
   @@index([status])
   @@index([status, submittedAt])
   @@index([eventDate])
+  @@index([posterBlobPath])
   @@index([cancelledByUserId])
 }
 

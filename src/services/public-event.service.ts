@@ -1,10 +1,11 @@
 import { EventStatus, LevelCode, Prisma } from "@prisma/client";
 import { prisma } from "../db.js";
-import { getPublicDateRange } from "../utils/event-display.js";
+import { getLagosClockTime, getLagosTodayDate, getPublicDateRange } from "../utils/event-display.js";
 import type { PublicDateFilter } from "../validators/public-event-query.validator.js";
 
 export interface PublicEvent {
   id: string; title: string; description: string; posterUrl: string | null;
+  registrationUrl: string | null;
   category: { name: string; code: string }; eventDate: Date; startTime: string;
   endTime: string; venue: string; organizerPublicName: string;
   status: EventStatus;
@@ -25,7 +26,7 @@ export interface PublicDiscoveryOptions {
 }
 
 const publicEventSelect = {
-  id: true, title: true, description: true, posterUrl: true,
+  id: true, title: true, description: true, posterUrl: true, registrationUrl: true,
   category: { select: { name: true, code: true } }, eventDate: true,
   startTime: true, endTime: true, venue: true, organizerPublicName: true,
   status: true, cancelledAt: true, cancellationReason: true,
@@ -35,6 +36,7 @@ const publicEventSelect = {
 
 function toPublicEvent(event: {
   id: string; title: string; description: string; posterUrl: string | null;
+  registrationUrl: string | null;
   category: { name: string; code: string }; eventDate: Date; startTime: string;
   endTime: string; venue: string; organizerPublicName: string;
   status: EventStatus;
@@ -63,7 +65,19 @@ function buildPublicEventWhere(filters: PublicEventFilters, now?: Date): Prisma.
     { targetLevels: { some: { level: { code: filters.level } } } },
     { targetLevels: { none: {} } },
   ] });
-  return { status: EventStatus.PUBLISHED, eventDate: getPublicDateRange(filters.date, now), ...(and.length ? { AND: and } : {}) };
+  const range = getPublicDateRange(filters.date, now);
+  const today = getLagosTodayDate(now);
+  const todayIsIncluded = range.gte.getTime() === today.getTime();
+  if (todayIsIncluded) {
+    const futureDateRange = range.lte ? { gt: today, lte: range.lte } : { gt: today };
+    and.push({ OR: [
+      { eventDate: futureDateRange },
+      { eventDate: today, endTime: { gt: getLagosClockTime(now) } },
+    ] });
+  } else {
+    and.push({ eventDate: range });
+  }
+  return { status: EventStatus.PUBLISHED, ...(and.length ? { AND: and } : {}) };
 }
 
 export async function getPublicDiscoveryOptions(): Promise<PublicDiscoveryOptions> {

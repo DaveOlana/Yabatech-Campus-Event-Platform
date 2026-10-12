@@ -457,6 +457,38 @@ Migration `20260912140539_event_foundation_drafts` remains immutable history. Cl
 
 **Decision:** Production initialization is separate from development seeding and requires explicit academic-cycle name/start/end values. YCEP stores exactly the canonical semester names First Semester and Second Semester, four programme levels, the approved event categories, and the initial reviewed department catalogue. Department codes beginning `YCEP-` are deterministic internal identifiers, not claims about institutional codes. Re-running initialization is additive and idempotent: it does not delete Management-approved departments or create users, organizers, events, audits, or Management credentials. Missing departments continue through the event suggestion and Management approval workflow.
 
+## D-061 — External registration links and managed poster uploads
+
+**Date:** 2026-10-10
+
+**Status:** Approved for implementation. Supersedes D-049, D-051, D-052, D-054, and D-055 only where they defer external links, derive past state from date alone, or accept organizer-entered poster URLs.
+
+**Decision:** Layer 2 adds one optional `registrationUrl` to an event. It may point to any syntactically valid HTTPS destination. YCEP does not fetch, scrape, proxy, preview, follow, or synchronize the destination, and it continues to own no attendee records. Management sees the escaped destination during normal event review and may manually reject an unsuitable link. For a published event that has not ended, public cards and details expose `Register now` in a new tab with safe external-link attributes. Cancelled and Africa/Lagos time-derived past events expose no active registration action.
+
+The organizer event form replaces direct poster-URL entry with an optional JPEG, PNG, or WebP file upload. The server validates the size, declared MIME type, and actual file signature before the approved storage abstraction writes it to durable object storage. The existing `posterUrl` column stores only the server-controlled resulting object URL. Vercel Blob is the production provider; missing artwork continues to use YCEP's generated fallback. Organizer and Management views show restrained previews, and Management may reject inappropriate artwork manually. Poster and registration values are immutable after publication with the rest of the approved event.
+
+Past remains a derived presentation/query state rather than an automatic `COMPLETED` transition. Derivation now compares the event's stored date and end time against the current Africa/Lagos date and time so an event leaves upcoming surfaces when it has actually ended.
+
+## D-062 — Full-poster presentation and browser draft recovery
+
+**Date:** 2026-10-10
+
+**Status:** Implemented without a schema migration.
+
+**Decision:** Uploaded event artwork is presented inside a consistent 4:5 frame with `contain` behavior so YCEP never crops the organizer's composition. A 1080 × 1350 pixel poster is recommended but not required; every otherwise valid JPEG, PNG, or WebP aspect ratio remains accepted. The create-form preview, public discovery/detail, organizer views, and Management review use the same non-cropping rule.
+
+Create and edit forms keep non-file event fields in tab-scoped browser session storage for up to 24 hours. Refreshing or returning in the same tab restores newer unsaved values automatically and offers a Discard action that returns to the last server-rendered draft. CSRF values, poster bytes, passwords, and other unrelated form data are never stored. Browsers do not permit safe restoration of file inputs, so the interface tells the organizer to choose the poster again when necessary. Successful draft creation/update and deliberate cancellation clear the relevant recovery state. Multi-value department and level controls provide Select all and Clear actions without changing their relevance-only semantics.
+
+## D-063 — Persistent poster ownership and retention
+
+**Date:** 2026-10-10
+
+**Status:** Implemented by forward migration `20261010130000_persistent_poster_storage`.
+
+**Decision:** Production poster bytes go directly from an authorized organizer's browser to the connected Vercel Blob store through short-lived, pathname-, type-, and size-scoped OIDC credentials. PostgreSQL stores only the public `posterUrl` and nullable YCEP-owned `posterBlobPath`; a null pathname means an external/historical URL is never deleted by YCEP. Development retains ignored local filesystem storage and tests use local/fake providers. No production request may fall back to ephemeral local storage.
+
+Managed poster assets remain for 30 days after a published event date, cancellation, or rejection. Draft and pending assets become eligible only when their event date is more than 30 days past. Unreferenced assets under the dedicated `ycep/posters/` namespace receive a 24-hour grace period. One idempotent cleanup service powers `npm run posters:prune` and the daily bearer-authenticated Vercel Cron route. Cleanup clears the database reference before best-effort deletion so historical events retain fallback artwork and no event record is deleted.
+
 # How to change a decision
 
 If a decision must change:

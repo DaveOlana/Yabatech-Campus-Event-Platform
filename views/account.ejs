@@ -9,7 +9,7 @@
 <body>
   <%- include('partials/member-header') %>
   <main class="container account-page">
-    <div class="page-header"><div><h1>My account</h1><p>Your YCEP identity and current academic verification.</p></div></div>
+    <div class="page-header"><div><h1>My account</h1><p>Your YCEP identity and enrollment details.</p></div></div>
     <section class="card account-summary">
       <div class="account-summary__head">
         <div><span class="eyebrow">Member profile</span><h2><%= user.fullName %></h2><p class="muted"><%= user.email %></p></div>
@@ -27,14 +27,11 @@
           </dl>
         </section>
 
-        <section class="account-panel account-panel--verification" aria-labelledby="verification-heading">
+        <section class="account-panel account-panel--verification" aria-labelledby="enrollment-heading">
           <span class="account-panel__index" aria-hidden="true">02</span>
-          <h3 id="verification-heading">Current verification</h3>
-          <p class="verification-statement"><%= currentVerification && currentVerification.status === 'ACTIVE' ? 'Your student identity is verified for this academic cycle.' : currentVerification && currentVerification.status === 'EXPIRED' ? 'Your student identity verification has expired. You can still access your account and history.' : 'Your student identity is not currently verified.' %></p>
+          <h3 id="enrollment-heading">Enrollment</h3>
           <dl class="account-detail-list">
-            <div><dt>Status</dt><dd><%= currentVerification ? (currentVerification.status === 'ACTIVE' ? 'Current' : currentVerification.status) : 'Not verified' %></dd></div>
-            <div><dt>Academic cycle</dt><dd><%= currentCycle ? currentCycle.name : 'None configured' %></dd></div>
-            <% if(currentVerification && currentVerification.expiresAt){ %><div><dt>Valid until</dt><dd><%= new Date(currentVerification.expiresAt).toLocaleDateString('en-NG') %></dd></div><% } %>
+            <div><dt>Enrollment year</dt><dd><%= currentCycle ? currentCycle.name.replace(/^(\d{4})\/\d{2}(\d{2})$/, '$1/$2') : 'Not configured' %></dd></div>
           </dl>
         </section>
       </div>

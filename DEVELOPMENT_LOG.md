@@ -4,6 +4,44 @@ Use this file as the handoff record between Claude, Gemini, Codex, and human dev
 
 Newest entries should be added at the top.
 
+## 2026-10-10 - Production-persistent poster storage
+
+### Status
+
+Implemented and intentionally uncommitted. No Vercel, Blob, or Neon resource was created and nothing was deployed.
+
+### Scope and verification
+
+- Added D-063 and migration `20261010130000_persistent_poster_storage`, introducing nullable `posterBlobPath` ownership metadata while preserving `posterUrl` and all historical event rows.
+- Production now uses authenticated direct browser-to-Vercel-Blob uploads with short-lived OIDC credentials constrained to `ycep/posters/<uuid>.<safe-extension>`, JPEG/PNG/WebP, and 4 MB. Server-side attachment verifies Blob metadata and file signature before saving the draft.
+- Development retains ignored local poster files; production explicitly refuses local fallback. PostgreSQL contains only references, never image bytes.
+- Replacement/removal switches or clears the Event first, then attempts deletion only for YCEP-owned paths. Failed old-file deletion is recoverable through orphan cleanup; external URLs are untouched.
+- Added one idempotent cleanup service for 30-day published/cancelled/rejected/stale-draft retention and 24-hour orphan cleanup, exposed through `npm run posters:prune` and a daily `CRON_SECRET`-protected Vercel Cron route.
+- Updated the CSP only for the Blob upload control plane and kept CSRF enforcement for token issuance; only signed provider completion callbacks bypass the synchronizer check and remain webhook-signature verified by the official SDK.
+- Tests use local/mocked storage and never access real Vercel Blob. Final verification: 214/214 tests passed across 11 files; TypeScript/client build, Prisma validation, JavaScript syntax checks, `git diff --check`, and all 13 migrations on both `ycep_dev` and `ycep_test` passed.
+
+## 2026-10-10 - External registration and managed event posters
+
+### Status
+
+Implemented and intentionally uncommitted. Event drafts now accept a managed poster upload and an optional external HTTPS registration link as two separate fields. No hosting resource was created and nothing was deployed.
+
+### Scope and verification
+
+- Added D-061 and updated the V1 specification to permit Management-reviewed external registration links while keeping attendee registration, participant data, capacity, deadlines, attendance, and waitlists outside YCEP.
+- Added migration `20261010100000_external_event_registration_url`; all 12 migrations are additive and the existing migration history remains intact.
+- Replaced organizer-entered poster URLs with JPEG, PNG, or WebP uploads (maximum 4 MB), including MIME/signature validation, server-generated object names, local preview, replacement cleanup, ignored local-development storage, and Vercel Blob storage in production.
+- Added a separate optional HTTPS registration URL to draft creation and editing. The URL and poster remain draft-only, are visible to Management during review, and are preserved through approval or rejection.
+- Added public poster artwork and explicit `Register now` actions. External links open safely in a new tab, appear only while the event is actionable, and never replace the internal event-detail link.
+- Updated public discovery and organizer/Management history presentation to compare event end date and time using the Africa/Lagos clock. Finished events leave the upcoming feed without mutating their persisted `PUBLISHED` status.
+- Added coverage for unsafe registration schemes, upload type/signature validation, poster persistence, Management review, public CTAs, fallback artwork, cancellation, and exact-time behavior.
+- Fixed the first manual-test findings: local `blob:` previews are permitted by CSP, multipart forms render their CSRF field without depending on JavaScript, local saves work without cloud credentials, and CSRF failures offer a direct route back to the event form.
+- Added D-062: all uploaded artwork now fits fully inside consistent 4:5 preview/public/workspace/Management frames without cropping; 1080 × 1350 is guidance rather than a validation rule.
+- Added 24-hour, tab-scoped recovery for non-file event-form fields with automatic refresh restoration, a discard-to-last-saved action, synchronous page-exit capture, successful-save cleanup, and a clear reminder that poster files must be selected again.
+- Added Select all and Clear controls to the multi-value department and level audience selectors while preserving their optional, relevance-only meaning.
+- Verification: 207/207 tests passed across 11 files; TypeScript build, Prisma validation, both development/test migration runs, JavaScript syntax checks, and `git diff --check` passed.
+- Superseded by D-063: provision a connected Production-scoped Vercel Blob store and Cron secret before deployment. The repository contains no provider credential.
+
 ## 2026-10-09 — Local catalogue sync and department-picker UX
 
 ### Status

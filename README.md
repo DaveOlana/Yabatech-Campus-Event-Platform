@@ -22,7 +22,7 @@ Authentication remains required for organizers and YABATECH Management. Member i
 
 Members sign in with matric number and password. The single Management account signs in with a dedicated username and password configured through ignored `YCEP_ADMIN_USERNAME` and `YCEP_ADMIN_PASSWORD` environment variables. Run `npm run admin:bootstrap` to create it, `npm run admin:bootstrap -- --update-existing` for an explicit in-place local credential update, or `npm run admin:reset-password` for deliberate technical-owner password recovery. Commands never print plaintext credentials.
 
-YCEP V1 does not manage attendee registration, participant lists, attendance, waitlists, or registration notifications. A later Layer 2 may link to external registration services, but only after the publishing/discovery loop is complete.
+YCEP V1 does not manage attendee registration, participant lists, attendance, waitlists, or registration notifications. Its narrow Layer 2 publishes an optional Management-reviewed HTTPS link to an organizer-controlled registration service; YCEP never fetches the link or stores/synchronizes registration results.
 
 ## Engineering stack
 
@@ -36,7 +36,7 @@ YCEP V1 does not manage attendee registration, participant lists, attendance, wa
 
 ## Vercel + Neon deployment
 
-YCEP deploys unchanged as a Node 24 Express/EJS application on one Vercel Fluid-compute function. Use Neon's pooled endpoint for permanent `DATABASE_URL` runtime access and its direct endpoint as `DIRECT_DATABASE_URL` only for `prisma migrate deploy`. Production also requires `NODE_ENV=production` and a random `SESSION_SECRET` of at least 32 characters. `PORT` and `TRUST_PROXY` are not user-configured on Vercel.
+YCEP deploys unchanged as a Node 24 Express/EJS application on one Vercel Fluid-compute function. Use Neon's pooled endpoint for permanent `DATABASE_URL` runtime access and its direct endpoint as `DIRECT_DATABASE_URL` only for `prisma migrate deploy`. Production also requires `NODE_ENV=production`, a random `SESSION_SECRET` of at least 32 characters, a connected Vercel Blob store (`BLOB_STORE_ID`, Vercel-managed `VERCEL_OIDC_TOKEN`, and `BLOB_WEBHOOK_PUBLIC_KEY`), and a random `CRON_SECRET` of at least 16 characters. Scope these resources to Production only. `PORT` and `TRUST_PROXY` are not user-configured on Vercel.
 
 Generate the session secret in PowerShell without writing it to a repository file:
 
@@ -58,15 +58,17 @@ $env:YCEP_ACADEMIC_CYCLE_END="<ISO date>"
 npm run db:reference:production
 ```
 
-The production reference command is idempotent, creates no users/events, uses exactly First Semester and Second Semester, and preserves later Management-approved departments. Bootstrap Management separately with `npm run admin:bootstrap`. Its username/password variables are temporary and are not required by the running app. Run `npm run sessions:prune` occasionally during scrutiny to remove expired sessions.
+The production reference command is idempotent, creates no users/events, uses exactly First Semester and Second Semester, and preserves later Management-approved departments. Bootstrap Management separately with `npm run admin:bootstrap`. Its username/password variables are temporary and are not required by the running app. Run `npm run sessions:prune` occasionally during scrutiny to remove expired sessions. Poster cleanup runs daily through Vercel Cron and can also be invoked with `npm run posters:prune`.
 
 The initial login/registration limiter remains in memory per Fluid instance: recycling resets counters and another instance can provide another allowance. Revisit a shared limiter before broad institutional launch. Give production database/session variables only to Vercel's Production environment; Preview deployments must not receive production Neon access.
 
 ## Security configuration
 
-`DATABASE_URL` is required. Tests require `TEST_DATABASE_URL`. Production requires `NODE_ENV=production` and a random `SESSION_SECRET` of at least 32 characters; the application fails closed when these are missing. Local HTTP keeps the session cookie non-Secure, while production requires HTTPS and marks it Secure. Do not set `TRUST_PROXY` until the deployment proxy hop or subnet is explicitly reviewed. HSTS is intentionally deferred to deployment readiness.
+`DATABASE_URL` is required. Tests require `TEST_DATABASE_URL`. Production requires `NODE_ENV=production`, a random `SESSION_SECRET`, `BLOB_STORE_ID`, `VERCEL_OIDC_TOKEN`, `BLOB_WEBHOOK_PUBLIC_KEY`, and `CRON_SECRET`; the application fails closed when these are missing. Local HTTP keeps the session cookie non-Secure, while production requires HTTPS and marks it Secure. Do not set `TRUST_PROXY` until the deployment proxy hop or subnet is explicitly reviewed. HSTS is intentionally deferred to deployment readiness.
 
-Every browser mutation uses a session-backed CSRF token. Login and registration are rate-limited in memory; a shared limiter store is required if production runs multiple application instances. Newly entered poster URLs must use HTTPS.
+Every browser mutation uses a session-backed CSRF token. Login and registration are rate-limited in memory; a shared limiter store is required if production runs multiple application instances. Poster uploads are optional, capped at 4 MB, restricted to JPEG/PNG/WebP, and signature-checked. Development writes ignored files beneath `public/uploads/event-posters`; production uses direct, authorized Vercel Blob uploads under `ycep/posters/` and never depends on the function filesystem. PostgreSQL stores only URL/ownership metadata, never raw images. Managed assets use lifecycle-aware 30-day retention, while unattached uploads receive a 24-hour grace period before cleanup. External registration destinations must use HTTPS and are never fetched by YCEP.
+
+Poster artwork is displayed in full inside a 4:5 frame; 1080 × 1350 pixels is recommended rather than required. Event create/edit fields are automatically restored for up to 24 hours within the same browser tab, excluding the CSRF token and poster file. Multi-value department and level selectors include Select all and Clear actions.
 
 Security verification commands are `npm test`, `npm run build`, `npm run prisma:validate`, and `npm audit`. Do not use forced audit upgrades without reviewing their compatibility.
 

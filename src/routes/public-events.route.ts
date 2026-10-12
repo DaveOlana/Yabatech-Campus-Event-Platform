@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getPublicDiscoveryOptions, getPublicEventById, getPublicUpcomingEvents } from "../services/public-event.service.js";
-import { formatEventCardDate, formatEventLongDate, formatEventTimeRange } from "../utils/event-display.js";
+import { formatEventCardDate, formatEventLongDate, formatEventTimeRange, isEventRegistrationActionable } from "../utils/event-display.js";
 import { parsePublicEventQuery } from "../validators/public-event-query.validator.js";
 
 export const publicEventsRouter = Router();
@@ -44,6 +44,7 @@ publicEventsRouter.get("/events/:eventId", async (req, res, next) => {
       title: `${event.title} — YCEP`, event,
       formattedDate: formatEventLongDate(event.eventDate),
       formattedTime: formatEventTimeRange(event.startTime, event.endTime),
+      registrationActionable: isEventRegistrationActionable(event),
     });
   } catch (error) { next(error); }
 });

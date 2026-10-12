@@ -1,1 +1,19 @@
-<article class="public-event-card"><a class="public-event-card__poster" href="/events/<%= event.id %>" aria-label="View <%= event.title %>"><% if(event.posterUrl){ %><img src="<%= event.posterUrl %>" alt="Poster for <%= event.title %>" loading="lazy" data-poster-image><% } %><div class="poster-fallback" data-poster-fallback <%= event.posterUrl ? 'hidden' : '' %>><span><%= event.category.name %></span><strong><%= event.title %></strong></div></a><div class="public-event-card__body"><span class="public-event-card__category"><%= event.category.name %></span><h3><a href="/events/<%= event.id %>"><%= event.title %></a></h3><p class="public-event-card__description"><%= event.description %></p><dl class="public-event-card__meta"><div><dt>Date</dt><dd><%= formatEventCardDate(event.eventDate) %> · <%= formatEventTimeRange(event.startTime,event.endTime) %></dd></div><div><dt>Venue</dt><dd><%= event.venue %></dd></div></dl><p class="public-event-card__organizer">By <%= event.organizerPublicName %></p></div></article>
+<article class="public-event-card">
+  <% const registrationAvailable = !!event.registrationUrl; %>
+  <% if(event.posterUrl && registrationAvailable){ %><a class="public-event-card__poster public-event-card__poster--registration" href="<%= event.registrationUrl %>" target="_blank" rel="noopener noreferrer" aria-label="Register externally for <%= event.title %>"><% } else { %><a class="public-event-card__poster" href="/events/<%= event.id %>" aria-label="View <%= event.title %>"><% } %>
+    <% if(event.posterUrl){ %><img src="<%= event.posterUrl %>" alt="Poster for <%= event.title %>" loading="lazy" referrerpolicy="no-referrer" data-poster-image><% } %>
+    <div class="poster-fallback" data-poster-fallback <%= event.posterUrl ? 'hidden' : '' %>><span><%= event.category.name %></span><strong><%= event.title %></strong></div>
+    <% if(event.posterUrl && registrationAvailable){ %><span class="poster-registration-cue">Open registration <span aria-hidden="true">&nearr;</span></span><% } %>
+  </a>
+  <div class="public-event-card__body">
+    <span class="public-event-card__category"><%= event.category.name %></span>
+    <h3><a href="/events/<%= event.id %>"><%= event.title %></a></h3>
+    <p class="public-event-card__description"><%= event.description %></p>
+    <dl class="public-event-card__meta"><div><dt>Date</dt><dd><%= formatEventCardDate(event.eventDate) %> · <%= formatEventTimeRange(event.startTime,event.endTime) %></dd></div><div><dt>Venue</dt><dd><%= event.venue %></dd></div></dl>
+    <p class="public-event-card__organizer">By <%= event.organizerPublicName %></p>
+    <div class="public-event-card__actions">
+      <a class="btn-ghost btn-sm" href="/events/<%= event.id %>">View details</a>
+      <% if(registrationAvailable){ %><a class="btn-primary btn-sm" href="<%= event.registrationUrl %>" target="_blank" rel="noopener noreferrer">Register now <span aria-hidden="true">&nearr;</span></a><% } %>
+    </div>
+  </div>
+</article>

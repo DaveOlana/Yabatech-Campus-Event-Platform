@@ -18,7 +18,7 @@
       </div>
     <% } %>
     <article class="public-detail__layout">
-      <div class="public-detail__visual">
+      <% if(event.posterUrl && registrationActionable){ %><a class="public-detail__visual public-detail__visual--registration" href="<%= event.registrationUrl %>" target="_blank" rel="noopener noreferrer" aria-label="Register externally for <%= event.title %>"><% } else { %><div class="public-detail__visual"><% } %>
         <% if(event.posterUrl) { %>
           <img src="<%= event.posterUrl %>" alt="Poster for <%= event.title %>" data-poster-image loading="lazy" referrerpolicy="no-referrer">
         <% } %>
@@ -26,11 +26,13 @@
           <span><%= event.category.name %></span>
           <strong><%= event.title %></strong>
         </div>
-      </div>
+        <% if(event.posterUrl && registrationActionable){ %><span class="poster-registration-cue">Open registration <span aria-hidden="true">&nearr;</span></span><% } %>
+      <% if(event.posterUrl && registrationActionable){ %></a><% } else { %></div><% } %>
       <div class="public-detail__content">
         <span class="public-event-card__category"><%= event.category.name %></span>
         <h1><%= event.title %></h1>
         <p class="public-detail__organizer">Presented by <strong><%= event.organizerPublicName %></strong></p>
+        <% if(registrationActionable){ %><div class="public-registration-cta"><a class="btn-primary" href="<%= event.registrationUrl %>" target="_blank" rel="noopener noreferrer">Register now <span aria-hidden="true">&nearr;</span></a><p>Registration is handled externally by the event organizer.</p></div><% } else if(event.registrationUrl && event.status === 'PUBLISHED'){ %><p class="registration-closed-note">External registration is no longer available because this event has ended.</p><% } %>
         <div class="public-detail__facts">
           <div><span>Date</span><strong><%= formattedDate %></strong></div>
           <div><span>Time</span><strong><%= formattedTime %> WAT</strong></div>

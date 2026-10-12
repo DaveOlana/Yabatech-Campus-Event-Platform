@@ -4,7 +4,7 @@ import pg from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { EventStatus, LevelCode, OrganizerAuthorizationStatus, PrismaClient, UserRole } from "@prisma/client";
 import { createApp } from "../src/app.js";
-import { formatEventTimeRange, getLagosTodayDate, getPublicDateRange } from "../src/utils/event-display.js";
+import { formatEventTimeRange, getLagosTodayDate, getPublicDateRange, isEventPast, isEventRegistrationActionable } from "../src/utils/event-display.js";
 import { PRODUCTION_DEPARTMENTS, syncProductionDepartments } from "../scripts/seed-production-reference.js";
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
@@ -79,6 +79,20 @@ describe("public event discovery", () => {
     expect(response.text).toContain("poster-fallback"); expect(response.text).toContain("No Poster Event");
   });
 
+  it("renders safe external registration actions with and without a poster", async () => {
+    const future = getLagosTodayDate(); future.setUTCDate(future.getUTCDate() + 1);
+    const withPoster = await createEvent("Poster Registration", EventStatus.PUBLISHED, future, { posterUrl: "https://images.example/poster.webp", registrationUrl: "https://forms.example/poster-event" });
+    const withoutPoster = await createEvent("Fallback Registration", EventStatus.PUBLISHED, future, { registrationUrl: "https://forms.example/fallback-event" });
+    const discovery = await request(app).get("/").expect(200);
+    expect(discovery.text).toContain('href="https://forms.example/poster-event" target="_blank" rel="noopener noreferrer"');
+    expect(discovery.text).toContain('href="https://forms.example/fallback-event" target="_blank" rel="noopener noreferrer"');
+    expect(discovery.text).toContain("Register now");
+    expect(discovery.text).toContain(`/events/${withoutPoster.id}`);
+    const detail = await request(app).get(`/events/${withPoster.id}`).expect(200);
+    expect(detail.text).toContain("Registration is handled externally by the event organizer.");
+    expect(detail.text).toContain("https://forms.example/poster-event");
+  });
+
   it("allows direct access to past published event details and audiences", async () => {
     const past = getLagosTodayDate(); past.setUTCDate(past.getUTCDate() - 30);
     const event = await createEvent("Historic Public Event", EventStatus.PUBLISHED, past);
@@ -86,6 +100,18 @@ describe("public event discovery", () => {
     await prisma.eventTargetLevel.create({ data: { eventId: event.id, levelId } });
     const response = await request(app).get(`/events/${event.id}`).expect(200);
     for (const text of ["Historic Public Event", "Computer Science", "ND1"]) expect(response.text).toContain(text);
+  });
+
+  it("removes registration actions from past and cancelled event details", async () => {
+    const past = getLagosTodayDate(); past.setUTCDate(past.getUTCDate() - 1);
+    const future = getLagosTodayDate(); future.setUTCDate(future.getUTCDate() + 1);
+    const pastEvent = await createEvent("Past Registration", EventStatus.PUBLISHED, past, { registrationUrl: "https://forms.example/past" });
+    const cancelled = await createEvent("Cancelled Registration", EventStatus.CANCELLED, future, { registrationUrl: "https://forms.example/cancelled" });
+    const pastPage = await request(app).get(`/events/${pastEvent.id}`).expect(200);
+    expect(pastPage.text).not.toContain("Register now");
+    expect(pastPage.text).toContain("registration is no longer available");
+    const cancelledPage = await request(app).get(`/events/${cancelled.id}`).expect(200);
+    expect(cancelledPage.text).not.toContain("Register now");
   });
 
   it("returns the same generic 404 for non-public statuses and unknown ids", async () => {
@@ -121,6 +147,11 @@ describe("public event discovery", () => {
   it("formats campus time and uses the Lagos calendar boundary", () => {
     expect(formatEventTimeRange("10:00", "13:00")).toBe("10:00 AM – 1:00 PM");
     expect(getLagosTodayDate(new Date("2026-10-08T23:30:00Z")).toISOString()).toBe("2026-10-09T00:00:00.000Z");
+    const eventDate = new Date("2026-10-09T00:00:00.000Z");
+    expect(isEventPast(eventDate, "13:00", new Date("2026-10-09T11:59:00.000Z"))).toBe(false);
+    expect(isEventPast(eventDate, "13:00", new Date("2026-10-09T12:00:00.000Z"))).toBe(true);
+    expect(isEventRegistrationActionable({ eventDate, endTime: "13:00", status: EventStatus.PUBLISHED, registrationUrl: "https://forms.example/live" }, new Date("2026-10-09T11:00:00.000Z"))).toBe(true);
+    expect(isEventRegistrationActionable({ eventDate, endTime: "13:00", status: EventStatus.CANCELLED, registrationUrl: "https://forms.example/live" }, new Date("2026-10-09T11:00:00.000Z"))).toBe(false);
   });
 
   it("searches every approved field case-insensitively and normalizes whitespace", async () => {
@@ -211,7 +242,7 @@ describe("public event discovery", () => {
   it("applies today, week, and month as Lagos calendar ranges", async () => {
     const today = getLagosTodayDate();
     const tomorrow = new Date(today); tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-    await createEvent("Today Event", EventStatus.PUBLISHED, today);
+    await createEvent("Today Event", EventStatus.PUBLISHED, today, { endTime: "23:59" });
     await createEvent("Tomorrow Event", EventStatus.PUBLISHED, tomorrow);
     const todayPage = await request(app).get("/?date=today").expect(200);
     expect(todayPage.text).toContain("Today Event"); expect(todayPage.text).not.toContain("Tomorrow Event"); expect(todayPage.text).toContain('value="today" selected');

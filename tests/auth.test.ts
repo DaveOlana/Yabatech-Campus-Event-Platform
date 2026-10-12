@@ -313,6 +313,20 @@ describe("Authentication: Login & Sessions", () => {
     expect(res.text).not.toContain(hashedPassword);
   });
 
+  it("shows only the enrollment year instead of verification expiry details", async () => {
+    const user = await createUser({ matricNumber: "F/ND/24/3210051" });
+    await createVerification(user.id, currentCycleId, VerificationStatus.ACTIVE);
+    const agent = request.agent(app);
+    await agent.post("/login").send({ matricNumber: user.matricNumber, password: RAW_PASSWORD });
+
+    const res = await agent.get("/account").expect(200);
+    expect(res.text).toContain("<dt>Enrollment year</dt><dd>2025/26</dd>");
+    expect(res.text).not.toContain("Expired");
+    expect(res.text).not.toContain("Current verification");
+    expect(res.text).not.toContain("Valid until");
+    expect(res.text).not.toContain("01/09/2026");
+  });
+
   it("lets a member update editable profile details without changing identity or verification", async () => {
     const user = await createUser({ matricNumber: "F/ND/24/3210051" });
     const verification = await createVerification(user.id, currentCycleId, VerificationStatus.ACTIVE);
@@ -405,7 +419,8 @@ describe("Verification Guards & Yearly Expiry Behaviour", () => {
 
     const accountRes = await agent.get("/account");
     expect(accountRes.status).toBe(200);
-    expect(accountRes.text).toContain("EXPIRED");
+    expect(accountRes.text).toContain("<dt>Enrollment year</dt><dd>2025/26</dd>");
+    expect(accountRes.text).not.toContain("Expired");
   });
 
   it("blocks an expired member from requireActiveVerification", async () => {

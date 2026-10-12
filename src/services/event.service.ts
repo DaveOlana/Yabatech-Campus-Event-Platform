@@ -10,7 +10,8 @@ import {
 import { prisma } from "../db.js";
 import { EventDraftInput } from "../validators/event.validator.js";
 import { AUDIT_ACTIONS, createAuditLog } from "./audit.service.js";
-import { getLagosTodayDate } from "../utils/event-display.js";
+import { getPastEventWhere, getUpcomingEventWhere } from "../utils/event-display.js";
+import { deleteManagedPoster, storePoster, verifyUploadedBlobPoster, type ManagedPosterReference, type PosterUpload } from "./poster-storage.service.js";
 
 export class EventError extends Error {
   constructor(message: string, public readonly statusCode = 400) {
@@ -126,41 +127,68 @@ async function getOrganizerTrustState(tx: TransactionClient, authorizationId: st
   return { valid: true as const, reason: null, authorization };
 }
 
-export async function createEventDraft(currentAuth: OrganizerAuthorization, input: EventDraftInput): Promise<Event> {
+async function preparePoster(
+  poster: PosterUpload | undefined,
+  uploadedReference?: Partial<ManagedPosterReference>,
+): Promise<ManagedPosterReference | null> {
+  const hasReference = Boolean(uploadedReference?.url || uploadedReference?.pathname);
+  if (poster && hasReference) throw new EventValidationError("Choose only one poster upload method.");
+  if (hasReference) {
+    if (!uploadedReference?.url || !uploadedReference.pathname) throw new EventValidationError("The uploaded poster reference is incomplete.");
+    return verifyUploadedBlobPoster({ url: uploadedReference.url, pathname: uploadedReference.pathname });
+  }
+  return poster ? storePoster(poster) : null;
+}
+
+export async function createEventDraft(
+  currentAuth: OrganizerAuthorization,
+  input: EventDraftInput,
+  poster?: PosterUpload,
+  uploadedReference?: Partial<ManagedPosterReference>,
+): Promise<Event> {
   await validateReferences(input);
-  return prisma.$transaction((tx) => tx.event.create({
-    data: {
-      title: input.title,
-      description: input.description,
-      posterUrl: input.posterUrl,
-      categoryId: input.categoryId,
-      eventDate: new Date(`${input.eventDate}T00:00:00Z`),
-      startTime: input.startTime,
-      endTime: input.endTime,
-      venue: input.venue,
-      primaryOrganizerAuthorizationId: currentAuth.id,
-      organizerPublicName: currentAuth.approvedPublicName,
-      suggestedDepartmentName: input.suggestedDepartmentName || null,
-      suggestedDepartmentCode: input.suggestedDepartmentCode || null,
-      status: EventStatus.DRAFT,
-      targetDepartments: { create: input.targetDepartmentIds.map((departmentId) => ({ departmentId })) },
-      targetLevels: { create: input.targetLevelIds.map((levelId) => ({ levelId })) },
-    },
-    include: eventRelations,
-  }));
+  const storedPoster = await preparePoster(poster, uploadedReference);
+  try {
+    return await prisma.$transaction((tx) => tx.event.create({
+      data: {
+        title: input.title,
+        description: input.description,
+        posterUrl: storedPoster?.url ?? null,
+        posterBlobPath: storedPoster?.pathname ?? null,
+        registrationUrl: input.registrationUrl,
+        categoryId: input.categoryId,
+        eventDate: new Date(`${input.eventDate}T00:00:00Z`),
+        startTime: input.startTime,
+        endTime: input.endTime,
+        venue: input.venue,
+        primaryOrganizerAuthorizationId: currentAuth.id,
+        organizerPublicName: currentAuth.approvedPublicName,
+        suggestedDepartmentName: input.suggestedDepartmentName || null,
+        suggestedDepartmentCode: input.suggestedDepartmentCode || null,
+        status: EventStatus.DRAFT,
+        targetDepartments: { create: input.targetDepartmentIds.map((departmentId) => ({ departmentId })) },
+        targetLevels: { create: input.targetLevelIds.map((levelId) => ({ levelId })) },
+      },
+      include: eventRelations,
+    }));
+  } catch (error) {
+    await deleteManagedPoster(storedPoster?.pathname).catch(() => undefined);
+    throw error;
+  }
 }
 
 export type OrganizerEventView = "all" | "drafts" | "pending" | "published" | "rejected" | "history";
 
 export async function getOrganizerEvents(currentAuthId: string, view: OrganizerEventView = "all", now = new Date()) {
-  const today = getLagosTodayDate(now);
+  const upcoming = getUpcomingEventWhere(now) as Prisma.EventWhereInput;
+  const past = getPastEventWhere(now) as Prisma.EventWhereInput;
   const viewWhere: Record<OrganizerEventView, Prisma.EventWhereInput> = {
     all: {},
     drafts: { status: EventStatus.DRAFT },
     pending: { status: EventStatus.PENDING_APPROVAL },
-    published: { status: EventStatus.PUBLISHED, eventDate: { gte: today } },
+    published: { status: EventStatus.PUBLISHED, ...upcoming },
     rejected: { status: EventStatus.REJECTED },
-    history: { OR: [{ status: EventStatus.CANCELLED }, { status: EventStatus.PUBLISHED, eventDate: { lt: today } }] },
+    history: { OR: [{ status: EventStatus.CANCELLED }, { status: EventStatus.PUBLISHED, ...past }] },
   };
   return prisma.event.findMany({
     where: { primaryOrganizerAuthorizationId: currentAuthId, ...viewWhere[view] },
@@ -186,9 +214,21 @@ export async function getOrganizerEventDraftById(eventId: string, currentAuthId:
   return event;
 }
 
-export async function updateEventDraft(eventId: string, currentAuthId: string, input: EventDraftInput): Promise<Event> {
+export async function updateEventDraft(
+  eventId: string,
+  currentAuthId: string,
+  input: EventDraftInput,
+  poster?: PosterUpload,
+  uploadedReference?: Partial<ManagedPosterReference>,
+): Promise<Event> {
   await validateReferences(input);
-  return prisma.$transaction(async (tx) => {
+  const before = await prisma.event.findFirst({ where: { id: eventId, primaryOrganizerAuthorizationId: currentAuthId } });
+  if (!before) throw new EventNotFoundError("Event draft not found");
+  if (before.status !== EventStatus.DRAFT) throw new EventInvalidStateError("Only draft events can be edited");
+  const uploadedPoster = await preparePoster(poster, uploadedReference);
+  const nextPoster = uploadedPoster ?? (input.removePoster ? null : { url: before.posterUrl, pathname: before.posterBlobPath });
+  try {
+    const updated = await prisma.$transaction(async (tx) => {
     const locked = await lockEvent(tx, eventId);
     if (locked.primary_organizer_authorization_id !== currentAuthId) throw new EventNotFoundError();
     const current = await tx.event.findUnique({ where: { id: eventId } });
@@ -202,7 +242,9 @@ export async function updateEventDraft(eventId: string, currentAuthId: string, i
       data: {
         title: input.title,
         description: input.description,
-        posterUrl: input.posterUrl,
+        posterUrl: nextPoster?.url ?? null,
+        posterBlobPath: nextPoster?.pathname ?? null,
+        registrationUrl: input.registrationUrl,
         categoryId: input.categoryId,
         eventDate: new Date(`${input.eventDate}T00:00:00Z`),
         startTime: input.startTime,
@@ -215,7 +257,17 @@ export async function updateEventDraft(eventId: string, currentAuthId: string, i
       },
       include: eventRelations,
     });
-  });
+    });
+    if (before.posterBlobPath && before.posterBlobPath !== nextPoster?.pathname) {
+      await deleteManagedPoster(before.posterBlobPath).catch((cleanupError) => {
+        console.error(`Poster cleanup failed for event ${eventId}:`, cleanupError instanceof Error ? cleanupError.name : "unknown error");
+      });
+    }
+    return updated;
+  } catch (error) {
+    await deleteManagedPoster(uploadedPoster?.pathname).catch(() => undefined);
+    throw error;
+  }
 }
 
 export async function submitEventForReview(eventId: string, organizerAuthorizationId: string) {
@@ -256,13 +308,13 @@ export async function getPendingEventsForManagement() {
 export type ManagementEventHistoryStatus = "all" | "published" | "rejected" | "cancelled" | "past";
 
 export async function getEventHistoryForManagement(status: ManagementEventHistoryStatus = "all", now = new Date()) {
-  const today = getLagosTodayDate(now);
+  const past = getPastEventWhere(now) as Prisma.EventWhereInput;
   const statusWhere: Record<ManagementEventHistoryStatus, Prisma.EventWhereInput> = {
     all: { status: { in: [EventStatus.PUBLISHED, EventStatus.REJECTED, EventStatus.CANCELLED] } },
     published: { status: EventStatus.PUBLISHED },
     rejected: { status: EventStatus.REJECTED },
     cancelled: { status: EventStatus.CANCELLED },
-    past: { status: EventStatus.PUBLISHED, eventDate: { lt: today } },
+    past: { status: EventStatus.PUBLISHED, ...past },
   };
   return prisma.event.findMany({
     where: statusWhere[status],

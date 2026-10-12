@@ -11,6 +11,40 @@ export function getLagosTodayDate(now = new Date()): Date {
   return new Date(`${value("year")}-${value("month")}-${value("day")}T00:00:00.000Z`);
 }
 
+export function getLagosClockTime(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: LAGOS_TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value;
+  return `${value("hour")}:${value("minute")}`;
+}
+
+export function isEventPast(eventDate: Date, endTime: string, now = new Date()): boolean {
+  const today = getLagosTodayDate(now).getTime();
+  const date = new Date(eventDate).getTime();
+  return date < today || (date === today && endTime <= getLagosClockTime(now));
+}
+
+export function isEventRegistrationActionable(
+  event: { eventDate: Date; endTime: string; status: string; registrationUrl: string | null },
+  now = new Date(),
+): boolean {
+  return event.status === "PUBLISHED" && !!event.registrationUrl && !isEventPast(event.eventDate, event.endTime, now);
+}
+
+export function getUpcomingEventWhere(now = new Date()): { OR: Array<Record<string, unknown>> } {
+  const today = getLagosTodayDate(now);
+  return { OR: [{ eventDate: { gt: today } }, { eventDate: today, endTime: { gt: getLagosClockTime(now) } }] };
+}
+
+export function getPastEventWhere(now = new Date()): { OR: Array<Record<string, unknown>> } {
+  const today = getLagosTodayDate(now);
+  return { OR: [{ eventDate: { lt: today } }, { eventDate: today, endTime: { lte: getLagosClockTime(now) } }] };
+}
+
 export function getPublicDateRange(filter: "upcoming" | "today" | "week" | "month", now = new Date()): { gte: Date; lte?: Date } {
   const today = getLagosTodayDate(now);
   if (filter === "upcoming") return { gte: today };
@@ -26,6 +60,14 @@ export function getEventDateState(eventDate: Date, now = new Date()): "today" | 
   const date = new Date(eventDate).getTime();
   if (date === today) return "today";
   return date > today ? "upcoming" : "past";
+}
+
+export function getEventTimeState(eventDate: Date, startTime: string, endTime: string, now = new Date()): "upcoming" | "live" | "past" {
+  if (isEventPast(eventDate, endTime, now)) return "past";
+  const today = getLagosTodayDate(now).getTime();
+  const date = new Date(eventDate).getTime();
+  if (date === today && startTime <= getLagosClockTime(now)) return "live";
+  return "upcoming";
 }
 
 export function formatEventCardDate(date: Date): string {

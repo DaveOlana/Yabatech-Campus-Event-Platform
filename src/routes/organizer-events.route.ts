@@ -17,7 +17,8 @@ import {
   type OrganizerEventView,
 } from "../services/event.service.js";
 import { cancelEventSchema } from "../validators/event-cancellation.validator.js";
-import { getEventDateState } from "../utils/event-display.js";
+import { getEventTimeState } from "../utils/event-display.js";
+import { PosterUploadError } from "../services/poster-storage.service.js";
 
 export const organizerEventsRouter = Router();
 
@@ -54,7 +55,7 @@ organizerEventsRouter.get(
         authorization: auth,
         events,
         view,
-        getEventDateState,
+        getEventTimeState,
       });
     } catch (error) {
       next(error);
@@ -164,7 +165,10 @@ organizerEventsRouter.post(
     }
 
     try {
-      const event = await createEventDraft(auth, parseResult.data);
+      const event = await createEventDraft(auth, parseResult.data, req.file, {
+        url: typeof req.body.posterUrl === "string" ? req.body.posterUrl : undefined,
+        pathname: typeof req.body.posterBlobPath === "string" ? req.body.posterBlobPath : undefined,
+      });
 
       if (jsonExpected) {
         res.status(201).json({
@@ -175,9 +179,9 @@ organizerEventsRouter.post(
         return;
       }
 
-      res.redirect(`/organizer/events/${event.id}`);
+      res.redirect(`/organizer/events/${event.id}?saved=1`);
     } catch (error) {
-      if (error instanceof EventValidationError) {
+      if (error instanceof EventValidationError || error instanceof PosterUploadError) {
         if (jsonExpected) {
           res.status(400).json({ success: false, message: error.message });
           return;
@@ -298,7 +302,7 @@ organizerEventsRouter.get(
         title: event.title,
         description: event.description,
         categoryId: event.categoryId,
-        posterUrl: event.posterUrl || "",
+        registrationUrl: event.registrationUrl || "",
         eventDate: formattedDate,
         startTime: event.startTime,
         endTime: event.endTime,
@@ -399,7 +403,10 @@ organizerEventsRouter.post(
     }
 
     try {
-      const updatedEvent = await updateEventDraft(eventId, auth.id, parseResult.data);
+      const updatedEvent = await updateEventDraft(eventId, auth.id, parseResult.data, req.file, {
+        url: typeof req.body.posterUrl === "string" ? req.body.posterUrl : undefined,
+        pathname: typeof req.body.posterBlobPath === "string" ? req.body.posterBlobPath : undefined,
+      });
 
       if (jsonExpected) {
         res.status(200).json({
@@ -410,7 +417,7 @@ organizerEventsRouter.post(
         return;
       }
 
-      res.redirect(`/organizer/events/${updatedEvent.id}`);
+      res.redirect(`/organizer/events/${updatedEvent.id}?saved=1`);
     } catch (error) {
       if (error instanceof EventNotFoundError) {
         if (jsonExpected) {
@@ -436,7 +443,7 @@ organizerEventsRouter.post(
         return;
       }
 
-      if (error instanceof EventValidationError) {
+      if (error instanceof EventValidationError || error instanceof PosterUploadError) {
         if (jsonExpected) {
           res.status(400).json({ success: false, message: error.message });
           return;

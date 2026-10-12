@@ -14,10 +14,12 @@ import {
 
 const originalNodeEnv = process.env.NODE_ENV;
 const originalVercel = process.env.VERCEL;
+const originalCronSecret = process.env.CRON_SECRET;
 
 afterEach(() => {
   process.env.NODE_ENV = originalNodeEnv;
   if (originalVercel === undefined) delete process.env.VERCEL; else process.env.VERCEL = originalVercel;
+  if (originalCronSecret === undefined) delete process.env.CRON_SECRET; else process.env.CRON_SECRET = originalCronSecret;
   vi.restoreAllMocks();
 });
 
@@ -61,6 +63,15 @@ describe("Milestone 5C deployment configuration", () => {
     const unavailable = await request(app).get("/ready").expect(503);
     expect(unavailable.body).toEqual({ status: "unavailable" });
     expect(unavailable.text).not.toContain("secret database detail");
+  });
+
+  it("protects poster cleanup with exact Cron bearer authentication and a minimal response", async () => {
+    process.env.CRON_SECRET = "test-cron-secret-value";
+    await request(app).get("/internal/maintenance/posters").expect(401).expect({ status: "unauthorized" });
+    await request(app).get("/internal/maintenance/posters").set("Authorization", "Bearer wrong-secret").expect(401);
+    const response = await request(app).get("/internal/maintenance/posters").set("Authorization", "Bearer test-cron-secret-value").expect(200);
+    expect(response.body).toEqual({ status: "ok", processed: expect.any(Number) });
+    expect(response.text).not.toContain("test-cron-secret-value");
   });
 
   it("requires explicit valid academic-cycle values", () => {

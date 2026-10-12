@@ -3,7 +3,7 @@ import { requireAdmin, isJsonRequest } from "../middleware/auth.middleware.js";
 import { approveEvent, cancelPublishedEventAsManagement, EventError, getEventForManagementReview, getEventHistoryForManagement, getPendingEventsForManagement, rejectEvent, type ManagementEventHistoryStatus } from "../services/event.service.js";
 import { rejectEventSchema } from "../validators/event-review.validator.js";
 import { cancelEventSchema } from "../validators/event-cancellation.validator.js";
-import { getEventDateState } from "../utils/event-display.js";
+import { getEventTimeState } from "../utils/event-display.js";
 
 export const adminEventsRouter = Router();
 adminEventsRouter.use("/admin/events", requireAdmin);
@@ -31,7 +31,7 @@ adminEventsRouter.get("/admin/events/history", async (req, res, next) => {
     const status: ManagementEventHistoryStatus = allowed.includes(requested as ManagementEventHistoryStatus) ? requested as ManagementEventHistoryStatus : "all";
     const events = await getEventHistoryForManagement(status);
     if (isJsonRequest(req)) return res.json({ success: true, events, status });
-    res.render("admin/events/history", { title: "Event History — YCEP", user: req.user, events, status, getEventDateState });
+    res.render("admin/events/history", { title: "Event History — YCEP", user: req.user, events, status, getEventTimeState });
   } catch (error) { next(error); }
 });
 

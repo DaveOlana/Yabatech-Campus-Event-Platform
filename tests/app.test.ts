@@ -39,4 +39,21 @@ describe('YCEP Application Foundation', () => {
 
     expect(response.status).toBe(404);
   });
+
+  it('serves non-cropping poster and event-form recovery assets', async () => {
+    const css = await request(app).get('/css/style.css').expect(200);
+    expect(css.text).toContain('.poster-upload-preview img');
+    expect(css.text).toContain('object-fit: contain');
+    expect(css.text).not.toContain('.poster-upload-preview img { width: 100%; height: 100%; object-fit: cover; }');
+
+    const recovery = await request(app).get('/js/event-form-recovery.js').expect(200);
+    expect(recovery.text).toContain("sessionStorage");
+    expect(recovery.text).toContain("name === '_csrf'");
+    expect(recovery.text).toContain("posterWasSelected");
+    expect(recovery.text).toContain("restoreValues(form, saved.values)");
+
+    const picker = await request(app).get('/js/department-picker.js').expect(200);
+    expect(picker.text).toContain('selectAll.textContent = "Select all"');
+    expect(picker.text).toContain('[data-checklist-actions]');
+  });
 });

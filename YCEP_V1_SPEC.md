@@ -96,7 +96,8 @@ Layer 1 supports:
 
 - title and clear public description;
 - category;
-- optional validated HTTPS flyer/poster URL for newly created or edited events;
+- optional uploaded flyer/poster image stored through YCEP's approved durable object storage;
+- optional validated HTTPS external registration URL;
 - event date, start/end time, and venue;
 - public organizer identity;
 - one primary organizer authorization;
@@ -141,11 +142,11 @@ Important event records must not be hard-deleted after publication. Operational 
 
 Cancellation records a reason and preserves the event. Completed/cancelled events may remain publicly historical where appropriate. There is no V1 participant-preservation or participant-notification requirement because YCEP does not own attendee registration.
 
-Milestone 4E makes published events immutable. Corrections or replacements require a fresh draft and approval; no revision system is included. Today, upcoming, and past are derived using the Africa/Lagos event date, and `COMPLETED` has no approved V1 transition. The only post-publication transition is irreversible `PUBLISHED → CANCELLED`. The active authorization-bound owner or Management may cancel with a public 10–500 character reason. Cancellation is transactionally locked and audited. Cancelled events leave all public lists/search results but remain available at their direct public URL with a cancellation notice and reason. Later organizer trust loss does not silently unpublish an approved event; Management may withdraw it when necessary.
+Milestone 4E makes published events immutable. Corrections or replacements require a fresh draft and approval; no revision system is included. Today, upcoming, and past are derived using the Africa/Lagos event date and end time, and `COMPLETED` has no approved V1 transition. The only post-publication transition is irreversible `PUBLISHED → CANCELLED`. The active authorization-bound owner or Management may cancel with a public 10–500 character reason. Cancellation is transactionally locked and audited. Cancelled events leave all public lists/search results but remain available at their direct public URL with a cancellation notice and reason. Later organizer trust loss does not silently unpublish an approved event; Management may withdraw it when necessary.
 
-## 12. External registration — deferred Layer 2
+## 12. External registration — approved Layer 2
 
-External registration links are not part of immediate Layer 1 work. The intended later model is:
+External registration links are an optional extension to the completed Layer 1 publishing flow:
 
 ```text
 Organizer creates a registration page externally
@@ -157,7 +158,13 @@ Student selects Register / Learn More
 External service handles registration
 ```
 
-Possible services include Luma, Google Forms, Microsoft Forms, Eventbrite, and other legitimate platforms. YCEP will not know whether a visitor registered or synchronize external status. Later organizer guidance may explain how to create a page, but this must not be implemented before Layer 1 is complete and the feature is deliberately designed.
+Any syntactically valid HTTPS destination may be submitted. YCEP never fetches, previews, proxies, or follows the URL server-side and never knows whether a visitor registered. Management manually inspects the destination during the existing event review and may reject an unsafe, misleading, or inappropriate link. A published event exposes a safe external `Register now` action until its Africa/Lagos end time; cancelled and past events retain historical details without an active registration action.
+
+The event poster is a separate optional uploaded image, never a user-entered URL. Organizers may upload JPEG, PNG, or WebP artwork within the configured size limit. The backend validates the actual file signature and stores the image through the poster-storage abstraction; the resulting storage URL is server-controlled. Poster previews appear in organizer and Management views, while public cards and details use the approved poster or YCEP fallback artwork. Management may manually reject unsuitable artwork. Published poster and registration values remain immutable with the rest of the event.
+
+In production, authorized organizer browsers upload poster bytes directly to Vercel Blob using a short-lived token constrained to the YCEP poster namespace, the three accepted types, and 4 MB. Event records store the public URL and a separate nullable managed pathname; raw image bytes never enter PostgreSQL and historical/external URLs are never provider-deleted. Managed artwork is retained for 30 days after the event date, cancellation, or rejection. Past-date drafts/pending events use the same conservative 30-day rule, and unattached uploads may be removed after 24 hours. Removing retained artwork never removes the Event; all views automatically return to standard YCEP fallback artwork.
+
+YCEP recommends 1080 × 1350 pixel (4:5) artwork but does not reject other aspect ratios. All poster surfaces use a consistent 4:5 presentation frame and fit the complete uploaded composition without cropping. Event create/edit forms retain non-file inputs in tab-scoped browser storage for up to 24 hours and automatically restore newer unsaved values after refresh or same-tab return, with an explicit discard control. CSRF values and poster bytes are excluded; a poster must be selected again after recovery. Department and level audience selectors provide Select all and Clear conveniences while remaining optional, relevance-only metadata.
 
 ## 13. Removed/deferred from primary V1
 
@@ -213,4 +220,4 @@ Sensitive owner actions must not automatically be granted to future co-organizer
 
 ## 18. Product boundary
 
-The V1 boundary is the complete trusted publishing loop: organizer identity, event drafting, Management approval, publication, and public discovery. Do not expand V1 into an internal attendee platform. Complete Layer 1 before designing Layer 2 external registration links.
+The V1 boundary is the trusted publishing loop plus narrowly scoped external registration navigation: organizer identity, event drafting, Management approval, publication, public discovery, and optional departure to a reviewed external registration page. Do not expand V1 into an internal attendee platform.

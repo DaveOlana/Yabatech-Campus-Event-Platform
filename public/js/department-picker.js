@@ -11,6 +11,7 @@
     const trigger = document.createElement("button");
     const panel = document.createElement("div");
     const search = document.createElement("input");
+    const actions = document.createElement("div");
     const list = document.createElement("div");
     const empty = document.createElement("p");
     const listId = `${select.id || `department-picker-${pickerIndex}`}-listbox`;
@@ -31,6 +32,7 @@
     search.setAttribute("aria-autocomplete", "list");
     search.setAttribute("aria-expanded", "false");
     search.setAttribute("aria-controls", listId);
+    actions.className = "multi-choice-actions department-picker__actions";
     list.id = listId;
     list.className = "department-picker__options";
     list.setAttribute("role", "listbox");
@@ -137,6 +139,24 @@
       updateTrigger();
     };
 
+    if (isMultiple) {
+      const selectAll = document.createElement("button");
+      const clearAll = document.createElement("button");
+      selectAll.type = "button";
+      clearAll.type = "button";
+      selectAll.textContent = "Select all";
+      clearAll.textContent = "Clear";
+      selectAll.addEventListener("click", () => {
+        options.forEach((option) => { option.selected = true; });
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+      clearAll.addEventListener("click", () => {
+        options.forEach((option) => { option.selected = false; });
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+      actions.append(selectAll, clearAll);
+    }
+
     trigger.addEventListener("click", () => panel.hidden ? open() : close());
     trigger.addEventListener("keydown", (event) => {
       if (["ArrowDown", "Enter", " "].includes(event.key) && panel.hidden) {
@@ -169,13 +189,30 @@
     document.addEventListener("click", (event) => {
       if (!panel.hidden && !wrapper.contains(event.target)) close();
     });
+    select.addEventListener("change", updateTrigger);
     select.form?.addEventListener("reset", () => window.setTimeout(updateTrigger));
 
+    if (isMultiple) panel.append(actions);
     panel.append(search, list, empty);
     select.insertAdjacentElement("afterend", wrapper);
     wrapper.append(trigger, panel);
     select.dataset.enhanced = "true";
     select.tabIndex = -1;
     updateTrigger();
+  });
+
+  document.querySelectorAll("[data-checklist-actions]").forEach((controls) => {
+    const name = controls.getAttribute("data-checklist-actions");
+    const form = controls.closest("form");
+    if (!name || !form) return;
+    const checkboxes = () => Array.from(form.querySelectorAll(`input[type="checkbox"][name="${CSS.escape(name)}"]`));
+    controls.querySelector("[data-select-all]")?.addEventListener("click", () => {
+      checkboxes().forEach((checkbox) => { checkbox.checked = true; });
+      checkboxes()[0]?.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    controls.querySelector("[data-clear-all]")?.addEventListener("click", () => {
+      checkboxes().forEach((checkbox) => { checkbox.checked = false; });
+      checkboxes()[0]?.dispatchEvent(new Event("change", { bubbles: true }));
+    });
   });
 })();
