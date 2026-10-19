@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import express, { Express } from 'express';
@@ -48,12 +49,18 @@ export function createApp(configure?: (app: Express) => void): Express {
   app.use(verifyCsrfToken);
 
   // View engine setup
+  const viewsDir = fs.existsSync(path.join(process.cwd(), 'views'))
+    ? path.join(process.cwd(), 'views')
+    : path.join(__dirname, '../views');
   app.set('view engine', 'ejs');
-  app.set('views', path.join(__dirname, '../views'));
+  app.set('views', viewsDir);
   app.use((_req, res, next) => { res.locals.directPosterUploads = productionUsesDirectPosterUpload(); next(); });
 
   // Static assets
-  app.use(express.static(path.join(__dirname, '../public')));
+  const publicDir = fs.existsSync(path.join(process.cwd(), 'public'))
+    ? path.join(process.cwd(), 'public')
+    : path.join(__dirname, '../public');
+  app.use(express.static(publicDir));
 
   // Routes
   app.use(healthRouter);
