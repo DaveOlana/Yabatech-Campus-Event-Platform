@@ -1155,3 +1155,92 @@ input.department-picker__search {
   .site-header--management .site-nav a,
   .site-header--management .nav-signout { justify-content: center; text-align: center; }
 }
+
+/* ─── Mobile refinements ─────────────────────────────────────────────────── */
+
+/* Touch-friendly horizontal scroll for all data tables */
+.table-container {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Ensure tables never force page-width overflow */
+@media (max-width: 720px) {
+  /* Management facts: let labels wrap instead of clipping */
+  .management-facts div { grid-template-columns: 90px minmax(0, 1fr); }
+
+  /* Event-view tabs: contain within card and allow touch-scroll */
+  .event-view-tabs { flex-wrap: nowrap; }
+
+  /* Poster upload control: stack on narrow screens */
+  .poster-upload-control { flex-direction: column; align-items: flex-start; gap: .65rem; }
+  .poster-upload-control small { max-width: 100%; white-space: normal; }
+
+  /* Public detail: center the visual when stacked */
+  .public-detail__visual { margin-inline: auto; }
+
+  /* Audience DL: collapse to single-column */
+  .public-detail__audience dl div { grid-template-columns: 1fr; gap: .2rem; }
+
+  /* Account detail: let long values wrap gracefully */
+  .account-detail-list > div { grid-template-columns: 96px minmax(0, 1fr); }
+
+  /* Cycle heading: wrap tightly */
+  .cycle-heading { gap: .3rem; }
+
+  /* Form actions: stack on small screens */
+  .form-actions { flex-wrap: wrap; }
+
+  /* Poster preview: full width when stacked */
+  .poster-upload-preview { width: 100%; }
+
+  /* Section heading: stack count/label below heading */
+  .section-heading { flex-direction: column; align-items: flex-start; gap: .5rem; }
+
+  /* Management section heading metrics: full-width row */
+  .management-section__heading .queue-metric { min-width: 0; width: 100%; }
+}
+
+@media (max-width: 430px) {
+  /* Prevent auth panel overflow on the very smallest screens */
+  .auth-page main.auth-panel { padding: 1.25rem; }
+  .auth-heading h1 { font-size: 1.75rem; }
+
+  /* Management facts: single column on tiny screens */
+  .management-facts div { grid-template-columns: 1fr; gap: .15rem; }
+  .management-facts dt { margin-bottom: 0; }
+
+  /* Account detail: single column on tiny screens */
+  .account-detail-list > div { grid-template-columns: 1fr; gap: .15rem; }
+  .account-detail-list dt { font-size: .7rem; }
+
+  /* Public detail facts: ensure single-column already set at 430px */
+  .public-detail__facts { gap: .75rem; }
+
+  /* Organizer status summary: full-width on tiny screens */
+  .organizer-state__summary { max-width: none; }
+
+  /* Event row: reduce minimum thumb size for very small screens */
+  .event-row { grid-template-columns: 44px minmax(0, 1fr); }
+  .event-row__date { height: 48px; }
+  .event-row__date strong { font-size: 1.1rem; }
+
+  /* Button rows: stack and full-width on smallest screens for easy tapping */
+  .actions.actions--mobile-stack,
+  .button-row.button-row--mobile-stack { flex-direction: column; }
+  .actions.actions--mobile-stack > *,
+  .button-row.button-row--mobile-stack > * { width: 100%; justify-content: center; }
+
+  /* Poster upload: reduce internal padding */
+  .poster-upload-field,
+  .registration-link-field { padding: .85rem; }
+
+  /* Draft recovery: compact */
+  .draft-recovery { padding: .85rem; gap: .75rem; }
+
+  /* Discovery hero heading: comfortable line-height on tiny screens */
+  .discovery-hero h1 { line-height: 1.0; }
+
+  /* Footer: stack items */
+  .site-footer { flex-direction: column; gap: .35rem; }
+  .site-footer__dot { display: none; }
+}

@@ -1,0 +1,11 @@
+# Development and test files — excluded from Vercel deployment bundle
+.env
+.env.*
+!.env.example
+tests/
+scripts/
+prisma/seed.ts
+"design resources"/
+dist/
+node_modules/
+*.log

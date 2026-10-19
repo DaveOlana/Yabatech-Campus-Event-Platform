@@ -1,5 +1,15 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "version": 2,
+  "functions": {
+    "api/index.ts": {
+      "includeFiles": "views/**,public/**,prisma/schema.prisma",
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api/index" }
+  ],
   "crons": [
     {
       "path": "/internal/maintenance/posters",
