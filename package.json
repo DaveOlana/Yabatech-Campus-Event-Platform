@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "npm run build:client && tsc",
+    "build": "prisma generate && npm run build:client && tsc",
     "build:client": "tsx scripts/build-client.ts",
     "start": "node dist/server.js",
     "test": "vitest run",
