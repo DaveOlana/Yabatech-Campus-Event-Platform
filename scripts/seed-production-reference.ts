@@ -92,7 +92,7 @@ export async function seedProductionReferenceData(input: ProductionReferenceInpu
       create: { name: input.cycleName, startDate: input.cycleStart, endDate: input.cycleEnd, isCurrent: true },
       update: { startDate: input.cycleStart, endDate: input.cycleEnd, isCurrent: true },
     });
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, maxWait: 15000, timeout: 60000 });
 }
 
 const directlyExecuted = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
