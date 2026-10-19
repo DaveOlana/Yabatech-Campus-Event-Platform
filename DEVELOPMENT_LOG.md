@@ -4,7 +4,33 @@ Use this file as the handoff record between Claude, Gemini, Codex, and human dev
 
 Newest entries should be added at the top.
 
-## 2026-10-19 - Vercel deployment infrastructure and mobile CSS refinements
+## 2026-10-19 — Production Launch, Neon Database Bootstrap, and Crisp Branding Suite
+
+### Status
+
+Complete and live. The application is running on Vercel Fluid-compute Express (`https://ycep.vercel.app`) backed by Neon PostgreSQL (Frankfurt) with live reference data, an active Management account, and a high-contrast branding and favicon suite.
+
+### Database & Bootstrap
+
+- **Neon PostgreSQL**: Applied all 13 Prisma migrations forward via direct connection (`DIRECT_DATABASE_URL`).
+- **Reference Data**: Seeded the active academic cycle (`2026/2027`), all 56 departments, study levels, and event categories.
+- **Management Account**: Bootstrapped the dedicated `ADMIN` account (`YCEPadmin`, normalized `ycepadmin`) with bcrypt password authentication.
+
+### Branding & Favicon Suite
+
+- **Navbar Brand**: Cleaned transparent navbar logo (`public/assets/brand/ycep-navbar.png`) with clean typography and gradient green wave.
+- **Crisp Favicon Suite**: Generated high-contrast white circular badge with maximized `YCEP` mark:
+  - `favicon-32x32.png` & `favicon-16x16.png`
+  - `apple-touch-icon.png` (180x180)
+  - `favicon.ico` (multi-resolution 16x16 + 32x32 container)
+  - Removed unsupported base64 SVG wrapper to guarantee immediate rendering across Chromium, Safari, and Firefox.
+- **Template Integration**: Updated all 24 EJS templates with explicit PNG + ICO `<link>` tags and cache-busting `?v=4`.
+
+### Verification
+
+- Live Vercel site (`https://ycep.vercel.app`) returns HTTP 200 with clean safe-field discovery projection.
+- Tab icons render sharply on both dark and light browser themes.
+
 
 ### Status
 
