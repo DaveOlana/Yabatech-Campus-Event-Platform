@@ -4,7 +4,55 @@ Use this file as the handoff record between Claude, Gemini, Codex, and human dev
 
 Newest entries should be added at the top.
 
+## 2026-10-19 - Vercel deployment infrastructure and mobile CSS refinements
+
+### Status
+
+Implemented and committed (commit `e5702c0`). No Neon, Vercel project, or Blob store has been created yet; those are manual provider-setup steps the operator performs before the first push.
+
+### Scope
+
+**Vercel serverless entrypoint (`api/index.ts`)**
+
+Created `api/index.ts` as the Vercel Fluid-compute entrypoint. Imports `dotenv/config` and exports the Express `app` from `src/app.ts` as a default export. Does not call `app.listen()` — that remains in `src/server.ts` for local development only. Vercel's Node.js runtime discovers the `api/` directory, wraps the default-exported handler, and routes all requests to it.
+
+**`vercel.json` — routing and asset bundling**
+
+- Added a `functions` block targeting `api/index.ts` with `includeFiles: "views/**,public/**,prisma/schema.prisma"` so Node File Trace (nft) bundles EJS templates, static assets, and the Prisma schema into the deployment bundle (nft does not follow `app.set('views', ...)` automatically).
+- Added a catch-all rewrite `"/(.*)" → "/api/index"` to route all HTTP traffic through the single function.
+- Retained the `0 3 * * *` daily cron for poster cleanup at `/internal/maintenance/posters`.
+- `maxDuration: 30` seconds — covers the longest expected request paths; DDL and migrations are never executed during request handling.
+
+**`.vercelignore`**
+
+Excludes `.env`, `tests/`, `scripts/`, `design resources/`, and `dist/` from the deployment upload. All secrets are supplied through the Vercel dashboard environment variable UI. Vercel rebuilds `dist/` from source via the `build` script in `package.json`.
+
+**Mobile CSS refinements (`public/css/style.css`)**
+
+Appended a dedicated mobile-refinement block addressing gaps not covered by the prior two breakpoints:
+- `≤720px`: management-facts label narrowed (90px→flexible), poster-upload-control stacks vertically, public-detail visual centered when stacked, audience DL collapses, account-detail grid narrowed, section heading stacks, event-view tabs use `flex-wrap: nowrap` with `overflow-x: auto` already present.
+- `≤430px`: auth panel padding reduced, management-facts and account-detail collapse to single column, event-row date thumb shrinks, discovery-hero `line-height` raised to 1.0 for comfortable reading at very small sizes, footer stacks and dots hidden, `.table-container` gets `-webkit-overflow-scrolling: touch`.
+
+### Tests / verification
+
+- `npx tsc --noEmit` exits 0 (no type errors across `src/**`; `api/index.ts` is outside `rootDir` and is handled by Vercel's own build).
+- `npm run build` exits 0 (esbuild client bundle + tsc server compile).
+
+### Next steps (operator / manual)
+
+1. Create Neon project (Frankfurt / eu-central-1). Copy `DATABASE_URL` (pooled) and `DIRECT_DATABASE_URL` (direct).
+2. Run `DATABASE_URL=$DIRECT_DATABASE_URL npx prisma migrate deploy` from local or CI against the Neon database.
+3. Run `npm run db:reference:production` with `DATABASE_URL` pointing at Neon to seed reference data (categories, levels, departments).
+4. Run `npm run admin:bootstrap` with `DATABASE_URL` pointing at Neon to create the Management admin account.
+5. Push repository to GitHub.
+6. Import the GitHub repo into a new Vercel project. Set Framework = Other; Build Command = `npm run build`; Output = blank (Express, not a static site).
+7. Set all production environment variables in the Vercel dashboard: `DATABASE_URL`, `DIRECT_DATABASE_URL`, `SESSION_SECRET` (≥32 chars), `BLOB_STORE_ID`, `VERCEL_OIDC_TOKEN`, `BLOB_WEBHOOK_PUBLIC_KEY`, `CRON_SECRET` (≥16 chars), `NODE_ENV=production`.
+8. Create a Vercel Blob store, link it to the project (same region as Neon — Frankfurt).
+9. Trigger first deployment. Monitor the function log for `validateRuntimeEnvironment` startup.
+10. Smoke-test: `/`, `/about`, `/login`, `/register`, `/admin`.
+
 ## 2026-10-12 - Rejected event revision and resubmission
+
 
 ### Status
 
