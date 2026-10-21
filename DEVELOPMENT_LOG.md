@@ -4,6 +4,21 @@ Use this file as the handoff record between Claude, Gemini, Codex, and human dev
 
 Newest entries should be added at the top.
 
+## 2026-10-21 — Fix Intermittent CSRF Failure During Auth Context Switching
+
+### Status
+
+Complete and verified. Fixed session regeneration state loss, mobile browser BFCache/disk cache restoration of stale tokens, trailing-slash route handling, and added actionable error UX with direct reload links.
+
+### Scope and Changes
+
+- **Atomic CSRF State on Regeneration**: Updated `req.session.regenerate()` in `POST /login`, `POST /admin/login`, and `POST /admin/account/password` to establish a fresh `req.session.csrfToken` atomically before calling `req.session.save()`. This ensures the session written to PostgreSQL immediately contains both `userId` and a valid `csrfToken`, eliminating race conditions on post-login redirects.
+- **Cache Prevention for Auth Views**: Added `preventFormCaching` to `ensureCsrfToken` for all public auth forms (`/login`, `/admin/login`, `/register`) and authenticated views, sending `Cache-Control: no-store, no-cache, must-revalidate, private` and `Pragma: no-cache`.
+- **Client-Side BFCache Invalidation**: Added a `pageshow` listener in `public/js/csrf-forms.js` that triggers `window.location.reload()` if `event.persisted` is true, ensuring mobile back/forward navigation restores fresh DOM forms with active tokens.
+- **Path Normalization**: Updated `ensureCsrfToken` and `verifyCsrfToken` to normalize trailing slashes (e.g., `/login/`, `/admin/login/`) so mobile keyboard autocompletion cannot bypass token generation.
+- **Actionable Error UX & Safe Diagnostics**: Preserved HTTP 403 on invalid CSRF while presenting friendly `"Your form expired. Reload and try again."` messaging with direct return buttons for auth forms. Added structured diagnostic warnings omitting all sensitive credentials, raw tokens, and session secrets.
+- **Automated Verification**: Added comprehensive test suite `tests/csrf-session-lifecycle.test.ts` covering 19 distinct lifecycle scenarios including Vercel HTTPS proxying simulation, token rotation, and identity switching.
+
 ## 2026-10-19 — Production Launch, Neon Database Bootstrap, and Crisp Branding Suite
 
 ### Status

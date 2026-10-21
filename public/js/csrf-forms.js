@@ -8,3 +8,9 @@
     input.type = 'hidden'; input.name = '_csrf'; input.value = token; form.prepend(input);
   });
 })();
+
+window.addEventListener('pageshow', function (event) {
+  if (event.persisted) {
+    window.location.reload();
+  }
+});

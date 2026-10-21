@@ -22,6 +22,7 @@ import {
 } from "../validators/organizer.validator.js";
 import { adminLoginLimiter } from "../middleware/rate-limit.middleware.js";
 import { adminLoginSchema, adminPasswordChangeSchema, adminUsernameChangeSchema, normalizeManagementUsername } from "../validators/auth.validator.js";
+import { generateCsrfToken } from "../middleware/csrf.middleware.js";
 
 export const adminRouter = Router();
 
@@ -115,11 +116,12 @@ adminRouter.post("/admin/login", adminLoginLimiter, async (req: Request, res: Re
       return;
     }
 
-    // Regenerate session to prevent fixation
+    // Regenerate session to prevent fixation and establish fresh CSRF token atomically
     req.session.regenerate(async (err) => {
       if (err) return next(err);
 
       req.session.userId = user.id;
+      req.session.csrfToken = generateCsrfToken();
 
       // Session safety invariant:
       // If audit creation fails, destroy the session so the user is never left
@@ -255,6 +257,7 @@ adminRouter.post("/admin/account/password", requireAdmin, async (req: Request, r
     req.session.regenerate((error) => {
       if (error) return next(error);
       req.session.userId = admin.id;
+      req.session.csrfToken = generateCsrfToken();
       req.session.save((saveError) => saveError ? next(saveError) : res.redirect("/admin/account?updated=password"));
     });
   } catch (error) {

@@ -11,6 +11,7 @@ import { memberLoginLimiter } from "../middleware/rate-limit.middleware.js";
 import { memberLoginSchema } from "../validators/auth.validator.js";
 import { updateProfileSchema } from "../validators/profile.validator.js";
 import { ProfileUpdateError, updateMemberProfile } from "../services/profile.service.js";
+import { generateCsrfToken } from "../middleware/csrf.middleware.js";
 
 export const authRouter = Router();
 
@@ -97,11 +98,12 @@ authRouter.post("/login", memberLoginLimiter, async (req: Request, res: Response
       return;
     }
 
-    // Regenerate session to prevent fixation
+    // Regenerate session to prevent fixation and establish fresh CSRF token atomically
     req.session.regenerate((err) => {
       if (err) return next(err);
 
       req.session.userId = user.id;
+      req.session.csrfToken = generateCsrfToken();
 
       req.session.save((saveErr) => {
         if (saveErr) return next(saveErr);
