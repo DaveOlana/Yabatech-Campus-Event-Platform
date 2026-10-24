@@ -4,6 +4,32 @@ Use this file as the handoff record between Claude, Gemini, Codex, and human dev
 
 Newest entries should be added at the top.
 
+## 2026-10-24 — Refine About Us Page with Practical Dual-Track Guide and Discreet Portfolio Signature
+
+### Status
+
+Complete and verified. The About Us page (`views/about.ejs`) has been refined to reflect YCEP's V1 purpose, capabilities, and operational standards without unsupported claims.
+
+### Scope and Changes
+
+- **Accurate Institutional & Operational Presentation**:
+  - Aligned page copy with `YCEP_V1_SPEC.md` and `AGENTS.md`. Described YCEP as a campus event publishing and discovery platform for the YABATECH community.
+  - Clarified that YABATECH Management reviews event drafts before publication and verified that all event registrations redirect off-platform to organizer-provided HTTPS links without YCEP collecting attendee data.
+  - Stated non-restrictive audience filtering rules and historical archival of notices and cancellations.
+- **Dual-Track Practical Usage Guide**:
+  - Structured the guide into two distinct tracks: "For Campus Visitors" (browsing, searching, event details, external registration) and "For Event Organizers" (account authorization, draft submission, Management publication, and official cancellation notices).
+  - Provided direct, contextual navigation actions: `Discover events` (`/`) and `Organizer sign in` (`/login`).
+- **Discreet Portfolio Signature**:
+  - Replaced legacy text credit with the circular 32px portfolio logo (`public/assets/brand/developer-logo.png`) linking to `http://daveolana.tech/` (`aria-label="Portfolio"`).
+  - Maintained complete anonymity: no developer name, biography, or "Built by/Created by" attribution text.
+  - Balanced resting contrast (`opacity: 0.72` with subtle elevation shadow) for crisp display on mobile screens and `opacity: 1` on hover/focus.
+- **Responsive Layout & Visual Refinements**:
+  - Added CSS classes for tracks, mobile button stacking, and logo styling in `public/css/style.css`.
+  - Preserved YCEP's calm editorial design language with zero layout shift or overflow across breakpoints.
+- **Testing & Quality Assurance**:
+  - Updated `tests/app.test.ts` to assert portfolio logo rendering and removal of legacy text credits.
+  - Verified `git diff --check`, `npm run build`, and `npm run prisma:validate`.
+
 ## 2026-10-21 — Fix Intermittent CSRF Failure During Auth Context Switching
 
 ### Status

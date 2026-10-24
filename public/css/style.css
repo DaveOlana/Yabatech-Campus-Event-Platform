@@ -708,9 +708,19 @@ input:focus, select:focus, textarea:focus { border-color: #6f88e5; background: #
 .about-card h3 { font-size: 1.35rem; }
 .about-card p { color: var(--color-text-secondary); line-height: 1.65; }
 .about-flow { display: grid; grid-template-columns: .8fr 1.2fr; gap: clamp(3rem,7vw,7rem); margin-bottom: clamp(5rem,9vw,8rem); padding: clamp(2rem,5vw,4.5rem); border: 1px solid rgba(255,255,255,.75); border-radius: 34px; background: linear-gradient(145deg,rgba(255,255,255,.7),rgba(232,237,251,.67)); box-shadow: var(--shadow-md), inset 0 1px rgba(255,255,255,.9); backdrop-filter: blur(18px); }
-.about-flow__copy { align-self: center; }
+.about-flow__copy { align-self: flex-start; }
 .about-flow__copy h2 { margin-bottom: 1rem; font-size: clamp(2.2rem,4.5vw,3.8rem); }
 .about-flow__copy p { margin-bottom: 1.6rem; color: var(--color-text-secondary); }
+.about-flow__actions { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem; margin-top: 1.5rem; }
+.about-flow__tracks { display: grid; gap: 2rem; }
+.about-track { display: grid; gap: .65rem; }
+.about-track__heading { margin: 0; padding-bottom: .5rem; border-bottom: 1px solid rgba(48,58,88,.12); color: var(--text-strong); font-size: 1.05rem; font-weight: 700; letter-spacing: -.01em; }
+.about-track__steps { display: grid; gap: .25rem; margin: 0; padding: 0; list-style: none; }
+.about-track__steps li { display: grid; grid-template-columns: 36px minmax(0,1fr); gap: .85rem; padding: .65rem 0; border-bottom: 1px solid rgba(48,58,88,.07); }
+.about-track__steps li:last-child { border-bottom: 0; }
+.about-track__steps li > span { display: flex; width: 30px; height: 30px; align-items: center; justify-content: center; border-radius: 50%; background: var(--brand); color: #fff; font-size: .74rem; font-weight: 700; }
+.about-track__steps strong { display: block; margin-bottom: .18rem; color: var(--text-strong); font-size: .95rem; }
+.about-track__steps p { margin: 0; color: var(--text-muted); font-size: .88rem; line-height: 1.5; }
 .about-flow__steps { display: grid; gap: .2rem; margin: 0; padding: 0; list-style: none; }
 .about-flow__steps li { display: grid; grid-template-columns: 44px minmax(0,1fr); gap: 1rem; padding: 1.1rem 0; border-bottom: 1px solid rgba(48,58,88,.1); }
 .about-flow__steps li:last-child { border-bottom: 0; }
@@ -721,6 +731,10 @@ input:focus, select:focus, textarea:focus { border-color: #6f88e5; background: #
 .about-closing h2 { font-size: clamp(2.7rem,6vw,5rem); }
 .about-closing p { max-width: 630px; margin: 0 auto; color: var(--color-text-secondary); font-size: 1.08rem; }
 .about-credit { margin: 0 0 1.5rem; color: rgba(33,42,65,.45); font-size: .68rem; font-weight: 620; letter-spacing: .12em; text-align: center; text-transform: lowercase; }
+.about-signature { display: flex; align-items: center; justify-content: center; margin: 1.5rem auto 2.5rem; }
+.about-signature a { display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; opacity: .72; transition: opacity .2s ease, transform .2s ease; }
+.about-signature a:hover, .about-signature a:focus-visible { opacity: 1; transform: translateY(-1px); }
+.about-signature__logo { display: block; width: 32px; height: 32px; border-radius: 50%; object-fit: cover; box-shadow: 0 1px 4px rgba(26,34,55,.14); }
 
 .site-footer { display: flex; align-items: center; justify-content: center; gap: .65rem; border-top-color: rgba(47,58,89,.1); }
 .site-footer a { color: inherit; }
@@ -835,6 +849,7 @@ h1, h2, h3,
 .public-detail__content h1,
 .public-detail__facts strong,
 .about-flow__steps strong,
+.about-track__steps strong,
 strong { color: var(--text-strong); }
 p, li, dd, td { color: var(--text-body); }
 a, a:visited, .eyebrow, .public-event-card__category, .about-card__number { color: var(--brand); }
@@ -858,6 +873,7 @@ small,
 .about-card p,
 .about-flow__copy p,
 .about-flow__steps p,
+.about-track__steps p,
 .about-closing p,
 .public-event-card__description,
 .public-event-card__organizer,
@@ -925,7 +941,8 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 22px 65px rgba(41,51,91,.08), inset 4px 0 var(--brand);
 }
 .about-card__number { background: var(--brand-soft); }
-.about-flow__steps li > span { background: var(--brand); }
+.about-flow__steps li > span,
+.about-track__steps li > span { background: var(--brand); }
 
 .about-hero,
 .about-principles,
@@ -1239,6 +1256,10 @@ input.department-picker__search {
 
   /* Discovery hero heading: comfortable line-height on tiny screens */
   .discovery-hero h1 { line-height: 1.0; }
+
+  /* About flow actions: stack cleanly on tiny screens */
+  .about-flow__actions { width: 100%; flex-direction: column; }
+  .about-flow__actions a { width: 100%; justify-content: center; }
 
   /* Footer: stack items */
   .site-footer { flex-direction: column; gap: .35rem; }

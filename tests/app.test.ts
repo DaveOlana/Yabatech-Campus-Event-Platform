@@ -25,13 +25,15 @@ describe('YCEP Application Foundation', () => {
     expect(response.text).not.toContain('Running');
   });
 
-  it('renders the public About page and creator credit', async () => {
+  it('renders the public About page and discreet portfolio signature', async () => {
     const response = await request(app).get('/about');
 
     expect(response.status).toBe(200);
     expect(response.headers['content-type']).toMatch(/html/);
     expect(response.text).toContain('A clearer way to find what is happening on campus.');
-    expect(response.text).toContain('cc daveolana');
+    expect(response.text).toContain('/assets/brand/developer-logo.png');
+    expect(response.text).toContain('href="http://daveolana.tech/"');
+    expect(response.text).not.toContain('cc daveolana');
   });
 
   it('returns 404 for unknown routes', async () => {
