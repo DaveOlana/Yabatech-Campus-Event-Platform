@@ -5,7 +5,7 @@ import { requireOrganizer } from "../middleware/auth.middleware.js";
 import { MAX_POSTER_BYTES, POSTER_MIME_TYPES } from "../services/poster-storage.service.js";
 
 export const posterUploadRouter = Router();
-const POSTER_PATH = /^ycep\/posters\/[0-9a-f-]{36}\.(?:png|jpg|webp)$/i;
+const POSTER_PATH = /^ycep\/posters\/([0-9a-f-]{36})\/[0-9a-f-]{36}\.(?:png|jpg|webp)$/i;
 
 function requireOrganizerForToken(req: Request, res: Response, next: NextFunction) {
   if (req.body?.type === "blob.upload-completed") return next();
@@ -30,7 +30,8 @@ posterUploadRouter.post(
         request: req,
         getSignedToken: async (pathname, _clientPayload, multipart) => {
           if (!req.organizerAuthorization) throw new Error("Organizer authorization is required.");
-          if (multipart || !POSTER_PATH.test(pathname)) throw new Error("Invalid poster upload path.");
+          const pathMatch = pathname.match(POSTER_PATH);
+          if (multipart || !pathMatch || pathMatch[1].toLowerCase() !== req.organizerAuthorization.id.toLowerCase()) throw new Error("Invalid poster upload path.");
           const validUntil = Date.now() + 10 * 60 * 1000;
           return {
             token: await issueSignedToken({

@@ -102,6 +102,29 @@ describe("public event discovery", () => {
     for (const text of ["Historic Public Event", "Computer Science", "ND1"]) expect(response.text).toContain(text);
   });
 
+  it("keeps long recommended-department lists readable without dropping data", async () => {
+    const future = getLagosTodayDate(); future.setUTCDate(future.getUTCDate() + 3);
+    const event = await createEvent("Broad Audience Event", EventStatus.PUBLISHED, future);
+    const additions = await Promise.all([
+      ["Accountancy", "ACC"],
+      ["Arts & Design", "ARD"],
+      ["Business Administration", "BUS"],
+      ["Mass Communication", "MCM"],
+    ].map(([name, code]) => prisma.department.create({ data: { name, code } })));
+    await prisma.eventTargetDepartment.createMany({
+      data: [departmentId, secondDepartmentId, ...additions.map((department) => department.id)]
+        .map((targetDepartmentId) => ({ eventId: event.id, departmentId: targetDepartmentId })),
+    });
+
+    const response = await request(app).get(`/events/${event.id}`).expect(200);
+    expect(response.text).toContain('data-recommended-departments');
+    expect(response.text).toContain("<summary>+ 3 more");
+    for (const name of ["Accountancy", "Arts &amp; Design", "Business Administration", "Computer Science", "Electrical Engineering", "Mass Communication"]) {
+      expect(response.text).toContain(name);
+    }
+    expect(response.text).toContain('<details class="recommended-departments__more">');
+  });
+
   it("removes registration actions from past and cancelled event details", async () => {
     const past = getLagosTodayDate(); past.setUTCDate(past.getUTCDate() - 1);
     const future = getLagosTodayDate(); future.setUTCDate(future.getUTCDate() + 1);

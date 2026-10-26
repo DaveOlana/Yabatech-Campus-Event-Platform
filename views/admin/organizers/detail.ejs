@@ -113,6 +113,7 @@
         <div style="display: flex; flex-direction: column; gap: 1.5rem; margin-top: 1.25rem;">
           <!-- Approve Form -->
           <form action="/admin/organizers/<%= application.id %>/approve" method="POST">
+            <%- include('../../partials/csrf-field') %>
             <button type="submit" class="btn-primary" style="padding: 0.6rem 1.5rem;">
               ✓ Approve Organizer Privileges
             </button>
@@ -122,6 +123,7 @@
 
           <!-- Reject Form -->
           <form action="/admin/organizers/<%= application.id %>/reject" method="POST" style="display: flex; flex-direction: column; gap: 0.75rem; max-width: 600px;">
+            <%- include('../../partials/csrf-field') %>
             <label for="adminReviewNotes" style="font-weight: bold; color: #991b1b;">
               Reject Application with Feedback
             </label>

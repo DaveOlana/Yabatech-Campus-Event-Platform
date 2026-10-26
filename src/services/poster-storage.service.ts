@@ -10,7 +10,8 @@ export const BLOB_POSTER_PREFIX = "ycep/posters/";
 const LOCAL_POSTER_URL_PREFIX = "/uploads/event-posters/";
 const LOCAL_POSTER_PATH_PREFIX = "local:event-posters/";
 const LOCAL_POSTER_DIRECTORY = fileURLToPath(new URL("../../public/uploads/event-posters/", import.meta.url));
-const BLOB_PATH_PATTERN = /^ycep\/posters\/[0-9a-f-]{36}\.(?:png|jpg|webp)$/i;
+const BLOB_PATH_PATTERN = /^ycep\/posters\/(?:[0-9a-f-]{36}\/)?[0-9a-f-]{36}\.(?:png|jpg|webp)$/i;
+const OWNER_SCOPED_BLOB_PATH_PATTERN = /^ycep\/posters\/([0-9a-f-]{36})\/[0-9a-f-]{36}\.(?:png|jpg|webp)$/i;
 const LOCAL_PATH_PATTERN = /^local:event-posters\/[0-9a-f-]{36}\.(?:png|jpg|webp)$/i;
 
 export interface PosterUpload {
@@ -112,10 +113,24 @@ async function readSignatureBytes(response: Response): Promise<Buffer> {
   return Buffer.from(bytes);
 }
 
-export async function verifyUploadedBlobPoster(candidate: ManagedPosterReference): Promise<ManagedPosterReference> {
+export function validateUploadedBlobPosterReference(
+  candidate: ManagedPosterReference,
+  organizerAuthorizationId?: string,
+): ManagedPosterReference {
   if (!BLOB_PATH_PATTERN.test(candidate.pathname) || !isPublicBlobUrlForPath(candidate.url, candidate.pathname)) {
     throw new PosterUploadError("The uploaded poster reference is invalid.");
   }
+  if (organizerAuthorizationId) {
+    const ownerMatch = candidate.pathname.match(OWNER_SCOPED_BLOB_PATH_PATTERN);
+    if (!ownerMatch || ownerMatch[1].toLowerCase() !== organizerAuthorizationId.toLowerCase()) {
+      throw new PosterUploadError("The uploaded poster does not belong to this organizer authorization.");
+    }
+  }
+  return candidate;
+}
+
+export async function verifyUploadedBlobPoster(candidate: ManagedPosterReference, organizerAuthorizationId?: string): Promise<ManagedPosterReference> {
+  validateUploadedBlobPosterReference(candidate, organizerAuthorizationId);
   const metadata = await head(candidate.pathname);
   if (metadata.pathname !== candidate.pathname || metadata.url !== candidate.url) {
     throw new PosterUploadError("The uploaded poster reference could not be verified.");

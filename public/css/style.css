@@ -365,6 +365,12 @@ tbody tr:hover { background: #fbfcfa; }
 footer, .site-footer { max-width: var(--container); margin: 0 auto; padding: 1.5rem; border-top: 1px solid var(--color-border); color: var(--color-text-secondary); font-size: .78rem; text-align: center; }
 .sr-only { position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0; }
 
+.recommended-departments__list { list-style: none; margin: 0; padding: 0; display: grid; gap: .25rem; }
+.recommended-departments__more { margin-top: .25rem; }
+.recommended-departments__more summary { color: var(--color-brand); cursor: pointer; font-weight: 700; min-height: 44px; display: flex; align-items: center; width: fit-content; }
+.recommended-departments__more[open] summary { margin-bottom: .25rem; }
+.recommended-departments__more summary:focus-visible { outline: 3px solid rgba(23, 107, 77, .26); outline-offset: 3px; border-radius: 4px; }
+
 @media (max-width: 720px) {
   .site-header, body > header { margin-bottom: 2rem; padding-inline: 1rem; }
   .site-header__inner { min-height: auto; padding: .9rem 0; align-items: flex-start; flex-direction: column; gap: .7rem; }

@@ -11,7 +11,15 @@ import { prisma } from "../db.js";
 import { EventDraftInput } from "../validators/event.validator.js";
 import { AUDIT_ACTIONS, createAuditLog } from "./audit.service.js";
 import { getPastEventWhere, getUpcomingEventWhere } from "../utils/event-display.js";
-import { deleteManagedPoster, storePoster, verifyUploadedBlobPoster, type ManagedPosterReference, type PosterUpload } from "./poster-storage.service.js";
+import {
+  BLOB_POSTER_PREFIX,
+  deleteManagedPoster,
+  storePoster,
+  validateUploadedBlobPosterReference,
+  verifyUploadedBlobPoster,
+  type ManagedPosterReference,
+  type PosterUpload,
+} from "./poster-storage.service.js";
 
 export class EventError extends Error {
   constructor(message: string, public readonly statusCode = 400) {
@@ -47,6 +55,8 @@ export class EventTrustConflictError extends EventError {
     this.name = "EventTrustConflictError";
   }
 }
+
+const POSTER_REQUIRED_MESSAGE = "Add an event poster before saving this draft.";
 
 const eventRelations = {
   category: true,
@@ -134,14 +144,43 @@ async function getOrganizerTrustState(tx: TransactionClient, authorizationId: st
 async function preparePoster(
   poster: PosterUpload | undefined,
   uploadedReference?: Partial<ManagedPosterReference>,
+  organizerAuthorizationId?: string,
 ): Promise<ManagedPosterReference | null> {
   const hasReference = Boolean(uploadedReference?.url || uploadedReference?.pathname);
   if (poster && hasReference) throw new EventValidationError("Choose only one poster upload method.");
   if (hasReference) {
     if (!uploadedReference?.url || !uploadedReference.pathname) throw new EventValidationError("The uploaded poster reference is incomplete.");
-    return verifyUploadedBlobPoster({ url: uploadedReference.url, pathname: uploadedReference.pathname });
+    return validateUploadedBlobPosterReference(
+      { url: uploadedReference.url, pathname: uploadedReference.pathname },
+      organizerAuthorizationId,
+    );
   }
   return poster ? storePoster(poster) : null;
+}
+
+async function assertPosterIsAvailable(tx: TransactionClient, pathname: string | null, currentEventId?: string): Promise<void> {
+  if (!pathname) return;
+  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${pathname}, 0))::text AS "lock"`;
+  const existing = await tx.event.findFirst({
+    where: { posterBlobPath: pathname, ...(currentEventId ? { id: { not: currentEventId } } : {}) },
+    select: { id: true },
+  });
+  if (existing) throw new EventValidationError("That poster is already attached to another event. Upload a new copy for this draft.");
+}
+
+async function deleteLocalPosterIfUnreferenced(pathname: string | null | undefined): Promise<void> {
+  // Direct-uploaded Blobs intentionally remain subject to the 24-hour orphan
+  // grace period. Local uploads are request-owned and cannot be reattached by
+  // reference, so they can be reclaimed immediately after a failed/replaced save.
+  if (!pathname?.startsWith("local:event-posters/")) return;
+  const references = await prisma.event.count({ where: { posterBlobPath: pathname } });
+  if (references === 0) await deleteManagedPoster(pathname);
+}
+
+function assertReviewedSubmission(currentSubmittedAt: Date | null, expectedSubmittedAt: string): void {
+  if (!currentSubmittedAt || currentSubmittedAt.toISOString() !== expectedSubmittedAt) {
+    throw new EventInvalidStateError("This event submission changed after this review page was opened. Reload it before making a decision.");
+  }
 }
 
 export async function createEventDraft(
@@ -151,14 +190,19 @@ export async function createEventDraft(
   uploadedReference?: Partial<ManagedPosterReference>,
 ): Promise<Event> {
   await validateReferences(input);
-  const storedPoster = await preparePoster(poster, uploadedReference);
+  const storedPoster = await preparePoster(poster, uploadedReference, currentAuth.id);
+  if (!storedPoster) throw new EventValidationError(POSTER_REQUIRED_MESSAGE);
   try {
-    return await prisma.$transaction((tx) => tx.event.create({
-      data: {
+    return await prisma.$transaction(async (tx) => {
+      await assertPosterIsAvailable(tx, storedPoster.pathname);
+      const posterToSave = storedPoster.pathname.startsWith(BLOB_POSTER_PREFIX)
+        ? await verifyUploadedBlobPoster(storedPoster, currentAuth.id)
+        : storedPoster;
+      return tx.event.create({ data: {
         title: input.title,
         description: input.description,
-        posterUrl: storedPoster?.url ?? null,
-        posterBlobPath: storedPoster?.pathname ?? null,
+        posterUrl: posterToSave.url,
+        posterBlobPath: posterToSave.pathname,
         registrationUrl: input.registrationUrl,
         categoryId: input.categoryId,
         eventDate: new Date(`${input.eventDate}T00:00:00Z`),
@@ -173,10 +217,11 @@ export async function createEventDraft(
         targetDepartments: { create: input.targetDepartmentIds.map((departmentId) => ({ departmentId })) },
         targetLevels: { create: input.targetLevelIds.map((levelId) => ({ levelId })) },
       },
-      include: eventRelations,
-    }));
+        include: eventRelations,
+      });
+    });
   } catch (error) {
-    await deleteManagedPoster(storedPoster?.pathname).catch(() => undefined);
+    await deleteLocalPosterIfUnreferenced(storedPoster.pathname).catch(() => undefined);
     throw error;
   }
 }
@@ -229,70 +274,79 @@ export async function updateEventDraft(
   const before = await prisma.event.findFirst({ where: { id: eventId, primaryOrganizerAuthorizationId: currentAuthId } });
   if (!before) throw new EventNotFoundError("Editable event not found");
   if (!isEditableEventStatus(before.status)) throw new EventInvalidStateError("Only draft or rejected events can be edited");
-  const uploadedPoster = await preparePoster(poster, uploadedReference);
-  const nextPoster = uploadedPoster ?? (input.removePoster ? null : { url: before.posterUrl, pathname: before.posterBlobPath });
+  const uploadedPoster = await preparePoster(poster, uploadedReference, currentAuthId);
   try {
-    const updated = await prisma.$transaction(async (tx) => {
-    const locked = await lockEvent(tx, eventId);
-    if (locked.primary_organizer_authorization_id !== currentAuthId) throw new EventNotFoundError();
-    const current = await tx.event.findUnique({ where: { id: eventId } });
-    if (!current || !isEditableEventStatus(current.status)) throw new EventInvalidStateError("Only draft or rejected events can be edited");
-    const revisingRejectedEvent = current.status === EventStatus.REJECTED;
-    await Promise.all([
-      tx.eventTargetDepartment.deleteMany({ where: { eventId } }),
-      tx.eventTargetLevel.deleteMany({ where: { eventId } }),
-    ]);
-    const updatedEvent = await tx.event.update({
-      where: { id: eventId },
-      data: {
-        title: input.title,
-        description: input.description,
-        posterUrl: nextPoster?.url ?? null,
-        posterBlobPath: nextPoster?.pathname ?? null,
-        registrationUrl: input.registrationUrl,
-        categoryId: input.categoryId,
-        eventDate: new Date(`${input.eventDate}T00:00:00Z`),
-        startTime: input.startTime,
-        endTime: input.endTime,
-        venue: input.venue,
-        suggestedDepartmentName: input.suggestedDepartmentName || null,
-        suggestedDepartmentCode: input.suggestedDepartmentCode || null,
-        status: revisingRejectedEvent ? EventStatus.DRAFT : undefined,
-        submittedAt: revisingRejectedEvent ? null : undefined,
-        reviewedAt: revisingRejectedEvent ? null : undefined,
-        reviewerUserId: revisingRejectedEvent ? null : undefined,
-        targetDepartments: { create: input.targetDepartmentIds.map((departmentId) => ({ departmentId })) },
-        targetLevels: { create: input.targetLevelIds.map((levelId) => ({ levelId })) },
-      },
-      include: eventRelations,
-    });
-    if (revisingRejectedEvent) {
-      const authorization = await tx.organizerAuthorization.findUnique({ where: { id: currentAuthId } });
-      if (!authorization) throw new EventNotFoundError();
-      await createAuditLog({
-        actorUserId: authorization.userId,
-        action: AUDIT_ACTIONS.EVENT_REVISION_STARTED,
-        targetType: "Event",
-        targetId: eventId,
-        metadata: {
-          fromStatus: EventStatus.REJECTED,
-          toStatus: EventStatus.DRAFT,
-          previousRejectionReason: current.rejectionReason,
-          previousReviewedAt: current.reviewedAt?.toISOString(),
-          previousReviewerUserId: current.reviewerUserId,
+    const result = await prisma.$transaction(async (tx) => {
+      const locked = await lockEvent(tx, eventId);
+      if (locked.primary_organizer_authorization_id !== currentAuthId) throw new EventNotFoundError();
+      const current = await tx.event.findUnique({ where: { id: eventId } });
+      if (!current || !isEditableEventStatus(current.status)) throw new EventInvalidStateError("Only draft or rejected events can be edited");
+
+      let nextPoster = uploadedPoster ?? (input.removePoster ? null : { url: current.posterUrl, pathname: current.posterBlobPath });
+      if (!nextPoster?.url) throw new EventValidationError(POSTER_REQUIRED_MESSAGE);
+      await assertPosterIsAvailable(tx, nextPoster.pathname, eventId);
+      if (uploadedPoster?.pathname.startsWith(BLOB_POSTER_PREFIX)) {
+        nextPoster = await verifyUploadedBlobPoster(uploadedPoster, currentAuthId);
+      }
+
+      const revisingRejectedEvent = current.status === EventStatus.REJECTED;
+      await tx.eventTargetDepartment.deleteMany({ where: { eventId } });
+      await tx.eventTargetLevel.deleteMany({ where: { eventId } });
+      const updatedEvent = await tx.event.update({
+        where: { id: eventId },
+        data: {
+          title: input.title,
+          description: input.description,
+          posterUrl: nextPoster.url,
+          posterBlobPath: nextPoster.pathname,
+          registrationUrl: input.registrationUrl,
+          categoryId: input.categoryId,
+          eventDate: new Date(`${input.eventDate}T00:00:00Z`),
+          startTime: input.startTime,
+          endTime: input.endTime,
+          venue: input.venue,
+          suggestedDepartmentName: input.suggestedDepartmentName || null,
+          suggestedDepartmentCode: input.suggestedDepartmentCode || null,
+          status: revisingRejectedEvent ? EventStatus.DRAFT : undefined,
+          submittedAt: revisingRejectedEvent ? null : undefined,
+          reviewedAt: revisingRejectedEvent ? null : undefined,
+          reviewerUserId: revisingRejectedEvent ? null : undefined,
+          targetDepartments: { create: input.targetDepartmentIds.map((departmentId) => ({ departmentId })) },
+          targetLevels: { create: input.targetLevelIds.map((levelId) => ({ levelId })) },
         },
-      }, tx);
-    }
-    return updatedEvent;
+        include: eventRelations,
+      });
+      if (revisingRejectedEvent) {
+        const authorization = await tx.organizerAuthorization.findUnique({ where: { id: currentAuthId } });
+        if (!authorization) throw new EventNotFoundError();
+        await createAuditLog({
+          actorUserId: authorization.userId,
+          action: AUDIT_ACTIONS.EVENT_REVISION_STARTED,
+          targetType: "Event",
+          targetId: eventId,
+          metadata: {
+            fromStatus: EventStatus.REJECTED,
+            toStatus: EventStatus.DRAFT,
+            previousRejectionReason: current.rejectionReason,
+            previousReviewedAt: current.reviewedAt?.toISOString(),
+            previousReviewerUserId: current.reviewerUserId,
+          },
+        }, tx);
+      }
+      return {
+        updatedEvent,
+        previousPosterPath: current.posterBlobPath,
+        nextPosterPath: nextPoster.pathname,
+      };
     });
-    if (before.posterBlobPath && before.posterBlobPath !== nextPoster?.pathname) {
-      await deleteManagedPoster(before.posterBlobPath).catch((cleanupError) => {
+    if (result.previousPosterPath && result.previousPosterPath !== result.nextPosterPath) {
+      await deleteLocalPosterIfUnreferenced(result.previousPosterPath).catch((cleanupError) => {
         console.error(`Poster cleanup failed for event ${eventId}:`, cleanupError instanceof Error ? cleanupError.name : "unknown error");
       });
     }
-    return updated;
+    return result.updatedEvent;
   } catch (error) {
-    await deleteManagedPoster(uploadedPoster?.pathname).catch(() => undefined);
+    await deleteLocalPosterIfUnreferenced(uploadedPoster?.pathname).catch(() => undefined);
     throw error;
   }
 }
@@ -365,12 +419,13 @@ export async function getEventForManagementReview(eventId: string) {
   return { event, organizerTrustValid: trust.valid, organizerTrustWarning: trust.valid ? null : `${trust.reason} This event cannot be approved.` };
 }
 
-export async function approveEvent(adminUserId: string, eventId: string) {
+export async function approveEvent(adminUserId: string, eventId: string, expectedSubmittedAt: string) {
   return prisma.$transaction(async (tx) => {
     const locked = await lockEvent(tx, eventId);
     await requireLiveAdmin(tx, adminUserId);
     const current = await tx.event.findUnique({ where: { id: eventId } });
     if (!current || current.status !== EventStatus.PENDING_APPROVAL) throw new EventInvalidStateError("Only pending events can be approved.");
+    assertReviewedSubmission(current.submittedAt, expectedSubmittedAt);
 
     const trust = await getOrganizerTrustState(tx, locked.primary_organizer_authorization_id);
     if (!trust.valid || !trust.authorization) throw new EventTrustConflictError(`${trust.reason} This event cannot be approved.`);
@@ -412,7 +467,7 @@ export async function approveEvent(adminUserId: string, eventId: string) {
   });
 }
 
-export async function rejectEvent(adminUserId: string, eventId: string, rejectionReason: string) {
+export async function rejectEvent(adminUserId: string, eventId: string, rejectionReason: string, expectedSubmittedAt: string) {
   const reason = rejectionReason.trim();
   if (reason.length < 5 || reason.length > 500) throw new EventValidationError("Rejection feedback must be between 5 and 500 characters.");
 
@@ -421,6 +476,7 @@ export async function rejectEvent(adminUserId: string, eventId: string, rejectio
     await requireLiveAdmin(tx, adminUserId);
     const current = await tx.event.findUnique({ where: { id: eventId } });
     if (!current || current.status !== EventStatus.PENDING_APPROVAL) throw new EventInvalidStateError("Only pending events can be rejected.");
+    assertReviewedSubmission(current.submittedAt, expectedSubmittedAt);
 
     const now = new Date();
     const event = await tx.event.update({

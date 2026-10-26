@@ -6,6 +6,7 @@ import { pool, databasePoolOptions, prisma } from "../src/db.js";
 import { migrationDatabaseUrl } from "../prisma.config.js";
 import { normalizedClientAddress } from "../src/middleware/rate-limit.middleware.js";
 import { sessionCookieOptions, sessionProxyEnabled, sessionStoreOptions } from "../src/session.js";
+import { validateRuntimeEnvironment } from "../src/config.js";
 import { pruneExpiredSessions } from "../scripts/prune-sessions.js";
 import {
   PRODUCTION_DEPARTMENTS, PRODUCTION_SEMESTERS, internalDepartmentCode,
@@ -24,6 +25,42 @@ afterEach(() => {
 });
 
 describe("Milestone 5C deployment configuration", () => {
+  it("fails closed when production Blob configuration is missing and never injects placeholders", () => {
+    const validProductionEnvironment: NodeJS.ProcessEnv = {
+      NODE_ENV: "production",
+      DATABASE_URL: "postgresql://runtime.example.invalid/ycep",
+      SESSION_SECRET: "s".repeat(32),
+      BLOB_STORE_ID: "configured-store-id",
+      VERCEL_OIDC_TOKEN: "configured-oidc-token",
+      BLOB_WEBHOOK_PUBLIC_KEY: "configured-webhook-public-key",
+      CRON_SECRET: "configured-cron-secret",
+    };
+
+    for (const variableName of ["BLOB_STORE_ID", "VERCEL_OIDC_TOKEN", "BLOB_WEBHOOK_PUBLIC_KEY"] as const) {
+      const missingEnvironment = { ...validProductionEnvironment };
+      delete missingEnvironment[variableName];
+
+      expect(() => validateRuntimeEnvironment(missingEnvironment)).toThrow(`${variableName} is required in production`);
+      expect(missingEnvironment[variableName]).toBeUndefined();
+    }
+  });
+
+  it("accepts complete production Blob configuration without changing supplied values", () => {
+    const productionEnvironment: NodeJS.ProcessEnv = {
+      NODE_ENV: "production",
+      DATABASE_URL: "postgresql://runtime.example.invalid/ycep",
+      SESSION_SECRET: "s".repeat(32),
+      BLOB_STORE_ID: "configured-store-id",
+      VERCEL_OIDC_TOKEN: "configured-oidc-token",
+      BLOB_WEBHOOK_PUBLIC_KEY: "configured-webhook-public-key",
+      CRON_SECRET: "configured-cron-secret",
+    };
+    const beforeValidation = { ...productionEnvironment };
+
+    expect(() => validateRuntimeEnvironment(productionEnvironment)).not.toThrow();
+    expect(productionEnvironment).toEqual(beforeValidation);
+  });
+
   it("prefers the direct migration URL while retaining the local fallback", () => {
     expect(migrationDatabaseUrl({ DATABASE_URL: "pooled", DIRECT_DATABASE_URL: "direct" })).toBe("direct");
     expect(migrationDatabaseUrl({ DATABASE_URL: "local" })).toBe("local");

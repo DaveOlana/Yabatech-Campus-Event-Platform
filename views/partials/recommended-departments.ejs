@@ -1,0 +1,23 @@
+<%
+  const recommendedDepartmentNames = Array.isArray(departments)
+    ? departments
+      .map((department) => department && typeof department.name === 'string' ? department.name : '')
+      .filter(Boolean)
+      .sort((left, right) => left.localeCompare(right, 'en', { sensitivity: 'base' }))
+    : [];
+  const recommendedDepartmentPreview = recommendedDepartmentNames.slice(0, 3);
+  const recommendedDepartmentOverflow = recommendedDepartmentNames.slice(3);
+%>
+<% if (recommendedDepartmentNames.length === 0) { %>
+  <%= typeof emptyLabel === 'string' ? emptyLabel : 'All departments' %>
+<% } else { %>
+  <div class="recommended-departments" data-recommended-departments>
+    <ul class="recommended-departments__list"><% recommendedDepartmentPreview.forEach(function(departmentName) { %><li><%= departmentName %></li><% }) %></ul>
+    <% if (recommendedDepartmentOverflow.length > 0) { %>
+      <details class="recommended-departments__more">
+        <summary>+ <%= recommendedDepartmentOverflow.length %> more<span class="sr-only"> recommended departments</span></summary>
+        <ul class="recommended-departments__list"><% recommendedDepartmentOverflow.forEach(function(departmentName) { %><li><%= departmentName %></li><% }) %></ul>
+      </details>
+    <% } %>
+  </div>
+<% } %>

@@ -11,6 +11,7 @@ import { ensureSessionTable } from "../src/session.js";
 import { cancelPublishedEventAsManagement, cancelPublishedEventAsOrganizer } from "../src/services/event.service.js";
 import { deleteManagedPoster, verifyUploadedBlobPoster } from "../src/services/poster-storage.service.js";
 import { expiredEventPosterWhere, prunePosters } from "../src/services/poster-cleanup.service.js";
+import { getLagosTodayDate } from "../src/utils/event-display.js";
 import { del, head, issueSignedToken, list } from "@vercel/blob";
 
 vi.mock("@vercel/blob", () => ({
@@ -22,7 +23,7 @@ vi.mock("@vercel/blob", () => ({
 }));
 vi.mock("@vercel/blob/client", () => ({
   handleUploadPresigned: vi.fn(async ({ body, getSignedToken }: any) => body.type === "blob.generate-presigned-url"
-    ? getSignedToken("ycep/posters/00000000-0000-4000-8000-000000000001.png", body.payload?.clientPayload, false)
+    ? getSignedToken(body.payload?.pathname ?? "ycep/posters/00000000-0000-4000-8000-000000000099/00000000-0000-4000-8000-000000000001.png", body.payload?.clientPayload, false)
     : { type: "blob.upload-completed" }),
 }));
 
@@ -126,6 +127,16 @@ const payload = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
+const PNG_POSTER = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]);
+const JPEG_POSTER = Buffer.from([0xff, 0xd8, 0xff, 0x00]);
+
+function createDraftWithPoster(agent: any, overrides: Record<string, unknown> = {}) {
+  const fields = Object.fromEntries(Object.entries(payload(overrides)).filter(([, value]) => value !== undefined));
+  return agent.post("/organizer/events")
+    .field(fields)
+    .attach("poster", PNG_POSTER, { filename: "poster.png", contentType: "image/png" });
+}
+
 describe("simplified Layer 1 event drafts", () => {
   it("enforces authentication and organizer authorization", async () => {
     await request(app).get("/organizer/events").expect(302).expect("Location", "/login");
@@ -156,6 +167,9 @@ describe("simplified Layer 1 event drafts", () => {
     expect(page.text).toContain('multiple size="8"');
     expect(page.text).toContain("Search target departments");
     expect(page.text).toContain('name="poster"');
+    expect(page.text).toContain('name="poster" type="file"');
+    expect(page.text).toContain("required");
+    expect(page.text).toContain("Add an event poster before saving this draft.");
     expect(page.text).toContain('name="registrationUrl"');
     expect(page.text).toContain('name="_csrf"');
     expect(page.text).toContain('data-event-draft-form');
@@ -187,14 +201,30 @@ describe("simplified Layer 1 event drafts", () => {
     const page = await browserAgent.get("/organizer/events/new").expect(200);
     const token = page.text.match(/name="_csrf" value="([A-Za-z0-9_-]{43})"/)?.[1];
     expect(token).toBeTruthy();
-    await browserAgent.post("/organizer/events").field({ ...payload({ title: "Multipart Browser Draft" }), _csrf: token! }).expect(302);
+    await browserAgent.post("/organizer/events")
+      .field({ ...payload({ title: "Multipart Browser Draft" }), _csrf: token! })
+      .attach("poster", PNG_POSTER, { filename: "poster.png", contentType: "image/png" })
+      .expect(302);
+    const draft = await prisma.event.findFirstOrThrow({ where: { title: "Multipart Browser Draft" } });
+    expect(draft.posterUrl).toMatch(/^\/uploads\/event-posters\//);
+    expect(draft.posterBlobPath).toMatch(/^local:event-posters\//);
     expect(await prisma.event.count({ where: { title: "Multipart Browser Draft" } })).toBe(1);
+    const savedPage = await browserAgent.get(`/organizer/events/${draft.id}?saved=1`).expect(200);
+    expect(savedPage.text).toContain("Draft saved successfully.");
+  });
+
+  it("blocks the first save until a poster has been persisted", async () => {
+    const { user } = await setupOrganizer();
+    const agent = await login(user.matricNumber!);
+    const response = await agent.post("/organizer/events").type("form").send(payload({ title: "Poster Required" })).expect(400);
+    expect(response.text).toContain("Add an event poster before saving this draft.");
+    expect(await prisma.event.count({ where: { title: "Poster Required" } })).toBe(0);
   });
 
   it("creates a DRAFT bound to the authorization with server-derived identity", async () => {
     const { user, authorization } = await setupOrganizer("YCT Tech Club");
     const agent = await login(user.matricNumber!);
-    const creation = await agent.post("/organizer/events").type("form").send(payload()).expect(302);
+    const creation = await createDraftWithPoster(agent).expect(302);
     expect(creation.headers.location).toMatch(/^\/organizer\/events\/[0-9a-f-]{36}\?saved=1$/);
     const event = await prisma.event.findFirstOrThrow({ where: { title: "Campus Technology Summit" }, include: { targetDepartments: true, targetLevels: true } });
     expect(event.primaryOrganizerAuthorizationId).toBe(authorization.id);
@@ -207,7 +237,7 @@ describe("simplified Layer 1 event drafts", () => {
   it("strips spoofed identity, status, and legacy participation properties", async () => {
     const { user, authorization } = await setupOrganizer("Trusted Name");
     const agent = await login(user.matricNumber!);
-    await agent.post("/organizer/events").type("form").send(payload({
+    await agent.post("/organizer/events").field(payload({
       primaryOrganizerAuthorizationId: "00000000-0000-0000-0000-000000000000",
       organizerPublicName: "Spoofed Name",
       status: "PUBLISHED",
@@ -218,7 +248,7 @@ describe("simplified Layer 1 event drafts", () => {
       eligibleDepartmentIds: [secondDepartmentId],
       eligibleLevelIds: [secondLevelId],
       questions: ["Legacy question"],
-    })).expect(302);
+    })).attach("poster", PNG_POSTER, { filename: "poster.png", contentType: "image/png" }).expect(302);
     const event = await prisma.event.findFirstOrThrow({ where: { title: "Campus Technology Summit" } });
     expect(event.primaryOrganizerAuthorizationId).toBe(authorization.id);
     expect(event.organizerPublicName).toBe("Trusted Name");
@@ -231,8 +261,8 @@ describe("simplified Layer 1 event drafts", () => {
   it("supports empty targeting and deduplicates repeated target IDs", async () => {
     const { user } = await setupOrganizer();
     const agent = await login(user.matricNumber!);
-    await agent.post("/organizer/events").type("form").send(payload({ title: "No Targets", targetDepartmentIds: undefined, targetLevelIds: undefined })).expect(302);
-    await agent.post("/organizer/events").type("form").send(payload({ title: "Deduplicated Targets", targetDepartmentIds: [departmentId, departmentId], targetLevelIds: [levelId, levelId] })).expect(302);
+    await createDraftWithPoster(agent, { title: "No Targets", targetDepartmentIds: undefined, targetLevelIds: undefined }).expect(302);
+    await createDraftWithPoster(agent, { title: "Deduplicated Targets", targetDepartmentIds: [departmentId, departmentId], targetLevelIds: [levelId, levelId] }).expect(302);
     const none = await prisma.event.findFirstOrThrow({ where: { title: "No Targets" }, include: { targetDepartments: true, targetLevels: true } });
     const deduped = await prisma.event.findFirstOrThrow({ where: { title: "Deduplicated Targets" }, include: { targetDepartments: true, targetLevels: true } });
     expect(none.targetDepartments).toHaveLength(0);
@@ -272,7 +302,7 @@ describe("simplified Layer 1 event drafts", () => {
   it("accepts optional HTTPS registration links and rejects unsafe schemes", async () => {
     const { user } = await setupOrganizer();
     const agent = await login(user.matricNumber!);
-    await agent.post("/organizer/events").type("form").send(payload({ registrationUrl: "https://forms.example/register" })).expect(302);
+    await createDraftWithPoster(agent, { registrationUrl: "https://forms.example/register" }).expect(302);
     await agent.post("/organizer/events").type("form").send(payload({ title: "Insecure Registration", registrationUrl: "http://example.com/register" })).expect(400);
     const response = await agent.post("/organizer/events").type("form").send(payload({ title: "Unsafe Registration", registrationUrl: "javascript:alert(1)" }));
     expect(response.status).toBe(400);
@@ -284,7 +314,7 @@ describe("simplified Layer 1 event drafts", () => {
     const agent = await login(user.matricNumber!);
     const files = [
       { title: "JPEG Poster", data: Buffer.from([0xff, 0xd8, 0xff, 0x00]), filename: "poster.jpg", contentType: "image/jpeg" },
-      { title: "PNG Poster", data: Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0x00]), filename: "poster.png", contentType: "image/png" },
+      { title: "PNG Poster", data: PNG_POSTER, filename: "poster.png", contentType: "image/png" },
       { title: "WebP Poster", data: Buffer.from("RIFF0000WEBP", "ascii"), filename: "poster.webp", contentType: "image/webp" },
     ];
     for (const file of files) {
@@ -301,7 +331,8 @@ describe("simplified Layer 1 event drafts", () => {
   it("accepts a large Select all audience without misreporting it as multiple poster uploads", async () => {
     const { user } = await setupOrganizer();
     const agent = await login(user.matricNumber!);
-    const requestWithAudience = agent.post("/organizer/events").field(payload({ title: "All Departments Event" }));
+    const requestWithAudience = agent.post("/organizer/events").field(payload({ title: "All Departments Event" }))
+      .attach("poster", PNG_POSTER, { filename: "poster.png", contentType: "image/png" });
     for (let index = 0; index < 75; index += 1) requestWithAudience.field("targetDepartmentIds", departmentId);
     const response = await requestWithAudience.expect(302);
     expect(response.headers.location).toMatch(/^\/organizer\/events\/[0-9a-f-]{36}\?saved=1$/);
@@ -333,11 +364,12 @@ describe("simplified Layer 1 event drafts", () => {
       await request(app).post("/organizer/posters/upload").send({ type: "blob.generate-presigned-url", payload: {} }).expect(401);
       const member = await createMember();
       await (await login(member.matricNumber!)).post("/organizer/posters/upload").send({ type: "blob.generate-presigned-url", payload: {} }).expect(403);
-      const { user } = await setupOrganizer();
+      const { user, authorization } = await setupOrganizer();
       const organizer = await login(user.matricNumber!);
-      await organizer.post("/organizer/posters/upload").send({ type: "blob.generate-presigned-url", payload: {} }).expect(200);
+      const pathname = `ycep/posters/${authorization.id}/00000000-0000-4000-8000-000000000001.png`;
+      await organizer.post("/organizer/posters/upload").send({ type: "blob.generate-presigned-url", payload: { pathname } }).expect(200);
       expect(issueSignedToken).toHaveBeenCalledWith(expect.objectContaining({
-        pathname: expect.stringMatching(/^ycep\/posters\//),
+        pathname,
         allowedContentTypes: ["image/jpeg", "image/png", "image/webp"],
         maximumSizeInBytes: 4 * 1024 * 1024,
       }));
@@ -360,12 +392,62 @@ describe("simplified Layer 1 event drafts", () => {
   });
 
   it("verifies direct Blob metadata and signature before attaching a poster", async () => {
-    const pathname = "ycep/posters/00000000-0000-4000-8000-000000000020.png";
+    const ownerId = "00000000-0000-4000-8000-000000000099";
+    const pathname = `ycep/posters/${ownerId}/00000000-0000-4000-8000-000000000020.png`;
     const url = `https://test.public.blob.vercel-storage.com/${pathname}`;
     vi.mocked(head).mockResolvedValueOnce({ pathname, url, downloadUrl: url, contentType: "image/png", contentDisposition: "inline", size: 9, uploadedAt: new Date() });
     vi.stubGlobal("fetch", vi.fn(async () => new Response(Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0x00]), { status: 206 })));
     try {
-      await expect(verifyUploadedBlobPoster({ pathname, url })).resolves.toEqual({ pathname, url });
+      await expect(verifyUploadedBlobPoster({ pathname, url }, ownerId)).resolves.toEqual({ pathname, url });
+      await expect(verifyUploadedBlobPoster({ pathname, url }, "00000000-0000-4000-8000-000000000098"))
+        .rejects.toThrow(/does not belong/);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("rejects a spoofed direct-upload reference owned by another organizer", async () => {
+    const owner = await setupOrganizer("Poster Owner");
+    const attacker = await setupOrganizer("Different Organizer");
+    const attackerAgent = await login(attacker.user.matricNumber!);
+    const pathname = `ycep/posters/${owner.authorization.id}/00000000-0000-4000-8000-000000000021.png`;
+    const response = await attackerAgent.post("/organizer/events").type("form").send(payload({
+      title: "Spoofed Poster Draft",
+      posterUrl: `https://test.public.blob.vercel-storage.com/${pathname}`,
+      posterBlobPath: pathname,
+    })).expect(400);
+    expect(response.text).toContain("does not belong to this organizer authorization");
+    expect(await prisma.event.count({ where: { title: "Spoofed Poster Draft" } })).toBe(0);
+  });
+
+  it("does not allow one managed poster reference to be shared by two events", async () => {
+    const owner = await setupOrganizer("Single Poster Owner");
+    const ownerAgent = await login(owner.user.matricNumber!);
+    const pathname = `ycep/posters/${owner.authorization.id}/00000000-0000-4000-8000-000000000022.png`;
+    const url = `https://test.public.blob.vercel-storage.com/${pathname}`;
+    await prisma.event.create({ data: {
+      title: "Original Poster Event",
+      description: "The event that owns the managed poster reference.",
+      categoryId,
+      posterUrl: url,
+      posterBlobPath: pathname,
+      eventDate: new Date("2026-11-20"),
+      startTime: "10:00",
+      endTime: "12:00",
+      venue: "Hall",
+      primaryOrganizerAuthorizationId: owner.authorization.id,
+      organizerPublicName: owner.authorization.approvedPublicName,
+    } });
+    vi.mocked(head).mockResolvedValueOnce({ pathname, url, downloadUrl: url, contentType: "image/png", contentDisposition: "inline", size: PNG_POSTER.length, uploadedAt: new Date() });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(PNG_POSTER, { status: 206 })));
+    try {
+      const response = await ownerAgent.post("/organizer/events").type("form").send(payload({
+        title: "Duplicate Poster Event",
+        posterUrl: url,
+        posterBlobPath: pathname,
+      })).expect(400);
+      expect(response.text).toContain("already attached to another event");
+      expect(await prisma.event.count({ where: { posterBlobPath: pathname } })).toBe(1);
     } finally {
       vi.unstubAllGlobals();
     }
@@ -383,11 +465,13 @@ describe("simplified Layer 1 event drafts", () => {
     const replaced = await prisma.event.findUniqueOrThrow({ where: { id: event.id } });
     expect(replaced.posterUrl).toMatch(/\.jpg$/);
     await agent.get(oldUrl).expect(404);
-    await agent.post(`/organizer/events/${event.id}`).type("form").send(payload({ title: "Poster Removed", removePoster: "on" })).expect(302);
-    expect(await prisma.event.findUniqueOrThrow({ where: { id: event.id } })).toMatchObject({ posterUrl: null, posterBlobPath: null });
+    const removeWithoutReplacement = await agent.post(`/organizer/events/${event.id}`).type("form").send(payload({ title: "Poster Removed", removePoster: "on" })).expect(400);
+    expect(removeWithoutReplacement.text).toContain("Add an event poster before saving this draft.");
+    expect(await prisma.event.findUniqueOrThrow({ where: { id: event.id } })).toMatchObject({ title: "Replaced Poster", posterUrl: replaced.posterUrl, posterBlobPath: replaced.posterBlobPath });
 
     const external = await prisma.event.create({ data: { title: "External Historical Poster", description: "A historical external poster URL.", categoryId, posterUrl: "https://images.example/external.jpg", eventDate: new Date("2026-11-20"), startTime: "10:00", endTime: "12:00", venue: "Hall", primaryOrganizerAuthorizationId: authorization.id, organizerPublicName: authorization.approvedPublicName } });
-    await agent.post(`/organizer/events/${external.id}`).type("form").send(payload({ title: "External Cleared", removePoster: "on" })).expect(302);
+    await agent.post(`/organizer/events/${external.id}`).type("form").send(payload({ title: "External Cleared", removePoster: "on" })).expect(400);
+    expect((await prisma.event.findUniqueOrThrow({ where: { id: external.id } })).posterUrl).toBe("https://images.example/external.jpg");
     expect(del).not.toHaveBeenCalledWith("https://images.example/external.jpg");
 
     await prisma.event.update({ where: { id: event.id }, data: { status: EventStatus.PUBLISHED } });
@@ -466,7 +550,7 @@ describe("simplified Layer 1 event drafts", () => {
   it("allows its owner to view and update a draft while preserving server fields", async () => {
     const { user, authorization } = await setupOrganizer("Original Organizer");
     const agent = await login(user.matricNumber!);
-    await agent.post("/organizer/events").type("form").send(payload()).expect(302);
+    await createDraftWithPoster(agent).expect(302);
     const event = await prisma.event.findFirstOrThrow({ where: { primaryOrganizerAuthorizationId: authorization.id } });
     await agent.get(`/organizer/events/${event.id}`).expect(200);
     const editPage = await agent.get(`/organizer/events/${event.id}/edit`).expect(200);
@@ -482,7 +566,7 @@ describe("simplified Layer 1 event drafts", () => {
   it("returns 404 to another organizer", async () => {
     const first = await setupOrganizer("First");
     const firstAgent = await login(first.user.matricNumber!);
-    await firstAgent.post("/organizer/events").type("form").send(payload()).expect(302);
+    await createDraftWithPoster(firstAgent).expect(302);
     const event = await prisma.event.findFirstOrThrow({ where: { primaryOrganizerAuthorizationId: first.authorization.id } });
     const second = await setupOrganizer("Second");
     const secondAgent = await login(second.user.matricNumber!);
@@ -528,10 +612,10 @@ describe("simplified Layer 1 event drafts", () => {
     expect(editor.text).toContain("Revision requested");
     expect(editor.text).toContain("Clarify the venue and intended event outcome.");
 
-    await agent.post(`/organizer/events/${event.id}`).type("form").send(payload({
+    await agent.post(`/organizer/events/${event.id}`).field(payload({
       title: "Revised Proposal",
       venue: "Multipurpose Hall",
-    })).expect(302);
+    })).attach("poster", PNG_POSTER, { filename: "poster.png", contentType: "image/png" }).expect(302);
     const revised = await prisma.event.findUniqueOrThrow({ where: { id: event.id } });
     expect(revised).toMatchObject({
       status: EventStatus.DRAFT,
@@ -552,6 +636,162 @@ describe("simplified Layer 1 event drafts", () => {
     expect(resubmitted.rejectionReason).toBeNull();
     expect(await prisma.auditLog.count({ where: { targetId: event.id, action: "EVENT_SUBMITTED" } })).toBe(1);
     await request(app).get(`/events/${event.id}`).expect(404);
+  });
+
+  it("publishes exactly the fully revised submission that Management reviewed", async () => {
+    const { user } = await setupOrganizer("YCT Innovation Hub");
+    const organizer = await login(user.matricNumber!);
+    const career = await prisma.eventCategory.create({ data: { name: "Career", code: "CAREER" } });
+    const future = getLagosTodayDate();
+    future.setUTCDate(future.getUTCDate() + 60);
+    const revisedDate = future.toISOString().slice(0, 10);
+
+    await createDraftWithPoster(organizer, {
+      title: "YABATECH Student Innovation Fair",
+      description: "Original event",
+      venue: "Venue A",
+      registrationUrl: "https://forms.example/original",
+      targetDepartmentIds: [departmentId],
+      targetLevelIds: [levelId],
+    }).expect(302);
+    const original = await prisma.event.findFirstOrThrow({ where: { title: "YABATECH Student Innovation Fair" } });
+    const originalPosterUrl = original.posterUrl;
+    await organizer.post(`/organizer/events/${original.id}/submit`).expect(302);
+    const firstSubmission = await prisma.event.findUniqueOrThrow({ where: { id: original.id } });
+
+    const admin = await createMember({ admin: true });
+    const management = request.agent(app);
+    await management.post("/admin/login").type("form").send({ username: admin.managementUsername, password: "SecureAdminPassword!" }).expect(302);
+    const originalReview = await management.get(`/admin/events/${original.id}`).expect(200);
+    expect(originalReview.text).toContain("YABATECH Student Innovation Fair");
+    expect(originalReview.text).toContain("Original event");
+    await management.post(`/admin/events/${original.id}/reject`).type("form").send({
+      expectedSubmittedAt: firstSubmission.submittedAt!.toISOString(),
+      rejectionReason: "Replace the proposal with the finalized showcase information.",
+    }).expect(302);
+
+    await organizer.post(`/organizer/events/${original.id}`)
+      .field(payload({
+        title: "YCT Map Showcase Event",
+        description: "Completely different description",
+        venue: "Venue B",
+        categoryId: career.id,
+        eventDate: revisedDate,
+        startTime: "15:00",
+        endTime: "18:30",
+        registrationUrl: "https://register.example/map-showcase",
+        targetDepartmentIds: [secondDepartmentId],
+        targetLevelIds: [secondLevelId],
+      }))
+      .attach("poster", JPEG_POSTER, { filename: "map-showcase.jpg", contentType: "image/jpeg" })
+      .expect(302);
+    const revised = await prisma.event.findUniqueOrThrow({
+      where: { id: original.id },
+      include: { targetDepartments: true, targetLevels: true },
+    });
+    expect(revised.id).toBe(original.id);
+    expect(revised.posterUrl).not.toBe(originalPosterUrl);
+    expect(revised).toMatchObject({
+      title: "YCT Map Showcase Event",
+      description: "Completely different description",
+      venue: "Venue B",
+      categoryId: career.id,
+      startTime: "15:00",
+      endTime: "18:30",
+      registrationUrl: "https://register.example/map-showcase",
+      status: EventStatus.DRAFT,
+    });
+    expect(revised.eventDate.toISOString().slice(0, 10)).toBe(revisedDate);
+    expect(revised.targetDepartments.map((target) => target.departmentId)).toEqual([secondDepartmentId]);
+    expect(revised.targetLevels.map((target) => target.levelId)).toEqual([secondLevelId]);
+
+    await organizer.post(`/organizer/events/${original.id}/submit`).expect(302);
+    const secondSubmission = await prisma.event.findUniqueOrThrow({ where: { id: original.id } });
+    const revisedReview = await management.get(`/admin/events/${original.id}`).expect(200);
+    for (const value of ["YCT Map Showcase Event", "Completely different description", "Venue B", "Career", "15:00", "18:30", "Electrical Engineering", "HND1", "https://register.example/map-showcase"]) {
+      expect(revisedReview.text).toContain(value);
+    }
+    expect(revisedReview.text).not.toContain("YABATECH Student Innovation Fair");
+    expect(revisedReview.text).toContain(revised.posterUrl!);
+    await organizer.get(originalPosterUrl!).expect(404);
+
+    await management.post(`/admin/events/${original.id}/approve`).type("form").send({
+      expectedSubmittedAt: secondSubmission.submittedAt!.toISOString(),
+    }).expect(302);
+    const published = await prisma.event.findUniqueOrThrow({ where: { id: original.id } });
+    expect(published.status).toBe(EventStatus.PUBLISHED);
+
+    const homepage = await request(app).get("/").expect(200);
+    expect(homepage.text).toContain("YCT Map Showcase Event");
+    expect(homepage.text).not.toContain("YABATECH Student Innovation Fair");
+    expect(homepage.text).not.toContain("https://forms.example/original");
+    expect(homepage.text).toContain(revised.posterUrl!);
+    const detail = await request(app).get(`/events/${original.id}`).expect(200);
+    for (const value of ["YCT Map Showcase Event", "Completely different description", "Venue B", "Career", "https://register.example/map-showcase", revised.posterUrl!]) {
+      expect(detail.text).toContain(value);
+    }
+    expect(detail.text).not.toContain("YABATECH Student Innovation Fair");
+    expect(detail.text).not.toContain("https://forms.example/original");
+    expect(await prisma.event.count({ where: { title: "YABATECH Student Innovation Fair", status: EventStatus.PUBLISHED } })).toBe(0);
+    expect(await prisma.auditLog.count({ where: { targetId: original.id, action: "EVENT_REJECTED" } })).toBe(1);
+    expect(await prisma.auditLog.count({ where: { targetId: original.id, action: "EVENT_REVISION_STARTED" } })).toBe(1);
+    expect(await prisma.auditLog.count({ where: { targetId: original.id, action: "EVENT_SUBMITTED" } })).toBe(2);
+    expect(await prisma.auditLog.count({ where: { targetId: original.id, action: "EVENT_APPROVED" } })).toBe(1);
+    const revisionAudit = await prisma.auditLog.findFirstOrThrow({ where: { targetId: original.id, action: "EVENT_REVISION_STARTED" } });
+    expect(revisionAudit.metadata).toMatchObject({ previousRejectionReason: "Replace the proposal with the finalized showcase information." });
+  });
+
+  it("rejects a stale Management decision after rejection, revision, and resubmission", async () => {
+    const { user } = await setupOrganizer();
+    const organizer = await login(user.matricNumber!);
+    await createDraftWithPoster(organizer, { title: "Submission One" }).expect(302);
+    const event = await prisma.event.findFirstOrThrow({ where: { title: "Submission One" } });
+    await organizer.post(`/organizer/events/${event.id}/submit`).expect(302);
+    const first = await prisma.event.findUniqueOrThrow({ where: { id: event.id } });
+
+    const admin = await createMember({ admin: true });
+    const management = request.agent(app);
+    await management.post("/admin/login").type("form").send({ username: admin.managementUsername, password: "SecureAdminPassword!" }).expect(302);
+    await management.get(`/admin/events/${event.id}`).expect(200);
+    await management.post(`/admin/events/${event.id}/reject`).type("form").send({
+      expectedSubmittedAt: first.submittedAt!.toISOString(),
+      rejectionReason: "This first submission needs a material revision.",
+    }).expect(302);
+
+    await organizer.post(`/organizer/events/${event.id}`).type("form").send(payload({ title: "Submission Two" })).expect(302);
+    await organizer.post(`/organizer/events/${event.id}/submit`).expect(302);
+    const second = await prisma.event.findUniqueOrThrow({ where: { id: event.id } });
+    expect(second.submittedAt?.toISOString()).not.toBe(first.submittedAt?.toISOString());
+
+    const staleDecision = await management.post(`/admin/events/${event.id}/approve`).type("form").send({
+      expectedSubmittedAt: first.submittedAt!.toISOString(),
+    }).expect(409);
+    expect(staleDecision.text).toContain("submission changed");
+    expect((await prisma.event.findUniqueOrThrow({ where: { id: event.id } })).status).toBe(EventStatus.PENDING_APPROVAL);
+    expect(await prisma.auditLog.count({ where: { targetId: event.id, action: "EVENT_APPROVED" } })).toBe(0);
+  });
+
+  it("serializes concurrent decisions so a submission is published and audited once", async () => {
+    const { user } = await setupOrganizer();
+    const organizer = await login(user.matricNumber!);
+    await createDraftWithPoster(organizer, { title: "Concurrent Review" }).expect(302);
+    const event = await prisma.event.findFirstOrThrow({ where: { title: "Concurrent Review" } });
+    await organizer.post(`/organizer/events/${event.id}/submit`).expect(302);
+    const submitted = await prisma.event.findUniqueOrThrow({ where: { id: event.id } });
+
+    const admin = await createMember({ admin: true });
+    const firstReviewer = request.agent(app);
+    const secondReviewer = request.agent(app);
+    await firstReviewer.post("/admin/login").type("form").send({ username: admin.managementUsername, password: "SecureAdminPassword!" }).expect(302);
+    await secondReviewer.post("/admin/login").type("form").send({ username: admin.managementUsername, password: "SecureAdminPassword!" }).expect(302);
+    const decision = { expectedSubmittedAt: submitted.submittedAt!.toISOString() };
+    const outcomes = await Promise.all([
+      firstReviewer.post(`/admin/events/${event.id}/approve`).set("Accept", "application/json").send(decision),
+      secondReviewer.post(`/admin/events/${event.id}/approve`).set("Accept", "application/json").send(decision),
+    ]);
+    expect(outcomes.map((outcome) => outcome.status).sort()).toEqual([200, 409]);
+    expect((await prisma.event.findUniqueOrThrow({ where: { id: event.id } })).status).toBe(EventStatus.PUBLISHED);
+    expect(await prisma.auditLog.count({ where: { targetId: event.id, action: "EVENT_APPROVED" } })).toBe(1);
   });
 
   it("submits an owned draft once and records the transition audit", async () => {
@@ -576,7 +816,7 @@ describe("simplified Layer 1 event drafts", () => {
     const review = await agent.get(`/admin/events/${event.id}`).expect(200);
     expect(review.text).toContain("https://forms.example/pending");
     expect(review.text).toContain("Inspect this external destination manually");
-    await agent.post(`/admin/events/${event.id}/approve`).set("Accept", "application/json").expect(200);
+    await agent.post(`/admin/events/${event.id}/approve`).set("Accept", "application/json").send({ expectedSubmittedAt: event.submittedAt!.toISOString() }).expect(200);
     const approved = await prisma.event.findUniqueOrThrow({ where: { id: event.id } });
     expect(approved.status).toBe(EventStatus.PUBLISHED);
     expect(approved.reviewerUserId).toBe(admin.id);
@@ -585,15 +825,54 @@ describe("simplified Layer 1 event drafts", () => {
     expect(await prisma.auditLog.count({ where: { targetId: event.id, action: "EVENT_APPROVED" } })).toBe(1);
   });
 
+  it("submits organizer and Management lifecycle forms without JavaScript", async () => {
+    const { user, authorization } = await setupOrganizer();
+    const draft = await prisma.event.create({ data: {
+      title: "No Script Lifecycle",
+      description: "A complete event used to exercise server-rendered CSRF fields.",
+      categoryId,
+      eventDate: new Date("2026-11-20"),
+      startTime: "10:00",
+      endTime: "12:00",
+      venue: "Hall",
+      primaryOrganizerAuthorizationId: authorization.id,
+      organizerPublicName: authorization.approvedPublicName,
+    } });
+    const organizer = supertest.agent(app);
+    const memberLogin = await organizer.get("/login").expect(200);
+    const memberLoginToken = memberLogin.text.match(/name="_csrf" value="([A-Za-z0-9_-]{43})"/)?.[1];
+    await organizer.post("/login").type("form").send({ _csrf: memberLoginToken, matricNumber: user.matricNumber, password: "password123" }).expect(302);
+    const organizerList = await organizer.get("/organizer/events").expect(200);
+    const organizerToken = organizerList.text.match(/name="_csrf" value="([A-Za-z0-9_-]{43})"/)?.[1];
+    expect(organizerToken).toBeTruthy();
+    await organizer.post(`/organizer/events/${draft.id}/submit`).type("form").send({ _csrf: organizerToken }).expect(302);
+    const submitted = await prisma.event.findUniqueOrThrow({ where: { id: draft.id } });
+
+    const admin = await createMember({ admin: true });
+    const management = supertest.agent(app);
+    const adminLogin = await management.get("/admin/login").expect(200);
+    const adminLoginToken = adminLogin.text.match(/name="_csrf" value="([A-Za-z0-9_-]{43})"/)?.[1];
+    await management.post("/admin/login").type("form").send({ _csrf: adminLoginToken, username: admin.managementUsername, password: "SecureAdminPassword!" }).expect(302);
+    const review = await management.get(`/admin/events/${draft.id}`).expect(200);
+    const managementToken = review.text.match(/name="_csrf" value="([A-Za-z0-9_-]{43})"/)?.[1];
+    expect(managementToken).toBeTruthy();
+    expect(review.text).toContain(`name="expectedSubmittedAt" value="${submitted.submittedAt!.toISOString()}"`);
+    await management.post(`/admin/events/${draft.id}/approve`).type("form").send({
+      _csrf: managementToken,
+      expectedSubmittedAt: submitted.submittedAt!.toISOString(),
+    }).expect(302);
+    expect((await prisma.event.findUniqueOrThrow({ where: { id: draft.id } })).status).toBe(EventStatus.PUBLISHED);
+  });
+
   it("keeps a suggested department private until Management approves the event", async () => {
     const { user } = await setupOrganizer();
     const organizer = await login(user.matricNumber!);
-    await organizer.post("/organizer/events").type("form").send(payload({
+    await organizer.post("/organizer/events").field(payload({
       title: "Marine Innovation Day",
       targetDepartmentIds: [],
       suggestedDepartmentName: "Marine Engineering",
       suggestedDepartmentCode: "mre",
-    })).expect(302);
+    })).attach("poster", PNG_POSTER, { filename: "poster.png", contentType: "image/png" }).expect(302);
     const draft = await prisma.event.findFirstOrThrow({ where: { title: "Marine Innovation Day" } });
     expect(draft.suggestedDepartmentCode).toBe("MRE");
     expect(await prisma.department.findUnique({ where: { code: "MRE" } })).toBeNull();
@@ -606,7 +885,8 @@ describe("simplified Layer 1 event drafts", () => {
     await management.post("/admin/login").type("form").send({ username: admin.managementUsername, password: "SecureAdminPassword!" }).expect(302);
     const review = await management.get(`/admin/events/${draft.id}`).expect(200);
     expect(review.text).toContain("Marine Engineering");
-    await management.post(`/admin/events/${draft.id}/approve`).expect(302);
+    const submittedDraft = await prisma.event.findUniqueOrThrow({ where: { id: draft.id } });
+    await management.post(`/admin/events/${draft.id}/approve`).type("form").send({ expectedSubmittedAt: submittedDraft.submittedAt!.toISOString() }).expect(302);
 
     const approvedDepartment = await prisma.department.findUniqueOrThrow({ where: { code: "MRE" } });
     expect(approvedDepartment.name).toBe("Marine Engineering");
@@ -621,9 +901,9 @@ describe("simplified Layer 1 event drafts", () => {
     await prisma.organizerAuthorization.update({ where: { id: authorization.id }, data: { status: OrganizerAuthorizationStatus.REVOKED, revokedAt: new Date(), revocationReason: "Trust withdrawn" } });
     const agent = request.agent(app);
     await agent.post("/admin/login").type("form").send({ username: admin.managementUsername, password: "SecureAdminPassword!" }).expect(302);
-    await agent.post(`/admin/events/${event.id}/approve`).set("Accept", "application/json").expect(409);
+    await agent.post(`/admin/events/${event.id}/approve`).set("Accept", "application/json").send({ expectedSubmittedAt: event.submittedAt!.toISOString() }).expect(409);
     expect((await prisma.event.findUniqueOrThrow({ where: { id: event.id } })).status).toBe(EventStatus.PENDING_APPROVAL);
-    await agent.post(`/admin/events/${event.id}/reject`).set("Accept", "application/json").send({ rejectionReason: "The organizer authorization is no longer active." }).expect(200);
+    await agent.post(`/admin/events/${event.id}/reject`).set("Accept", "application/json").send({ expectedSubmittedAt: event.submittedAt!.toISOString(), rejectionReason: "The organizer authorization is no longer active." }).expect(200);
     const rejected = await prisma.event.findUniqueOrThrow({ where: { id: event.id } });
     expect(rejected.status).toBe(EventStatus.REJECTED);
     expect(rejected.rejectionReason).toContain("no longer active");
@@ -637,7 +917,7 @@ describe("simplified Layer 1 event drafts", () => {
     const admin = await createMember({ admin: true });
     const agent = request.agent(app);
     await agent.post("/admin/login").type("form").send({ username: admin.managementUsername, password: "SecureAdminPassword!" }).expect(302);
-    await agent.post(`/admin/events/${event.id}/reject`).set("Accept", "application/json").send({ rejectionReason: "no" }).expect(400);
+    await agent.post(`/admin/events/${event.id}/reject`).set("Accept", "application/json").send({ expectedSubmittedAt: event.submittedAt!.toISOString(), rejectionReason: "no" }).expect(400);
     expect((await prisma.event.findUniqueOrThrow({ where: { id: event.id } })).status).toBe(EventStatus.PENDING_APPROVAL);
   });
 

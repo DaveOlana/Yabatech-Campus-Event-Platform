@@ -22,6 +22,11 @@ import { PosterUploadError } from "../services/poster-storage.service.js";
 
 export const organizerEventsRouter = Router();
 
+function formValuesAfterEventError(body: Request["body"], error: Error): Request["body"] {
+  if (!/poster/i.test(error.message)) return body;
+  return { ...body, posterUrl: "", posterBlobPath: "" };
+}
+
 // Apply requireOrganizer middleware specifically to all /organizer/events endpoints
 organizerEventsRouter.use("/organizer/events", requireOrganizer);
 
@@ -196,7 +201,7 @@ organizerEventsRouter.post(
           departments,
           levels,
           errors: {},
-          values: req.body,
+          values: formValuesAfterEventError(req.body, error),
           errorMessage: error.message,
         });
         return;
@@ -234,6 +239,7 @@ organizerEventsRouter.get(
         user: req.user,
         authorization: auth,
         event,
+        saved: req.query.saved === "1",
       });
     } catch (error) {
       if (error instanceof EventNotFoundError) {
@@ -461,7 +467,7 @@ organizerEventsRouter.post(
           departments,
           levels,
           errors: {},
-          values: req.body,
+          values: formValuesAfterEventError(req.body, error),
           errorMessage: error.message,
         });
         return;

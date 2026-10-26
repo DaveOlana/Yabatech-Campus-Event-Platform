@@ -4,6 +4,31 @@ Use this file as the handoff record between Claude, Gemini, Codex, and human dev
 
 Newest entries should be added at the top.
 
+## 2026-10-26 — Production reliability and reviewed-content integrity repair
+
+### Status
+
+Implemented locally and intentionally uncommitted. Nothing was deployed, and no production database, Blob object, session, credential, or other production resource was read or mutated. No schema change or migration was necessary. Live production smoke verification remains required after operator-reviewed deployment.
+
+### Root causes and repairs
+
+- Management approval/rejection was bound only to the reusable Event ID. A stale review page could therefore act on a later same-ID resubmission after `PENDING_APPROVAL → REJECTED → DRAFT → PENDING_APPROVAL`. Decision forms now carry the reviewed `submittedAt`; the locked transaction re-reads and compares it before either decision.
+- Several organizer/Management mutation forms depended on deferred JavaScript to inject CSRF. They now render the session token directly, preserving CSRF rejection while allowing legitimate first-click and JavaScript-disabled submissions.
+- Production Blob configuration silently installed placeholder values when provider settings were missing. Startup now fails closed and leaves the environment unchanged.
+- A local poster preview proved only browser selection, while draft creation still allowed no persisted media. New organizer Events now require a verified stored poster, removal requires replacement, upload failure blocks save with actionable wording, and the first successful redirect displays an explicit saved state.
+- New direct Blob paths are authorization-scoped. Server attachment rechecks ownership, provider metadata, size/type/signature, and single-Event association while holding a transaction-scoped pathname lock. Production replacements retain the 24-hour orphan grace and the cleanup path takes the same lock and rechecks references before provider deletion; request-owned local-development replacements may be reclaimed immediately. Historical unscoped and posterless records remain readable and are not rewritten.
+- Draft recovery no longer stores server-controlled poster URL/path fields and restores edit state only against the same server-rendered Event version.
+- Public, organizer, and Management detail views now display the first three recommended departments with a native keyboard-accessible expansion for the complete remainder.
+
+### Regression coverage and verification
+
+- Added full A → reject → materially revised B → resubmit → review → approve → public B coverage, including changed category, date/time, venue, audience, registration URL, and poster; audit provenance and same-row identity are asserted.
+- Added stale-review ABA, concurrent double-decision, first-attempt multipart/real-CSRF save, required-poster, upload ownership/reuse, JavaScript-disabled lifecycle form, fail-closed Blob configuration, and long-department-list regressions.
+- The inventory is 250 Vitest cases across 13 test files, including 15 cases added by this pass; the final database-backed run passed all 250.
+- The final `npm run build`, `npm run prisma:validate`, client bundle build, `node --check` across all 8 browser JavaScript files, EJS compilation across all 34 templates, `git diff --check`, and a direct Prisma advisory-lock runtime probe pass. The corrected CSRF inventory independently finds the expected 3/3, 2/2, 1/1, 2/2, and 1/1 POST forms/tokens in its five audited templates.
+- Full-suite attempt one failed because PostgreSQL at `127.0.0.1:5432` was unavailable. After Docker recovery, the next run exposed 17 Prisma raw-`void` advisory-lock failures and two EJS-unsafe CSRF inventory assertions; the standing two-failure rule ended that pass. Both causes were repaired. A fresh verification pass then completed with 13/13 files and 250/250 cases passing; the final post-cleanup event-focused run also passed 45/45.
+- The passing concurrency tests still cause `pg` 8 to emit its upstream deprecation warning about calling `client.query()` while a client is executing a query. It does not fail or invalidate current tests, but the Prisma adapter/concurrency path must be rechecked before any future `pg` 9 upgrade.
+
 ## 2026-10-24 — Refine About Us Page with Practical Dual-Track Guide and Discreet Portfolio Signature
 
 ### Status

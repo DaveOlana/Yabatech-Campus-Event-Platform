@@ -25,7 +25,7 @@
     var values = {};
     form.querySelectorAll('[name]').forEach(function (control) {
       var name = control.name;
-      if (!name || name === '_csrf' || name === 'poster' || name === 'removePoster' || control.disabled) return;
+      if (!name || name === '_csrf' || name === 'poster' || name === 'posterUrl' || name === 'posterBlobPath' || name === 'removePoster' || control.disabled) return;
       if ((control.type === 'checkbox' || control.type === 'radio') && !control.checked) return;
       if (control.tagName === 'SELECT' && control.multiple) {
         values[name] = Array.from(control.selectedOptions).map(function (option) { return option.value; });
@@ -50,7 +50,7 @@
   function restoreValues(form, values) {
     form.querySelectorAll('[name]').forEach(function (control) {
       var name = control.name;
-      if (!name || name === '_csrf' || name === 'poster' || name === 'removePoster' || control.disabled) return;
+      if (!name || name === '_csrf' || name === 'poster' || name === 'posterUrl' || name === 'posterBlobPath' || name === 'removePoster' || control.disabled) return;
       var savedValues = values[name] || [];
       if (control.type === 'checkbox' || control.type === 'radio') {
         control.checked = savedValues.indexOf(control.value) !== -1;
@@ -91,6 +91,7 @@
   var abandonLink = form.querySelector('[data-draft-abandon]');
   var status = form.querySelector('[data-draft-recovery-status]');
   var poster = form.querySelector('[data-poster-input]');
+  var serverVersion = form.dataset.eventServerVersion || '';
   var timer;
 
   function save() {
@@ -102,6 +103,7 @@
       }
       sessionStorage.setItem(storageKey(key), JSON.stringify({
         savedAt: Date.now(),
+        serverVersion: serverVersion,
         values: values,
         posterWasSelected: !!(poster && poster.files && poster.files[0]),
       }));
@@ -118,6 +120,10 @@
 
   var initialValues = valuesFromForm(form);
   var saved = readSaved(key);
+  if (saved && serverVersion && saved.serverVersion !== serverVersion) {
+    clear();
+    saved = null;
+  }
   if (saved && saved.values && !sameValues(saved.values, initialValues) && recovery) {
     restoreValues(form, saved.values);
     recovery.hidden = false;

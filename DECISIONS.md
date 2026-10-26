@@ -120,7 +120,7 @@ Organizer approval does not automatically approve events.
 
 **Decision:** Event banner/poster image is optional in V1.
 
-**Status:** Implementation default.
+**Status:** Superseded for newly saved organizer-created events by D-065. Historical records retain fallback artwork.
 
 ## D-026 — No comments/reviews in V1
 
@@ -413,9 +413,9 @@ Migration `20260912140539_event_foundation_drafts` remains immutable history. Cl
 
 **Date:** 2026-10-09
 
-**Status:** Implemented in Milestone 5A without a schema migration.
+**Status:** Implemented in Milestone 5A without a schema migration. Its organizer-entered poster-URL clause was superseded by D-061 and D-065; historical external poster data is still not rewritten.
 
-**Decision:** All browser mutations use a cryptographically random session-backed synchronizer token. Member login allows 10 failed attempts per 15 minutes per client IP, Management login allows 5, and registration allows 5 per hour; separate in-memory stores are acceptable only for a single-process V1 deployment. Login regenerates the session and logout remains CSRF-protected POST. Cookies are HttpOnly, SameSite=Lax, path `/`, and Secure only in production. Helmet provides a nonce-free, self-hosted script CSP and security headers; HSTS and proxy trust remain disabled until deployment topology is approved. Newly entered poster URLs require HTTPS, while historical data is not rewritten. Duplicate registration conflicts use one generic message.
+**Decision:** All browser mutations use a cryptographically random session-backed synchronizer token. Member login allows 10 failed attempts per 15 minutes per client IP, Management login allows 5, and registration allows 5 per hour; separate in-memory stores are acceptable only for a single-process V1 deployment. Login regenerates the session and logout remains CSRF-protected POST. Cookies are HttpOnly, SameSite=Lax, path `/`, and Secure only in production. Helmet provides a nonce-free, self-hosted script CSP and security headers; HSTS and proxy trust remain disabled until deployment topology is approved. D-061 and D-065 replace newly entered poster URLs with verified managed uploads, while historical data is not rewritten. Duplicate registration conflicts use one generic message.
 
 ## D-056 — Member-maintained current profile
 
@@ -461,7 +461,7 @@ Migration `20260912140539_event_foundation_drafts` remains immutable history. Cl
 
 **Date:** 2026-10-10
 
-**Status:** Approved for implementation. Supersedes D-049, D-051, D-052, D-054, and D-055 only where they defer external links, derive past state from date alone, or accept organizer-entered poster URLs.
+**Status:** Implemented. Its optional-poster rule is superseded for new organizer-created events by D-065; external-registration behavior is unchanged.
 
 **Decision:** Layer 2 adds one optional `registrationUrl` to an event. It may point to any syntactically valid HTTPS destination. YCEP does not fetch, scrape, proxy, preview, follow, or synchronize the destination, and it continues to own no attendee records. Management sees the escaped destination during normal event review and may manually reject an unsuitable link. For a published event that has not ended, public cards and details expose `Register now` in a new tab with safe external-link attributes. Cancelled and Africa/Lagos time-derived past events expose no active registration action.
 
@@ -496,6 +496,18 @@ Managed poster assets remain for 30 days after a published event date, cancellat
 **Status:** Implemented without a schema migration. Supersedes D-051 only where rejected events were terminal and view-only.
 
 **Decision:** A `REJECTED` event remains private and displays Management feedback to its exact active authorization-bound owner. Editing and saving that event performs the explicit `REJECTED → DRAFT` transition, clears the prior submission/reviewer timestamps, preserves the feedback for the correction workflow, and writes an `EVENT_REVISION_STARTED` audit record containing the previous decision context. The organizer must then explicitly resubmit through `DRAFT → PENDING_APPROVAL`; no revision becomes public without a fresh Management approval. Published and cancelled events remain immutable.
+
+## D-065 — Required new-event posters and submission-bound review
+
+**Date:** 2026-10-25
+
+**Status:** Implemented locally without a schema migration; production deployment and smoke verification remain operator actions.
+
+**Decision:** A newly created organizer Event requires a successfully persisted JPEG, PNG, or WebP poster before its first draft save. Selecting or previewing a local file is not sufficient. An existing valid poster is retained during editing, while explicit removal requires a replacement. Existing historical published, past, cancelled, and rejected rows are not rewritten or hard-invalidated and retain fallback artwork where necessary.
+
+New production uploads use authorization-scoped `ycep/posters/<organizer-authorization-id>/<uuid>.<extension>` paths. Attachment revalidates provider metadata and signature while holding the pathname association lock, enforces the active authorization path, and rejects a managed path already used by another event. Unreferenced production assets retain the 24-hour orphan grace before the locked cleanup path can delete them; request-owned local-development uploads may be reclaimed immediately. Missing Blob configuration fails production startup instead of installing placeholders.
+
+Management decisions carry the exact submission timestamp rendered on the review page. Approval and rejection compare it after locking and re-reading the Event, so a stale page cannot approve or reject a later same-ID resubmission. Every browser mutation form also renders its synchronizer token server-side; client injection remains defense in depth rather than a JavaScript dependency. Draft recovery excludes CSRF and server-controlled poster metadata and is tied to the last server-rendered event version.
 
 # How to change a decision
 

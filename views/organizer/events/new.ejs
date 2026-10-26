@@ -8,7 +8,7 @@
     <div class="page-header"><div><span class="eyebrow">New proposal</span><h1>Create an event</h1><p>Prepare a private draft as <strong><%= authorization.approvedPublicName %></strong>. You can review everything before submission.</p></div></div>
     <% if(errorMessage){ %><div class="alert-error"><%= errorMessage %></div><% } %>
     <aside class="draft-recovery" data-draft-recovery hidden><div><strong>Unsaved changes restored</strong><p data-draft-recovery-message>Your event details were restored automatically from this browser tab.</p></div><div class="actions"><button type="button" class="btn-ghost btn-sm" data-draft-discard>Discard recovered changes</button></div></aside>
-    <form class="publishing-form" method="POST" action="/organizer/events" enctype="multipart/form-data" novalidate data-event-draft-form data-event-draft-key="new">
+    <form class="publishing-form" method="POST" action="/organizer/events" enctype="multipart/form-data" data-event-draft-form data-event-draft-key="new" data-organizer-authorization-id="<%= authorization.id %>">
       <%- include('../../partials/csrf-field') %>
       <%- include('../../partials/event-form-fields') %>
       <p class="form-recovery-status" data-draft-recovery-status aria-live="polite">Event details are kept in this browser tab while you work.</p>

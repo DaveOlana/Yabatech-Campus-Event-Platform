@@ -2,8 +2,8 @@ import "dotenv/config";
 
 export type NodeEnvironment = "development" | "test" | "production";
 
-function nodeEnvironment(): NodeEnvironment {
-  const value = process.env.NODE_ENV || "development";
+function nodeEnvironment(environment: NodeJS.ProcessEnv = process.env): NodeEnvironment {
+  const value = environment.NODE_ENV || "development";
   if (!(["development", "test", "production"] as string[]).includes(value)) {
     throw new Error("NODE_ENV must be development, test, or production");
   }
@@ -22,23 +22,24 @@ export const config = {
   isProduction: (process.env.NODE_ENV || "development") === "production",
 };
 
-export function validateRuntimeEnvironment(): void {
-  if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL environment variable is required");
-  if (config.nodeEnv === "test" && !process.env.TEST_DATABASE_URL) throw new Error("TEST_DATABASE_URL environment variable is required during tests");
-  if (config.isProduction && (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32)) {
+export function validateRuntimeEnvironment(environment: NodeJS.ProcessEnv = process.env): void {
+  const runtimeNodeEnvironment = nodeEnvironment(environment);
+  if (!environment.DATABASE_URL) throw new Error("DATABASE_URL environment variable is required");
+  if (runtimeNodeEnvironment === "test" && !environment.TEST_DATABASE_URL) throw new Error("TEST_DATABASE_URL environment variable is required during tests");
+  if (runtimeNodeEnvironment === "production" && (!environment.SESSION_SECRET || environment.SESSION_SECRET.length < 32)) {
     throw new Error("SESSION_SECRET must be at least 32 characters in production");
   }
-  if (config.isProduction && !process.env.BLOB_STORE_ID) {
-    process.env.BLOB_STORE_ID = "ycep-posters-store";
+  if (runtimeNodeEnvironment === "production" && !environment.BLOB_STORE_ID?.trim()) {
+    throw new Error("BLOB_STORE_ID is required in production");
   }
-  if (config.isProduction && !process.env.VERCEL_OIDC_TOKEN) {
-    process.env.VERCEL_OIDC_TOKEN = "ycep-oidc-token-placeholder";
+  if (runtimeNodeEnvironment === "production" && !environment.VERCEL_OIDC_TOKEN?.trim()) {
+    throw new Error("VERCEL_OIDC_TOKEN is required in production");
   }
-  if (config.isProduction && !process.env.BLOB_WEBHOOK_PUBLIC_KEY) {
-    process.env.BLOB_WEBHOOK_PUBLIC_KEY = "ycep-blob-webhook-key-placeholder";
+  if (runtimeNodeEnvironment === "production" && !environment.BLOB_WEBHOOK_PUBLIC_KEY?.trim()) {
+    throw new Error("BLOB_WEBHOOK_PUBLIC_KEY is required in production");
   }
-  if (config.isProduction && (!process.env.CRON_SECRET || process.env.CRON_SECRET.length < 16)) {
+  if (runtimeNodeEnvironment === "production" && (!environment.CRON_SECRET || environment.CRON_SECRET.length < 16)) {
     throw new Error("CRON_SECRET must be at least 16 characters in production");
   }
-  if (process.env.TRUST_PROXY) throw new Error("TRUST_PROXY is not supported until the deployment topology is approved");
+  if (environment.TRUST_PROXY) throw new Error("TRUST_PROXY is not supported until the deployment topology is approved");
 }

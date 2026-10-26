@@ -14,7 +14,8 @@ document.querySelectorAll<HTMLFormElement>("form[data-event-draft-form]").forEac
   const posterBlobPath = form.querySelector<HTMLInputElement>("[data-poster-blob-path]");
   const csrf = form.querySelector<HTMLInputElement>('input[name="_csrf"]');
   const status = form.querySelector<HTMLElement>("[data-poster-upload-status]");
-  if (!container || container.dataset.directUpload !== "true" || !input || !posterUrl || !posterBlobPath || !csrf) return;
+  const organizerAuthorizationId = form.dataset.organizerAuthorizationId;
+  if (!container || container.dataset.directUpload !== "true" || !input || !posterUrl || !posterBlobPath || !csrf || !organizerAuthorizationId) return;
 
   let uploaded = false;
   let uploading = false;
@@ -34,7 +35,7 @@ document.querySelectorAll<HTMLFormElement>("form[data-event-draft-form]").forEac
     if (submitter instanceof HTMLButtonElement || submitter instanceof HTMLInputElement) submitter.disabled = true;
     if (status) status.textContent = "Uploading poster securely…";
     try {
-      const pathname = `ycep/posters/${crypto.randomUUID()}.${extension}`;
+      const pathname = `ycep/posters/${organizerAuthorizationId}/${crypto.randomUUID()}.${extension}`;
       const blob = await uploadPresigned(pathname, file, {
         access: "public",
         contentType: file.type,
@@ -44,12 +45,16 @@ document.querySelectorAll<HTMLFormElement>("form[data-event-draft-form]").forEac
       posterUrl.value = blob.url;
       posterBlobPath.value = blob.pathname;
       input.value = "";
+      input.required = false;
+      input.setCustomValidity("");
       uploaded = true;
+      uploading = false;
       if (status) status.textContent = "Poster uploaded. Saving your draft…";
       posterUrl.dispatchEvent(new Event("change", { bubbles: true }));
+      if (submitter instanceof HTMLButtonElement || submitter instanceof HTMLInputElement) submitter.disabled = false;
       form.requestSubmit(submitter instanceof HTMLButtonElement || submitter instanceof HTMLInputElement ? submitter : undefined);
     } catch (_error) {
-      if (status) status.textContent = "The poster could not be uploaded. Your event details remain in this browser tab; try again or save without a poster.";
+      if (status) status.textContent = "The poster could not be uploaded. Your event details remain in this browser tab. Try the upload again before saving this draft.";
       if (submitter instanceof HTMLButtonElement || submitter instanceof HTMLInputElement) submitter.disabled = false;
       uploading = false;
     }

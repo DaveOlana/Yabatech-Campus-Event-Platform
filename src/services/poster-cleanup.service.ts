@@ -34,6 +34,16 @@ function safeCleanupLog(category: string, pathname: string, error: unknown): voi
   console.error(`Poster cleanup ${category} failed for ${pathname}:`, error instanceof Error ? error.name : "unknown error");
 }
 
+async function deleteUnreferencedPosterWithLock(pathname: string): Promise<boolean> {
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${pathname}, 0))::text AS "lock"`;
+    const references = await tx.event.count({ where: { posterBlobPath: pathname } });
+    if (references > 0) return false;
+    await deleteManagedPoster(pathname);
+    return true;
+  });
+}
+
 export async function prunePosters(now = new Date()): Promise<PosterCleanupResult> {
   const result: PosterCleanupResult = { processed: 0, eventPostersCleared: 0, orphanPostersDeleted: 0, failures: 0 };
   const handledPaths = new Set<string>();
@@ -53,7 +63,7 @@ export async function prunePosters(now = new Date()): Promise<PosterCleanupResul
     result.processed += 1;
     handledPaths.add(event.posterBlobPath);
     try {
-      await deleteManagedPoster(event.posterBlobPath);
+      await deleteUnreferencedPosterWithLock(event.posterBlobPath);
     } catch (error) {
       result.failures += 1;
       safeCleanupLog("event asset deletion", event.posterBlobPath, error);
@@ -68,9 +78,10 @@ export async function prunePosters(now = new Date()): Promise<PosterCleanupResul
   for (const poster of await listManagedPosters()) {
     if (handledPaths.has(poster.pathname) || references.has(poster.pathname) || poster.uploadedAt > orphanCutoff) continue;
     try {
-      await deleteManagedPoster(poster.pathname);
-      result.orphanPostersDeleted += 1;
-      result.processed += 1;
+      if (await deleteUnreferencedPosterWithLock(poster.pathname)) {
+        result.orphanPostersDeleted += 1;
+        result.processed += 1;
+      }
     } catch (error) {
       result.failures += 1;
       safeCleanupLog("orphan deletion", poster.pathname, error);

@@ -16,7 +16,7 @@ Each milestone ends with working code, relevant tests, migration status, and an 
 # Milestone 4A — Event Draft Foundation
 
 - [x] Authorization-bound event ownership.
-- [x] Categories, title, description, optional managed poster upload, schedule, and venue.
+- [x] Categories, title, description, managed poster upload, schedule, and venue. Poster optionality at this historical milestone was superseded by D-065.
 - [x] Draft creation, listing, detail, and editing.
 - [x] Target departments and levels.
 - [x] Server-derived organizer public identity.
@@ -104,9 +104,23 @@ Approved by D-061 after Layer 1 completion.
 - [x] Add an optional HTTPS external registration URL through forward migration 12.
 - [x] Validate safe external-link behavior without server fetching or previews.
 - [x] Add time-aware public `Register now` actions and poster-link behavior.
-- [x] Replace organizer-entered poster URLs with optional signature-checked Vercel Blob uploads.
+- [x] Replace organizer-entered poster URLs with signature-checked Vercel Blob uploads; D-065 subsequently made a persisted poster mandatory for new events.
 - [x] Show poster/link previews to organizers and Management for manual review.
 - [x] Keep YCEP independent from attendee data and external registration status.
+
+# Production reliability and reviewed-content integrity — LOCAL IMPLEMENTATION COMPLETE
+
+- [x] Require a verified persisted poster on every new organizer Event save while preserving historical fallback records.
+- [x] Bind production Blob paths to the active organizer authorization and prevent shared Event references.
+- [x] Bind Management decisions to the exact pending submission reviewed under the Event row lock.
+- [x] Render CSRF fields directly in every audited mutation form, including JavaScript-disabled lifecycle actions.
+- [x] Exclude poster metadata from browser recovery and reject recovery from an older server version.
+- [x] Present long department recommendations as three visible values plus an accessible expansion.
+- [ ] Deploy only after review, then perform the production smoke/retest plan below.
+  - Use separate clean organizer and Management browser sessions; verify login, session regeneration, logout, and server-rendered CSRF mutations with JavaScript both enabled and disabled.
+  - Create and first-save a poster-backed draft with an HTTPS registration link and audience targets, submit version A, reject it, revise every reviewed field plus the poster into version B, and resubmit the same Event row.
+  - Confirm an action from the stale version-A review page is rejected, then approve from a freshly loaded version-B page.
+  - Confirm public discovery/detail expose only approved version B, including its poster, registration action, and compact expandable department list; also verify cancelled/past registration actions remain disabled.
 
 # Removed from active V1 roadmap
 

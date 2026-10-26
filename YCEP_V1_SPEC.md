@@ -96,7 +96,7 @@ Layer 1 supports:
 
 - title and clear public description;
 - category;
-- optional uploaded flyer/poster image stored through YCEP's approved durable object storage;
+- required uploaded flyer/poster image for every newly saved organizer-created event, stored through YCEP's approved durable object storage;
 - optional validated HTTPS external registration URL;
 - event date, start/end time, and venue;
 - public organizer identity;
@@ -122,8 +122,9 @@ Targeting never makes a published event private and does not control registratio
 - Draft, pending, and rejected events must not appear publicly.
 - Only `PUBLISHED` means approved and public.
 - Approval preserves ownership and submission history.
+- Each Management approve/reject form is bound to the exact `submittedAt` value Management reviewed. The row-locked transaction re-reads and compares that submission marker; a rejection/revision/resubmission cycle invalidates every stale decision form.
 - Approval must revalidate that the owning organizer authorization, member role, current cycle, and member verification are still valid. If trust has lapsed, the event remains pending and Management may reject it with feedback.
-- Concurrent/repeated review attempts must resolve safely without contradictory outcomes.
+- Concurrent/repeated or stale review attempts must resolve safely without contradictory outcomes or publishing a submission that was not reviewed.
 
 ## 10. Public discovery
 
@@ -143,7 +144,9 @@ Important event records must not be hard-deleted after publication. Operational 
 
 Cancellation records a reason and preserves the event. Completed/cancelled events may remain publicly historical where appropriate. There is no V1 participant-preservation or participant-notification requirement because YCEP does not own attendee registration.
 
-Milestone 4E makes published events immutable. Corrections or replacements require a fresh draft and approval; no revision system is included. Today, upcoming, and past are derived using the Africa/Lagos event date and end time, and `COMPLETED` has no approved V1 transition. The only post-publication transition is irreversible `PUBLISHED → CANCELLED`. The active authorization-bound owner or Management may cancel with a public 10–500 character reason. Cancellation is transactionally locked and audited. Cancelled events leave all public lists/search results but remain available at their direct public URL with a cancellation notice and reason. Later organizer trust loss does not silently unpublish an approved event; Management may withdraw it when necessary.
+D-064 supersedes the earlier no-revision statement only for private `REJECTED` rows: the exact owner may revise the same row to `DRAFT`, explicitly resubmit it, and receive a fresh Management decision. Published and cancelled rows remain immutable.
+
+Milestone 4E makes published events immutable. Corrections or replacements for an already-published event require a fresh draft and approval; no published-event revision system is included. Today, upcoming, and past are derived using the Africa/Lagos event date and end time, and `COMPLETED` has no approved V1 transition. The only post-publication transition is irreversible `PUBLISHED → CANCELLED`. The active authorization-bound owner or Management may cancel with a public 10–500 character reason. Cancellation is transactionally locked and audited. Cancelled events leave all public lists/search results but remain available at their direct public URL with a cancellation notice and reason. Later organizer trust loss does not silently unpublish an approved event; Management may withdraw it when necessary.
 
 ## 12. External registration — approved Layer 2
 
@@ -161,13 +164,17 @@ External service handles registration
 
 Any syntactically valid HTTPS destination may be submitted. YCEP never fetches, previews, proxies, or follows the URL server-side and never knows whether a visitor registered. Management manually inspects the destination during the existing event review and may reject an unsafe, misleading, or inappropriate link. A published event exposes a safe external `Register now` action until its Africa/Lagos end time; cancelled and past events retain historical details without an active registration action.
 
-The event poster is a separate optional uploaded image, never a user-entered URL. Organizers may upload JPEG, PNG, or WebP artwork within the configured size limit. The backend validates the actual file signature and stores the image through the poster-storage abstraction; the resulting storage URL is server-controlled. Poster previews appear in organizer and Management views, while public cards and details use the approved poster or YCEP fallback artwork. Management may manually reject unsuitable artwork. Published poster and registration values remain immutable with the rest of the event.
+The event poster is a separate required upload for a newly saved organizer-created event, never a user-entered URL. A file selection or local preview is insufficient: JPEG, PNG, or WebP artwork within the 4 MB limit must be successfully persisted and associated before draft creation succeeds. Existing valid artwork may be retained on edit; removing it requires a successful replacement. Historical records are not rewritten and retain fallback behavior when artwork is absent. The backend validates the actual signature and provider metadata, binds new production paths to the active organizer authorization, rejects a managed path already associated with another event, and stores only the verified result. Poster previews appear in organizer and Management views, while public cards and details use the approved poster or historical fallback artwork. Published poster and registration values remain immutable with the rest of the event.
 
-In production, authorized organizer browsers upload poster bytes directly to Vercel Blob using a short-lived token constrained to the YCEP poster namespace, the three accepted types, and 4 MB. Event records store the public URL and a separate nullable managed pathname; raw image bytes never enter PostgreSQL and historical/external URLs are never provider-deleted. Managed artwork is retained for 30 days after the event date, cancellation, or rejection. Past-date drafts/pending events use the same conservative 30-day rule, and unattached uploads may be removed after 24 hours. Removing retained artwork never removes the Event; all views automatically return to standard YCEP fallback artwork.
+In production, authorized organizer browsers upload poster bytes directly to Vercel Blob using a short-lived token constrained to `ycep/posters/<organizer-authorization-id>/`, the three accepted types, and 4 MB. Event records store the public URL and a separate nullable managed pathname; raw image bytes never enter PostgreSQL and historical/external URLs are never provider-deleted. Production starts fail closed when required Blob configuration is absent. Managed artwork is retained for 30 days after the event date, cancellation, or rejection. Past-date drafts/pending events use the same conservative 30-day rule, and unattached uploads may be removed after 24 hours. A provider asset is deleted only after the database confirms that no event still references its managed path.
 
 YCEP recommends 1080 × 1350 pixel (4:5) artwork but does not reject other aspect ratios. All poster surfaces use a consistent 4:5 presentation frame and fit the complete uploaded composition without cropping. Event create/edit forms retain non-file inputs in tab-scoped browser storage for up to 24 hours and automatically restore newer unsaved values after refresh or same-tab return, with an explicit discard control. CSRF values and poster bytes are excluded; a poster must be selected again after recovery. Department and level audience selectors provide Select all and Clear conveniences while remaining optional, relevance-only metadata.
 
-## 13. Removed/deferred from primary V1
+## 13. Browser recovery, presentation, and deferred scope
+
+Under D-065, browser recovery never stores CSRF values, poster bytes, or the server-controlled `posterUrl`/`posterBlobPath`, and an edit recovery is accepted only for the same server-rendered event version. Long recommended-department lists retain every value while presenting the first three followed by a native keyboard-accessible expansion.
+
+### Removed/deferred features
 
 - Internal student event registration.
 - Approval-required attendee applications and answers.

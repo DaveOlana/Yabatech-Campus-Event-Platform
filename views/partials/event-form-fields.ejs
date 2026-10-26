@@ -6,14 +6,15 @@
   </div>
   <div class="form-group"><label for="description">Description</label><textarea id="description" name="description" rows="7" required maxlength="5000"><%= values.description || '' %></textarea><% if(errors.description){ %><div class="field-error"><%= errors.description %></div><% } %></div>
   <div class="event-media-fields">
-    <div class="form-group poster-upload-field" data-poster-upload data-direct-upload="<%= directPosterUploads ? 'true' : 'false' %>">
-      <label for="poster">Event poster or flyer <span class="muted">Optional</span></label>
-      <p class="helper-text">For the best fit, use a 4:5 poster (recommended: 1080 × 1350 px). JPEG, PNG, and WebP images up to 4 MB are accepted, and other shapes are shown in full without cropping.</p>
+    <% const hasAttachedPoster = (typeof event !== 'undefined' && event.posterUrl) || (values.posterUrl && values.posterBlobPath); %>
+    <div class="form-group poster-upload-field" data-poster-upload data-direct-upload="<%= directPosterUploads ? 'true' : 'false' %>" data-has-persisted-poster="<%= hasAttachedPoster ? 'true' : 'false' %>">
+      <label for="poster">Event poster or flyer<% if(!hasAttachedPoster){ %> <span aria-hidden="true">*</span><% } %></label>
+      <p class="helper-text">Add an event poster before saving this draft. For the best fit, use a 4:5 poster (recommended: 1080 × 1350 px). JPEG, PNG, and WebP images up to 4 MB are accepted, and other shapes are shown in full without cropping.</p>
       <label class="poster-upload-control" for="poster"><span>Choose poster</span><small data-poster-file-name>No file selected</small></label>
-      <input id="poster" name="poster" type="file" accept="image/jpeg,image/png,image/webp" data-poster-input>
-      <input type="hidden" name="posterUrl" value="" data-poster-url>
-      <input type="hidden" name="posterBlobPath" value="" data-poster-blob-path>
-      <p class="helper-text" data-poster-upload-status aria-live="polite"></p>
+      <input id="poster" name="poster" type="file" accept="image/jpeg,image/png,image/webp" data-poster-input<% if(!hasAttachedPoster){ %> required aria-required="true"<% } %>>
+      <input type="hidden" name="posterUrl" value="<%= values.posterUrl || '' %>" data-poster-url>
+      <input type="hidden" name="posterBlobPath" value="<%= values.posterBlobPath || '' %>" data-poster-blob-path>
+      <p class="helper-text" data-poster-upload-status aria-live="polite"><% if(values.posterUrl && values.posterBlobPath){ %>Poster upload is ready and will be verified when you save.<% } %></p>
       <div class="poster-upload-preview" data-poster-preview <%= typeof event !== 'undefined' && event.posterUrl ? '' : 'hidden' %>><% if(typeof event !== 'undefined' && event.posterUrl){ %><img src="<%= event.posterUrl %>" alt="Current poster for <%= event.title %>" data-poster-preview-image><% } else { %><img alt="Selected poster preview" data-poster-preview-image hidden><% } %></div>
       <% if(typeof event !== 'undefined' && event.posterUrl){ %><label class="poster-remove"><input type="checkbox" name="removePoster" value="on" data-poster-remove> Remove the current poster</label><% } %>
       <% if(errors.poster){ %><div class="field-error"><%= errors.poster %></div><% } %>

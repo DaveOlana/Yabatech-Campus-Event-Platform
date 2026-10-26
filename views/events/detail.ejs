@@ -45,7 +45,7 @@
         <section class="public-detail__audience">
           <h2>Recommended for</h2>
           <dl>
-            <div><dt>Departments</dt><dd><%= event.targetDepartments.length ? event.targetDepartments.map(department => department.name).join(', ') : 'All departments' %></dd></div>
+            <div><dt>Departments</dt><dd><%- include('../partials/recommended-departments', { departments: event.targetDepartments, emptyLabel: 'All departments' }) %></dd></div>
             <div><dt>Levels</dt><dd><%= event.targetLevels.length ? event.targetLevels.map(level => level.code).join(', ') : 'All levels' %></dd></div>
           </dl>
           <p>Recommendations help students discover relevant events. Every published event remains visible to everyone.</p>

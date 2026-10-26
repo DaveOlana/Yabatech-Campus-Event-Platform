@@ -23,7 +23,7 @@ Do not add internal attendee registration, attendee applications, participant li
 - Ordinary visitors do not need accounts to discover published events.
 - Draft, pending, rejected, account, and Management data are not public.
 - Public event reads must constrain status to `PUBLISHED` in the database query and use an explicit safe-field projection. The homepage uses the Africa/Lagos calendar boundary, excludes past events, orders by date/time/title, and returns at most 24. Past published events may remain directly accessible. Unknown and non-published detail URLs must share the same generic 404.
-- Event posters are optional organizer uploads stored through the approved poster-storage abstraction. The browser never supplies a persisted poster URL directly. Validate file size, MIME type, and file signature; never rely on the filename or client MIME declaration alone. A missing poster uses YCEP fallback artwork.
+- A successfully persisted poster is required before a new organizer-created Event draft can be saved. Existing valid posters may be retained on edit, but removal requires a replacement; historical published, past, cancelled, and rejected records are not retroactively invalidated and may still use YCEP fallback artwork. Store uploads through the approved abstraction, bind new production Blob paths to the active organizer authorization, and verify size, MIME type, file signature, provider metadata, ownership, and single-event association. Never trust browser-supplied persisted metadata by itself.
 - External registration links are optional, HTTPS-only, never fetched by the server, and become public only with a `PUBLISHED` event. The public CTA and poster link are disabled for cancelled or time-derived past events. Management inspects links and poster previews manually during normal event review.
 - Public department/level filters are relevance-only. Each must include explicit target matches and events with no targets in that dimension. They must never become eligibility rules or restrict the underlying public visibility of a published event.
 
@@ -83,6 +83,8 @@ Do not change the stack without explicit approval.
 ## Tests
 
 For material work, test permissions, valid flows, invalid transitions, expiry, ownership isolation, spoofing protection, and relevant concurrency. Run focused and full suites. Do not report completion with unexplained failures.
+
+If the same command or process fails twice during a pass, stop retrying it. Move to independent work when safe, or end the pass, and record the failed process and both outcomes in the final report.
 
 ## Handoffs
 

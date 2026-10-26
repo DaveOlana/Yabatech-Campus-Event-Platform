@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response, Router } from "express";
 import { requireAdmin, isJsonRequest } from "../middleware/auth.middleware.js";
 import { approveEvent, cancelPublishedEventAsManagement, EventError, getEventForManagementReview, getEventHistoryForManagement, getPendingEventsForManagement, rejectEvent, type ManagementEventHistoryStatus } from "../services/event.service.js";
-import { rejectEventSchema } from "../validators/event-review.validator.js";
+import { approveEventSchema, rejectEventSchema } from "../validators/event-review.validator.js";
 import { cancelEventSchema } from "../validators/event-cancellation.validator.js";
 import { getEventTimeState } from "../utils/event-display.js";
 
@@ -47,8 +47,10 @@ adminEventsRouter.get("/admin/events/:eventId", async (req, res, next) => {
 });
 
 adminEventsRouter.post("/admin/events/:eventId/approve", async (req, res, next) => {
+  const parsed = approveEventSchema.safeParse(req.body);
+  if (!parsed.success) return respondWithError(req, res, new EventError(parsed.error.errors[0]?.message ?? "Reload this event before approving it.", 400));
   try {
-    const event = await approveEvent(req.user!.id, req.params.eventId);
+    const event = await approveEvent(req.user!.id, req.params.eventId, parsed.data.expectedSubmittedAt);
     if (isJsonRequest(req)) return res.json({ success: true, message: "Event approved and published.", event });
     res.redirect("/admin/events");
   } catch (error) {
@@ -64,7 +66,7 @@ adminEventsRouter.post("/admin/events/:eventId/reject", async (req, res, next) =
     return respondWithError(req, res, error);
   }
   try {
-    const event = await rejectEvent(req.user!.id, req.params.eventId, parsed.data.rejectionReason);
+    const event = await rejectEvent(req.user!.id, req.params.eventId, parsed.data.rejectionReason, parsed.data.expectedSubmittedAt);
     if (isJsonRequest(req)) return res.json({ success: true, message: "Event rejected.", event });
     res.redirect("/admin/events");
   } catch (error) {
