@@ -14,6 +14,7 @@ Complete and verified. Hardened `prisma.config.ts` and `src/app.ts` so Vercel de
 
 - During Vercel's `npm run build`, `prisma generate` failed with `PrismaConfigEnvError: Cannot resolve environment variable: DATABASE_URL` because `prisma.config.ts` had a throwing `env("DATABASE_URL")` fallback when `DATABASE_URL` was not injected into the build container. Updated `prisma.config.ts` to use `migrationDatabaseUrl()` directly for `datasource.url`.
 - During Vercel serverless function compilation (`api/index.ts` via `@vercel/node`), `src/app.ts` failed with `error TS2349: This expression is not callable. Type 'typeof import("/vercel/path0/node_modules/helmet/index")' has no call signatures.` because Helmet 8's dual ESM/CJS typings resolved to the module namespace type in `@vercel/node`'s TypeScript compiler pass. Added a universal callable wrapper `const helmetMiddleware: any = typeof helmet === 'function' ? helmet : (helmet as { default?: any }).default;` to guarantee compatibility across ESM, CJS, and Vercel builders.
+- Added `export default app;` in `src/app.ts` alongside named exports to satisfy Vercel Express backend routing when `@vercel/node` invokes `/var/task/src/app.js`.
 
 ### Verification
 

@@ -84,3 +84,4 @@ export function createApp(configure?: (app: Express) => void): Express {
 }
 
 export const app = createApp();
+export default app;
