@@ -28,7 +28,8 @@ export function createApp(configure?: (app: Express) => void): Express {
   const app = express();
 
   app.disable('x-powered-by');
-  app.use(helmet({
+  const helmetMiddleware: any = typeof helmet === 'function' ? helmet : (helmet as { default?: any }).default;
+  app.use(helmetMiddleware({
     contentSecurityPolicy: { directives: {
       defaultSrc: ["'self'"], scriptSrc: ["'self'"], styleSrc: ["'self'"], styleSrcAttr: ["'unsafe-inline'"], imgSrc: ["'self'", "https:", "data:", "blob:"],
       fontSrc: ["'self'"], connectSrc: ["'self'", "https://vercel.com"], formAction: ["'self'"], frameAncestors: ["'none'"], baseUri: ["'self'"], objectSrc: ["'none'"], upgradeInsecureRequests: null,

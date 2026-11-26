@@ -4,20 +4,21 @@ Use this file as the handoff record between Claude, Gemini, Codex, and human dev
 
 Newest entries should be added at the top.
 
-## 2026-11-26 — Fix build-time PrismaConfigEnvError in Vercel deployment
+## 2026-11-26 — Fix build-time PrismaConfigEnvError and Vercel Helmet TS2349 compilation error
 
 ### Status
 
-Complete and verified. Hardened `prisma.config.ts` so `prisma generate` and `npm run build` succeed in CI/CD and deployment environments without requiring database credentials at build time.
+Complete and verified. Hardened `prisma.config.ts` and `src/app.ts` so Vercel deployment builds succeed cleanly through Prisma code generation, client bundling, and `@vercel/node` TypeScript compilation.
 
 ### Root causes and repairs
 
-- During Vercel's `npm run build`, `prisma generate` failed with `PrismaConfigEnvError: Cannot resolve environment variable: DATABASE_URL` because `prisma.config.ts` had a throwing `env("DATABASE_URL")` fallback when `DATABASE_URL` was not injected into the build container.
-- Updated `prisma.config.ts` to use `migrationDatabaseUrl()` directly for `datasource.url`, which gracefully reads `DIRECT_DATABASE_URL` or `DATABASE_URL` without throwing during client code generation.
+- During Vercel's `npm run build`, `prisma generate` failed with `PrismaConfigEnvError: Cannot resolve environment variable: DATABASE_URL` because `prisma.config.ts` had a throwing `env("DATABASE_URL")` fallback when `DATABASE_URL` was not injected into the build container. Updated `prisma.config.ts` to use `migrationDatabaseUrl()` directly for `datasource.url`.
+- During Vercel serverless function compilation (`api/index.ts` via `@vercel/node`), `src/app.ts` failed with `error TS2349: This expression is not callable. Type 'typeof import("/vercel/path0/node_modules/helmet/index")' has no call signatures.` because Helmet 8's dual ESM/CJS typings resolved to the module namespace type in `@vercel/node`'s TypeScript compiler pass. Added a universal callable wrapper `const helmetMiddleware: any = typeof helmet === 'function' ? helmet : (helmet as { default?: any }).default;` to guarantee compatibility across ESM, CJS, and Vercel builders.
 
 ### Verification
 
-- Verified `npm run build` (`prisma generate && npm run build:client && tsc`) passes with exit code 0 when `DATABASE_URL` and `DIRECT_DATABASE_URL` are completely absent.
+- Verified `npm run build` (`prisma generate && npm run build:client && tsc`) passes with exit code 0.
+- Verified `tests/app.test.ts` boots and executes Helmet middleware with 200 responses on `/health` and `/about`.
 - Verified `git diff --check` passes.
 
 ## 2026-10-26 — Production reliability and reviewed-content integrity repair
