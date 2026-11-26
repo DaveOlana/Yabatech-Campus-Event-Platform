@@ -4,6 +4,22 @@ Use this file as the handoff record between Claude, Gemini, Codex, and human dev
 
 Newest entries should be added at the top.
 
+## 2026-11-26 — Fix build-time PrismaConfigEnvError in Vercel deployment
+
+### Status
+
+Complete and verified. Hardened `prisma.config.ts` so `prisma generate` and `npm run build` succeed in CI/CD and deployment environments without requiring database credentials at build time.
+
+### Root causes and repairs
+
+- During Vercel's `npm run build`, `prisma generate` failed with `PrismaConfigEnvError: Cannot resolve environment variable: DATABASE_URL` because `prisma.config.ts` had a throwing `env("DATABASE_URL")` fallback when `DATABASE_URL` was not injected into the build container.
+- Updated `prisma.config.ts` to use `migrationDatabaseUrl()` directly for `datasource.url`, which gracefully reads `DIRECT_DATABASE_URL` or `DATABASE_URL` without throwing during client code generation.
+
+### Verification
+
+- Verified `npm run build` (`prisma generate && npm run build:client && tsc`) passes with exit code 0 when `DATABASE_URL` and `DIRECT_DATABASE_URL` are completely absent.
+- Verified `git diff --check` passes.
+
 ## 2026-10-26 — Production reliability and reviewed-content integrity repair
 
 ### Status
